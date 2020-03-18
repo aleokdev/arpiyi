@@ -7,16 +7,16 @@ void init() {
     /* clang-format off */
     plugin_manager::get_state().new_usertype<ToolbarWrapper>("EditorToolbar",
         sol::constructors<void(std::string const&, sol::function)>(),
-        sol::meta_function::garbage_collect, &ToolbarWrapper::lua_destroy);
+        "delete", &ToolbarWrapper::lua_destroy);
     plugin_manager::get_state().new_usertype<WindowWrapper>("EditorWindow",
          sol::constructors<void(std::string const&)>(),
-         sol::meta_function::garbage_collect, &WindowWrapper::lua_destroy);
+         "delete", &WindowWrapper::lua_destroy);
     /* clang-format on */
 }
 
 ToolbarWrapper::ToolbarWrapper(std::string const& name, sol::function callback) {
     using Toolbar = editor::renderer::Toolbar;
-    auto it = editor::renderer::add_toolbar(name, [callback](Toolbar& t) { callback(t); });
+    auto it = editor::renderer::add_toolbar(name, [callback](Toolbar& t) { callback(ToolbarWrapper(t.id)); });
     id = it.id;
 }
 

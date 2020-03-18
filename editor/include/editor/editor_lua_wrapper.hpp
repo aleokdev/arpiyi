@@ -10,6 +10,7 @@ void init();
 
 struct ToolbarWrapper {
     ToolbarWrapper(std::string const& name, sol::function callback);
+    ToolbarWrapper(std::size_t id) : id(id) {};
     void lua_destroy();
 
     std::size_t id;
@@ -17,6 +18,7 @@ struct ToolbarWrapper {
 
 struct WindowWrapper {
     WindowWrapper(std::string const& title);
+    WindowWrapper(std::size_t id) : id(id) {};
     void lua_destroy();
 
     std::size_t id;

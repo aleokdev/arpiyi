@@ -33,6 +33,7 @@ void load_plugins(fs::path const& dir) {
 
 void update() {
     for(auto& coro : coroutines) coro();
+    lua.collect_garbage();
 }
 
 sol::state& get_state() { return lua; }

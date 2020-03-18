@@ -2,11 +2,13 @@
 #include <imgui.h>
 
 #include <iostream>
+#include <map>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace arpiyi_editor::editor::renderer {
 
-std::unordered_map<std::size_t, Toolbar> toolbars;
+std::map<std::size_t, Toolbar> toolbars;
 std::unordered_set<std::size_t>
     toolbars_to_remove; // Needed because lua might delete a toolbar while rendering (Which will
                         // cause issues with the for loop)
