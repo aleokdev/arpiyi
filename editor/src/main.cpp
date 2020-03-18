@@ -8,7 +8,10 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "systems/editor_style.hpp"
+#include "editor/editor_style.hpp"
+#include "editor/editor_renderer.hpp"
+#include "editor/editor_lua_wrapper.hpp"
+#include "plugin_manager.hpp"
 
 #include <sol/sol.hpp>
 
@@ -43,11 +46,15 @@ int main() {
     // Setup ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     editor::style::set_default_style();
+    editor::lua_wrapper::init();
+    plugin_manager::init();
+    plugin_manager::load_plugins("data/plugins");
 
     glfwSetKeyCallback(window, key_callback);
     while (!glfwWindowShouldClose(window)) {
@@ -58,6 +65,7 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        editor::renderer::render();
         ImGui::ShowDemoWindow();
 
         ImGui::Render();
