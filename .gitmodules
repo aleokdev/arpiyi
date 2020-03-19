@@ -7,3 +7,6 @@
 [submodule "lib/sol2"]
 	path = lib/sol2
 	url = https://github.com/ThePhD/sol2.git
+[submodule "lib/stb"]
+	path = lib/stb
+	url = https://github.com/nothings/stb/
