@@ -11,6 +11,7 @@
 #include "editor/editor_style.hpp"
 #include "editor/editor_renderer.hpp"
 #include "editor/editor_lua_wrapper.hpp"
+#include "tileset_manager.hpp"
 #include "plugin_manager.hpp"
 
 #include <sol/sol.hpp>
@@ -66,6 +67,7 @@ int main() {
         ImGui::NewFrame();
 
         editor::renderer::render();
+        tileset_manager::render();
         ImGui::ShowDemoWindow();
 
         ImGui::Render();
