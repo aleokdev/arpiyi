@@ -12,6 +12,7 @@
 #include "editor/editor_renderer.hpp"
 #include "editor/editor_lua_wrapper.hpp"
 #include "tileset_manager.hpp"
+#include "window_manager.hpp"
 #include "plugin_manager.hpp"
 
 #include <sol/sol.hpp>
@@ -24,41 +25,16 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 }
 
 int main() {
-    if (!glfwInit()) {
-        std::cerr << "Couldn't init GLFW." << std::endl;
-        return 0;
-    }
-
-    // Use OpenGL 4.5
-    const char* glsl_version = "#version 450";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    GLFWwindow* window = glfwCreateWindow(1080, 720, "Arpiyi Editor", nullptr, nullptr);
-    if (!window) {
-        std::cerr << "Couldn't create window." << std::endl;
-        return 0;
-    }
-    // Activate VSync and fix FPS
-    glfwSwapInterval(1);
-
-    glfwMakeContextCurrent(window);
-    gladLoadGLLoader((GLADloadproc)&glfwGetProcAddress);
-
-    // Setup ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+    window_manager::init();
+    tileset_manager::init();
 
     editor::style::set_default_style();
     editor::lua_wrapper::init();
     plugin_manager::init();
     plugin_manager::load_plugins("data/plugins");
 
-    glfwSetKeyCallback(window, key_callback);
-    while (!glfwWindowShouldClose(window)) {
+    glfwSetKeyCallback(window_manager::get_window(), key_callback);
+    while (!glfwWindowShouldClose(window_manager::get_window())) {
         glfwPollEvents();
 
         // Start the ImGui frame
@@ -66,19 +42,20 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        int display_w, display_h;
+        glfwGetFramebufferSize(window_manager::get_window(), &display_w, &display_h);
+        glViewport(0, 0, display_w, display_h);
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+
         editor::renderer::render();
         tileset_manager::render();
         ImGui::ShowDemoWindow();
 
         ImGui::Render();
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0, 0, 0, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(window_manager::get_window());
     }
 
     glfwTerminate();

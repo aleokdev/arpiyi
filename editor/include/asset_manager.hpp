@@ -19,9 +19,10 @@ struct Texture {
 
 template<typename T> struct LoadParams;
 
-template<> struct LoadParams<Texture> { fs::path path; };
+template<> struct LoadParams<Texture> { fs::path path; bool flip = true; };
 
 inline void raw_load(Texture& texture, LoadParams<Texture> const& params) {
+    stbi_set_flip_vertically_on_load(params.flip);
     int w, h, channels;
     unsigned char* data = stbi_load(params.path.generic_string().c_str(), &w, &h, &channels, 4);
 
