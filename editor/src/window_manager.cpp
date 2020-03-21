@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -45,6 +46,18 @@ void init() {
 
 GLFWwindow* get_window() {
     return window;
+}
+
+glm::mat4 get_projection() {
+    int fb_w, fb_h;
+    glfwGetFramebufferSize(window_manager::get_window(), &fb_w, &fb_h);
+    return glm::ortho(0.f, (float)fb_w, 0.f, (float)fb_h);
+}
+
+math::IVec2D get_framebuf_size() {
+    int fb_w, fb_h;
+    glfwGetFramebufferSize(window_manager::get_window(), &fb_w, &fb_h);
+    return {fb_w, fb_h};
 }
 
 }

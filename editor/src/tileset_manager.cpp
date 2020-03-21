@@ -20,8 +20,8 @@ const char* tile_frag_shader_src =
 const char* tile_vert_shader_src =
     #include "shaders/tile.vert"
 
-/* clang-format on */
-unsigned int tile_program;
+        /* clang-format on */
+    unsigned int tile_program;
 glm::mat4 proj_mat;
 
 math::IVec2D tile_selection_start{0, 0};
@@ -68,9 +68,6 @@ void generate_splitted_quad(unsigned int* vao,
             /* Y pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 11] = max_y_pos;
         }
     }
-    std::cout << "Last element: "
-              << (((x_slices - 1) + (y_slices - 1) * x_slices) * sizeof_quad + 11) << std::endl;
-    std::cout << "Size of splitted quad: " << sizeof_splitted_quad << std::endl;
 
     glGenVertexArrays(1, vao);
     glGenBuffers(1, vbo);
@@ -210,30 +207,20 @@ void init() {
 
     glDeleteShader(tile_vert_shader);
     glDeleteShader(tile_frag_shader);
-
-    int fb_w, fb_h;
-    glfwGetFramebufferSize(window_manager::get_window(), &fb_w, &fb_h);
-
-    proj_mat = glm::ortho(0.0f, (float)fb_w, (float)fb_h, 0.0f);
 }
 
 void render() {
+    auto fb_size = window_manager::get_framebuf_size();
+    proj_mat = glm::ortho(0.0f, (float)fb_size.x, (float)fb_size.y, 0.0f);
+
     if (!ImGui::Begin("Tileset", nullptr, ImGuiWindowFlags_MenuBar)) {
         ImGui::End();
         return;
     }
-    int content_region_avail_width = ImGui::GetContentRegionAvailWidth();
     const auto& update_tileset_quads = [&]() {
         math::IVec2D slices = current_tileset.get_size_in_tiles();
-        generate_wrapping_splitted_quad(&current_tileset.vao, &current_tileset.vbo, slices.x,
-                                        slices.y,
-                                        content_region_avail_width / current_tileset.tile_size);
+        generate_splitted_quad(&current_tileset.vao, &current_tileset.vbo, slices.x, slices.y);
     };
-    static ImVec2 last_window_size;
-    if(ImGui::GetWindowSize().x != last_window_size.x || ImGui::GetWindowSize().y != last_window_size.y)
-        if(current_tileset.texture.get())
-            update_tileset_quads();
-    last_window_size = ImGui::GetWindowSize();
 
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -252,7 +239,6 @@ void render() {
                         glDeleteBuffers(1, &current_tileset.vao);
                     if (current_tileset.vbo != -1)
                         glDeleteBuffers(1, &current_tileset.vbo);
-                    auto& tex = *current_tileset.texture.get().operator->();
                     update_tileset_quads();
                 }
             }
@@ -312,6 +298,9 @@ void render() {
                            relative_mouse_pos.y + tileset_render_pos.y);
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
+        ImVec2 content_region_avail = ImGui::GetContentRegionAvail();
+        ImGui::InvisibleButton("##_tileset", ImVec2{(float)img->w, (float)img->h});
+
         // Clip anything that is outside the tileset rect
         draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
         // Draw the tileset
@@ -329,7 +318,7 @@ void render() {
                 glBindTexture(GL_TEXTURE_2D, data->tex->handle);
                 int fb_w, fb_h;
                 glfwGetFramebufferSize(window_manager::get_window(), &fb_w, &fb_h);
-                glScissor(0, fb_h - data->window_content_size.y - data->tileset_render_pos.y,
+                glScissor(data->tileset_render_pos.x, data->window_content_size.y - fb_h,
                           data->window_content_size.x + data->tileset_render_pos.x, fb_h);
 
                 glm::mat4 model = glm::mat4(1);
@@ -346,13 +335,16 @@ void render() {
                                  (data->tex->h / current_tileset.tile_size) * quad_verts);
                 delete[] data;
             },
-            new TilesetDrawData{tileset_render_pos, ImGui::GetContentRegionAvail(),
-                                img.operator->()});
+            new TilesetDrawData{tileset_render_pos, content_region_avail, img.operator->()});
         draw_list->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
 
         ImGui::SetNextWindowPos(io.MousePos);
+        static float tooltip_alpha = 0;
+        bool update_tooltip_info;
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) &&
             ImGui::IsMouseHoveringRect(tileset_render_pos, tileset_render_pos_max)) {
+            update_tooltip_info = true;
+            tooltip_alpha += (1.f - tooltip_alpha) / 16.f;
             // Draw the hovering rect
             draw_list->AddRect(
                 mouse_pos,
@@ -363,23 +355,35 @@ void render() {
                 {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
                 0xFF000000, 0, ImDrawCornerFlags_All, 2.f);
             draw_list->PopClipRect();
-
-            // Draw preview of current tile being hovered
-            ImGui::BeginTooltip();
-            const math::IVec2D tile_hovering{
-                (int)(relative_mouse_pos.x / current_tileset.tile_size),
-                (int)(relative_mouse_pos.y / current_tileset.tile_size)};
-            const ImVec2 img_size{64, 64};
-            const math::IVec2D size_in_tiles = current_tileset.get_size_in_tiles();
-            const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
-                                (float)tile_hovering.y / (float)size_in_tiles.y};
-            const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
-                                (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
-            ImGui::Image((ImTextureID)img->handle, img_size, uv_min, uv_max);
-
-            ImGui::EndTooltip();
-        } else
+        } else {
+            update_tooltip_info = false;
+            tooltip_alpha += (0.f - tooltip_alpha) / 4.f;
             draw_list->PopClipRect();
+        }
+
+        ImGui::SetNextWindowBgAlpha(tooltip_alpha);
+        // Draw preview of current tile being hovered
+        ImGui::BeginTooltip();
+        const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / current_tileset.tile_size),
+                                         (int)(relative_mouse_pos.y / current_tileset.tile_size)};
+        const ImVec2 img_size{64, 64};
+        const math::IVec2D size_in_tiles = current_tileset.get_size_in_tiles();
+        const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
+                            (float)tile_hovering.y / (float)size_in_tiles.y};
+        const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
+                            (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
+        ImGui::Image((ImTextureID)img->handle, img_size, uv_min, uv_max,
+                     ImVec4(1, 1, 1, tooltip_alpha));
+        ImGui::SameLine();
+        static std::size_t tile_id;
+        if (update_tooltip_info)
+            tile_id = tile_hovering.x + tile_hovering.y * current_tileset.get_size_in_tiles().x;
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
+        ImGui::Text("ID %zu", tile_id);
+        ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x, uv_min.y, uv_max.y);
+        ImGui::PopStyleColor(1);
+
+        ImGui::EndTooltip();
 
     } else
         ImGui::TextDisabled("No tileset loaded.");
