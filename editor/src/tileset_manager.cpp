@@ -1,6 +1,7 @@
 #include "tileset_manager.hpp"
 #include "window_manager.hpp"
 
+#include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -280,7 +281,9 @@ void render() {
     }
 
     if (auto img = current_tileset.texture.get()) {
-        const ImVec2 tileset_render_pos = ImGui::GetCursorScreenPos();
+        const ImVec2 tileset_render_pos = {
+            ImGui::GetCursorScreenPos().x,
+            ImGui::GetCursorScreenPos().y + 10}; // Offset by 10 in the Y axis to prevent clipping
         const ImVec2 tileset_render_pos_max =
             ImVec2(tileset_render_pos.x + img->w, tileset_render_pos.y + img->h);
 
@@ -303,6 +306,7 @@ void render() {
 
         // Clip anything that is outside the tileset rect
         draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
+
         // Draw the tileset
         struct TilesetDrawData {
             ImVec2 tileset_render_pos;
@@ -338,6 +342,19 @@ void render() {
             new TilesetDrawData{tileset_render_pos, content_region_avail, img.operator->()});
         draw_list->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
 
+        const ImVec2 tile_selection_start_rel = ImVec2{
+            tileset_render_pos.x + (float)tile_selection_start.x * current_tileset.tile_size,
+            tileset_render_pos.y + (float)tile_selection_start.y * current_tileset.tile_size};
+        const ImVec2 tile_selection_end_rel = ImVec2{
+            tileset_render_pos.x + (float)(tile_selection_end.x + 1) * current_tileset.tile_size,
+            tileset_render_pos.y + (float)(tile_selection_end.y + 1) * current_tileset.tile_size};
+        // Draw the selected rect
+        draw_list->AddRect(tile_selection_start_rel, tile_selection_end_rel, 0xFFFFFFFF, 0,
+                           ImDrawCornerFlags_All, 5.f);
+        draw_list->AddRect(tile_selection_start_rel, tile_selection_end_rel, 0xFF000000, 0,
+                           ImDrawCornerFlags_All, 2.f);
+
+        // Draw the hovering rect and check if the preview tooltip should appear or not
         ImGui::SetNextWindowPos(io.MousePos);
         static float tooltip_alpha = 0;
         bool update_tooltip_info;
@@ -345,7 +362,7 @@ void render() {
             ImGui::IsMouseHoveringRect(tileset_render_pos, tileset_render_pos_max)) {
             update_tooltip_info = true;
             tooltip_alpha += (1.f - tooltip_alpha) / 16.f;
-            // Draw the hovering rect
+
             draw_list->AddRect(
                 mouse_pos,
                 {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
@@ -354,6 +371,7 @@ void render() {
                 mouse_pos,
                 {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
                 0xFF000000, 0, ImDrawCornerFlags_All, 2.f);
+
             draw_list->PopClipRect();
         } else {
             update_tooltip_info = false;
@@ -364,26 +382,45 @@ void render() {
         ImGui::SetNextWindowBgAlpha(tooltip_alpha);
         // Draw preview of current tile being hovered
         ImGui::BeginTooltip();
-        const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / current_tileset.tile_size),
-                                         (int)(relative_mouse_pos.y / current_tileset.tile_size)};
-        const ImVec2 img_size{64, 64};
-        const math::IVec2D size_in_tiles = current_tileset.get_size_in_tiles();
-        const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
-                            (float)tile_hovering.y / (float)size_in_tiles.y};
-        const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
-                            (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
-        ImGui::Image((ImTextureID)img->handle, img_size, uv_min, uv_max,
-                     ImVec4(1, 1, 1, tooltip_alpha));
-        ImGui::SameLine();
-        static std::size_t tile_id;
-        if (update_tooltip_info)
-            tile_id = tile_hovering.x + tile_hovering.y * current_tileset.get_size_in_tiles().x;
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
-        ImGui::Text("ID %zu", tile_id);
-        ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x, uv_min.y, uv_max.y);
-        ImGui::PopStyleColor(1);
-
+        {
+            const math::IVec2D tile_hovering{
+                (int)(relative_mouse_pos.x / current_tileset.tile_size),
+                (int)(relative_mouse_pos.y / current_tileset.tile_size)};
+            const ImVec2 img_size{64, 64};
+            const math::IVec2D size_in_tiles = current_tileset.get_size_in_tiles();
+            const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
+                                (float)tile_hovering.y / (float)size_in_tiles.y};
+            const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
+                                (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
+            ImGui::Image((ImTextureID)img->handle, img_size, uv_min, uv_max,
+                         ImVec4(1, 1, 1, tooltip_alpha));
+            ImGui::SameLine();
+            static std::size_t tile_id;
+            if (update_tooltip_info)
+                tile_id = tile_hovering.x + tile_hovering.y * current_tileset.get_size_in_tiles().x;
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
+            ImGui::Text("ID %zu", tile_id);
+            ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x, uv_min.y,
+                        uv_max.y);
+            ImGui::PopStyleColor(1);
+        }
         ImGui::EndTooltip();
+
+        static bool pressed_last_frame = false;
+        if (io.MouseDown[ImGuiMouseButton_Left]) {
+            if (!pressed_last_frame) {
+                tile_selection_start = {(int)(relative_mouse_pos.x / current_tileset.tile_size),
+                                        (int)(relative_mouse_pos.y / current_tileset.tile_size)};
+                tile_selection_end = tile_selection_start;
+            } else {
+                tile_selection_end = {
+                    std::max(tile_selection_start.x,
+                             (int)(relative_mouse_pos.x / current_tileset.tile_size)),
+                    std::max(tile_selection_start.y,
+                             (int)(relative_mouse_pos.y / current_tileset.tile_size))};
+            }
+        }
+        pressed_last_frame = io.MouseDown[ImGuiMouseButton_Left];
 
     } else
         ImGui::TextDisabled("No tileset loaded.");
