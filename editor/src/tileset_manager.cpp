@@ -6,47 +6,31 @@
 #include <imgui.h>
 #include <iostream>
 #include <noc_file_dialog.h>
+#include <vector>
 
-#include <ass/ass_types.h>
+#include <util/math.hpp>
 
 namespace arpiyi_editor::tileset_manager {
 
 Tileset current_tileset;
-const char* tile_frag_shader_src = R"(
-#version 430 core
+/* clang-format off */
+const char* tile_frag_shader_src =
+    #include "shaders/tile.frag"
 
-in vec2 TexCoords;
+const char* tile_vert_shader_src =
+    #include "shaders/tile.vert"
 
-layout(location = 0) uniform sampler2D tile;
-
-out vec4 FragColor;
-
-void main() {
-    FragColor = texture(tile, TexCoords).rgba;
-})";
-
-const char* tile_vert_shader_src = R"(
-#version 430 core
-
-layout(location = 0) in vec2 iPos;
-
-layout(location = 1) uniform mat4 model;
-layout(location = 2) uniform mat4 projection;
-
-out vec2 TexCoords;
-
-void main() {
-    TexCoords = iPos;
-
-    gl_Position = projection * model * vec4(iPos, 0, 1);
-})";
+/* clang-format on */
 unsigned int tile_program;
 glm::mat4 proj_mat;
 
+math::IVec2D tile_selection_start{0, 0};
+math::IVec2D tile_selection_end{0, 0};
+
 void generate_splitted_quad(unsigned int* vao,
                             unsigned int* vbo,
-                            std::size_t rows,
-                            std::size_t columns) {
+                            std::size_t x_slices,
+                            std::size_t y_slices) {
     // Format: {pos.x pos.y  ...}
     // UV and position data here is the same since position 0,0 is linked to UV 0,0 and
     // position 1,1 is linked to UV 1,1.
@@ -54,38 +38,38 @@ void generate_splitted_quad(unsigned int* vao,
     constexpr auto sizeof_vertex = 2;
     constexpr auto sizeof_triangle = 3 * sizeof_vertex;
     constexpr auto sizeof_quad = 2 * sizeof_triangle;
-    const auto sizeof_splitted_quad = rows * columns * sizeof_quad;
+    const auto sizeof_splitted_quad = y_slices * x_slices * sizeof_quad;
 
     float* result = new float[sizeof_splitted_quad];
-    const float x_slice_size = 1.f / columns;
-    const float y_slice_size = 1.f / rows;
+    const float x_slice_size = 1.f / x_slices;
+    const float y_slice_size = 1.f / y_slices;
     // Create a quad for each {x, y} position.
-    for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < columns; x++) {
+    for (int y = 0; y < y_slices; y++) {
+        for (int x = 0; x < x_slices; x++) {
             const float min_x_pos = x * x_slice_size;
             const float min_y_pos = y * y_slice_size;
             const float max_x_pos = min_x_pos + x_slice_size;
             const float max_y_pos = min_y_pos + y_slice_size;
 
             // First triangle //
-            /* X pos 1st vertex */ result[(x + y * columns) * sizeof_quad + 0] = min_x_pos;
-            /* Y pos 1st vertex */ result[(x + y * columns) * sizeof_quad + 1] = min_y_pos;
-            /* X pos 2nd vertex */ result[(x + y * columns) * sizeof_quad + 2] = max_x_pos;
-            /* Y pos 2nd vertex */ result[(x + y * columns) * sizeof_quad + 3] = min_y_pos;
-            /* X pos 3rd vertex */ result[(x + y * columns) * sizeof_quad + 4] = min_x_pos;
-            /* Y pos 3rd vertex */ result[(x + y * columns) * sizeof_quad + 5] = max_y_pos;
+            /* X pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 0] = min_x_pos;
+            /* Y pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 1] = min_y_pos;
+            /* X pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 2] = max_x_pos;
+            /* Y pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 3] = min_y_pos;
+            /* X pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 4] = min_x_pos;
+            /* Y pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 5] = max_y_pos;
 
             // Second triangle //
-            /* X pos 1st vertex */ result[(x + y * columns) * sizeof_quad + 6] = max_x_pos;
-            /* Y pos 1st vertex */ result[(x + y * columns) * sizeof_quad + 7] = min_y_pos;
-            /* X pos 2nd vertex */ result[(x + y * columns) * sizeof_quad + 8] = max_x_pos;
-            /* Y pos 2nd vertex */ result[(x + y * columns) * sizeof_quad + 9] = max_y_pos;
-            /* X pos 3rd vertex */ result[(x + y * columns) * sizeof_quad + 10] = min_x_pos;
-            /* Y pos 3rd vertex */ result[(x + y * columns) * sizeof_quad + 11] = max_y_pos;
+            /* X pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 6] = max_x_pos;
+            /* Y pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 7] = min_y_pos;
+            /* X pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 8] = max_x_pos;
+            /* Y pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 9] = max_y_pos;
+            /* X pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 10] = min_x_pos;
+            /* Y pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 11] = max_y_pos;
         }
     }
-    std::cout << "Last element: " << (((columns - 1) + (rows - 1) * columns) * sizeof_quad + 11)
-              << std::endl;
+    std::cout << "Last element: "
+              << (((x_slices - 1) + (y_slices - 1) * x_slices) * sizeof_quad + 11) << std::endl;
     std::cout << "Size of splitted quad: " << sizeof_splitted_quad << std::endl;
 
     glGenVertexArrays(1, vao);
@@ -103,6 +87,91 @@ void generate_splitted_quad(unsigned int* vao,
     glVertexAttribBinding(0, 0);
 
     delete[] result;
+}
+
+void generate_wrapping_splitted_quad(unsigned int* vao,
+                                     unsigned int* vbo,
+                                     std::size_t x_slices,
+                                     std::size_t y_slices,
+                                     std::size_t max_quads_per_row) {
+    // Format: {pos.x pos.y uv.x uv.y ...}
+    // UV and position data here are NOT the same since position 1,0 *may* not be linked to UV 1,0
+    // because it might have wrapped over.
+
+    // 2 because it's 2 vertex coords and 2 UV coords.
+    constexpr auto sizeof_vertex = 4;
+    constexpr auto sizeof_triangle = 3 * sizeof_vertex;
+    constexpr auto sizeof_quad = 2 * sizeof_triangle;
+    const auto sizeof_splitted_quad = y_slices * x_slices * sizeof_quad;
+
+    std::vector<float> result(sizeof_splitted_quad);
+    const float x_slice_size = 1.f / x_slices;
+    const float y_slice_size = 1.f / y_slices;
+    // Create a quad for each position.
+    for (int i = 0; i < x_slices * y_slices; i++) {
+        const std::size_t quad_x = i % max_quads_per_row;
+        const std::size_t quad_y = i / max_quads_per_row;
+        const float min_vertex_x_pos = (float)quad_x * x_slice_size;
+        const float min_vertex_y_pos = (float)quad_y * y_slice_size;
+        const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
+        const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+
+        const float min_uv_x_pos = (float)(i % x_slices) * x_slice_size;
+        const float min_uv_y_pos = (float)(i / x_slices) * y_slice_size;
+        const float max_uv_x_pos = min_uv_x_pos + x_slice_size;
+        const float max_uv_y_pos = min_uv_y_pos + y_slice_size;
+
+        std::size_t quad_n = sizeof_quad * i;
+        // First triangle //
+        /* X pos 1st vertex */ result[quad_n + 0] = min_vertex_x_pos;
+        /* Y pos 1st vertex */ result[quad_n + 1] = min_vertex_y_pos;
+        /* X UV 1st vertex  */ result[quad_n + 2] = min_uv_x_pos;
+        /* Y UV 1st vertex  */ result[quad_n + 3] = min_uv_y_pos;
+        /* X pos 2nd vertex */ result[quad_n + 4] = max_vertex_x_pos;
+        /* Y pos 2nd vertex */ result[quad_n + 5] = min_vertex_y_pos;
+        /* X UV 2nd vertex  */ result[quad_n + 6] = max_uv_x_pos;
+        /* Y UV 2nd vertex  */ result[quad_n + 7] = min_uv_y_pos;
+        /* X pos 3rd vertex */ result[quad_n + 8] = min_vertex_x_pos;
+        /* Y pos 3rd vertex */ result[quad_n + 9] = max_vertex_y_pos;
+        /* X UV 2nd vertex  */ result[quad_n + 10] = min_uv_x_pos;
+        /* Y UV 2nd vertex  */ result[quad_n + 11] = max_uv_y_pos;
+
+        // Second triangle //
+        /* X pos 1st vertex */ result[quad_n + 12] = max_vertex_x_pos;
+        /* Y pos 1st vertex */ result[quad_n + 13] = min_vertex_y_pos;
+        /* X UV 1st vertex  */ result[quad_n + 14] = max_uv_x_pos;
+        /* Y UV 1st vertex  */ result[quad_n + 15] = min_uv_y_pos;
+        /* X pos 2nd vertex */ result[quad_n + 16] = max_vertex_x_pos;
+        /* Y pos 2nd vertex */ result[quad_n + 17] = max_vertex_y_pos;
+        /* X UV 2nd vertex  */ result[quad_n + 18] = max_uv_x_pos;
+        /* Y UV 2nd vertex  */ result[quad_n + 19] = max_uv_y_pos;
+        /* X pos 3rd vertex */ result[quad_n + 20] = min_vertex_x_pos;
+        /* Y pos 3rd vertex */ result[quad_n + 21] = max_vertex_y_pos;
+        /* X UV 3rd vertex  */ result[quad_n + 22] = min_uv_x_pos;
+        /* Y UV 3rd vertex  */ result[quad_n + 23] = max_uv_y_pos;
+    }
+
+    glGenVertexArrays(1, vao);
+    glGenBuffers(1, vbo);
+
+    // Fill buffer
+    glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof_splitted_quad * sizeof(float), result.data(),
+                 GL_STATIC_DRAW);
+
+    glBindVertexArray(*vao);
+    // Vertex Positions
+    glEnableVertexAttribArray(0); // location 0
+    glVertexAttribFormat(0, 2, GL_FLOAT, GL_FALSE, 0);
+    glBindVertexBuffer(0, *vbo, 0, 4 * sizeof(float));
+    glVertexAttribBinding(0, 0);
+    // UV Positions
+    glEnableVertexAttribArray(1); // location 1
+    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float));
+    glBindVertexBuffer(1, *vbo, 0, 4 * sizeof(float));
+    glVertexAttribBinding(1, 1);
+
+    glBindVertexArray(0);
 }
 
 void init() {
@@ -153,8 +222,18 @@ void render() {
         ImGui::End();
         return;
     }
-
-    static bool show_tile_preview = true;
+    int content_region_avail_width = ImGui::GetContentRegionAvailWidth();
+    const auto& update_tileset_quads = [&]() {
+        math::IVec2D slices = current_tileset.get_size_in_tiles();
+        generate_wrapping_splitted_quad(&current_tileset.vao, &current_tileset.vbo, slices.x,
+                                        slices.y,
+                                        content_region_avail_width / current_tileset.tile_size);
+    };
+    static ImVec2 last_window_size;
+    if(ImGui::GetWindowSize().x != last_window_size.x || ImGui::GetWindowSize().y != last_window_size.y)
+        if(current_tileset.texture.get())
+            update_tileset_quads();
+    last_window_size = ImGui::GetWindowSize();
 
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -174,18 +253,17 @@ void render() {
                     if (current_tileset.vbo != -1)
                         glDeleteBuffers(1, &current_tileset.vbo);
                     auto& tex = *current_tileset.texture.get().operator->();
-                    generate_splitted_quad(&current_tileset.vao, &current_tileset.vbo,
-                                           tex.h / current_tileset.tile_size,
-                                           tex.w / current_tileset.tile_size);
+                    update_tileset_quads();
                 }
             }
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Edit" /*, current_tileset.texture.get()*/)) {
+        auto img = current_tileset.texture.get();
+        if (ImGui::BeginMenu("Edit", img)) {
             static bool two_power = true;
             static int tile_size_slider = current_tileset.tile_size;
             static int last_tile_size = tile_size_slider;
-            if (ImGui::SliderInt("Tile size", &tile_size_slider, 1, 256)) {
+            if (ImGui::SliderInt("Tile size", &tile_size_slider, 8, 256)) {
                 if (two_power) {
                     tile_size_slider--;
                     tile_size_slider |= tile_size_slider >> 1;
@@ -195,42 +273,32 @@ void render() {
                     tile_size_slider |= tile_size_slider >> 16;
                     tile_size_slider++;
                 }
-            } else if (last_tile_size != tile_size_slider) {
+            }
+            if (last_tile_size != tile_size_slider) {
                 current_tileset.tile_size = tile_size_slider;
                 // Re-split the tileset if tilesize changed
                 ImGui::SameLine();
-                ImGui::TextDisabled("Recalculating quads...");
                 if (current_tileset.vao != -1)
                     glDeleteBuffers(1, &current_tileset.vao);
                 if (current_tileset.vbo != -1)
                     glDeleteBuffers(1, &current_tileset.vbo);
                 auto& tex = *current_tileset.texture.get().operator->();
-                generate_splitted_quad(&current_tileset.vao, &current_tileset.vbo,
-                                       tex.h / current_tileset.tile_size,
-                                       tex.w / current_tileset.tile_size);
-                last_tile_size = current_tileset.tile_size;
+                update_tileset_quads();
             }
 
             ImGui::SameLine();
             ImGui::Checkbox("Power of two", &two_power);
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("View"))
-        {
-            if(ImGui::MenuItem("Show Tile Preview", nullptr, show_tile_preview))
-                show_tile_preview = !show_tile_preview;
-            ImGui::EndMenu();
-        }
         ImGui::EndMenuBar();
     }
 
     if (auto img = current_tileset.texture.get()) {
-        ImVec2 tileset_render_pos = ImGui::GetCursorScreenPos();
-        ImVec2 tileset_render_pos_max =
+        const ImVec2 tileset_render_pos = ImGui::GetCursorScreenPos();
+        const ImVec2 tileset_render_pos_max =
             ImVec2(tileset_render_pos.x + img->w, tileset_render_pos.y + img->h);
 
         const auto& io = ImGui::GetIO();
-        // Substract half of the current tilesize to obtain a centered rect
         ImVec2 mouse_pos = io.MousePos;
         ImVec2 relative_mouse_pos =
             ImVec2(mouse_pos.x - tileset_render_pos.x, mouse_pos.y - tileset_render_pos.y);
@@ -243,30 +311,31 @@ void render() {
         mouse_pos = ImVec2(relative_mouse_pos.x + tileset_render_pos.x,
                            relative_mouse_pos.y + tileset_render_pos.y);
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
         // Clip anything that is outside the tileset rect
         draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
         // Draw the tileset
         struct TilesetDrawData {
             ImVec2 tileset_render_pos;
+            ImVec2 window_content_size;
             assets::Texture* tex;
         };
         draw_list->AddCallback(
             [](const ImDrawList* parent_list, const ImDrawCmd* cmd) {
                 const TilesetDrawData* data = (TilesetDrawData*)cmd->UserCallbackData;
                 glUseProgram(tile_program);
-                constexpr int binding_index = 0;
                 glBindVertexArray(current_tileset.vao);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, data->tex->handle);
                 int fb_w, fb_h;
                 glfwGetFramebufferSize(window_manager::get_window(), &fb_w, &fb_h);
-                glScissor(0, 0, fb_w, fb_h);
+                glScissor(0, fb_h - data->window_content_size.y - data->tileset_render_pos.y,
+                          data->window_content_size.x + data->tileset_render_pos.x, fb_h);
 
                 glm::mat4 model = glm::mat4(1);
                 model = glm::translate(
                     model, glm::vec3{data->tileset_render_pos.x, data->tileset_render_pos.y, 0});
                 model = glm::scale(model, glm::vec3{data->tex->w, data->tex->h, 1});
-                std::cout << data->tileset_render_pos.x << std::endl;
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
                 glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
@@ -277,29 +346,43 @@ void render() {
                                  (data->tex->h / current_tileset.tile_size) * quad_verts);
                 delete[] data;
             },
-            new TilesetDrawData{tileset_render_pos, img.operator->()});
+            new TilesetDrawData{tileset_render_pos, ImGui::GetContentRegionAvail(),
+                                img.operator->()});
         draw_list->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
 
-        // Draw the hovering rect
-        draw_list->AddRect(
-            mouse_pos,
-            {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
-            0xFFFFFFFF, 0, ImDrawCornerFlags_All, 4.f);
-        draw_list->AddRect(
-            mouse_pos,
-            {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
-            0xFF000000, 0, ImDrawCornerFlags_All, 2.f);
-        draw_list->PopClipRect();
+        ImGui::SetNextWindowPos(io.MousePos);
+        if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) &&
+            ImGui::IsMouseHoveringRect(tileset_render_pos, tileset_render_pos_max)) {
+            // Draw the hovering rect
+            draw_list->AddRect(
+                mouse_pos,
+                {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
+                0xFFFFFFFF, 0, ImDrawCornerFlags_All, 4.f);
+            draw_list->AddRect(
+                mouse_pos,
+                {mouse_pos.x + current_tileset.tile_size, mouse_pos.y + current_tileset.tile_size},
+                0xFF000000, 0, ImDrawCornerFlags_All, 2.f);
+            draw_list->PopClipRect();
+
+            // Draw preview of current tile being hovered
+            ImGui::BeginTooltip();
+            const math::IVec2D tile_hovering{
+                (int)(relative_mouse_pos.x / current_tileset.tile_size),
+                (int)(relative_mouse_pos.y / current_tileset.tile_size)};
+            const ImVec2 img_size{64, 64};
+            const math::IVec2D size_in_tiles = current_tileset.get_size_in_tiles();
+            const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
+                                (float)tile_hovering.y / (float)size_in_tiles.y};
+            const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
+                                (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
+            ImGui::Image((ImTextureID)img->handle, img_size, uv_min, uv_max);
+
+            ImGui::EndTooltip();
+        } else
+            draw_list->PopClipRect();
+
     } else
         ImGui::TextDisabled("No tileset loaded.");
-
-    if(show_tile_preview)
-    {
-        if(auto img = current_tileset.texture.get(); ImGui::Begin("Tile Preview")){
-            //ImGui::Image((ImTextureID)img->handle,ImVec2{current_tileset.tile_size * 3.f, current_tileset.tile_size * 3.f}, )
-        }
-        ImGui::End();
-    }
 
     ImGui::End();
 }
