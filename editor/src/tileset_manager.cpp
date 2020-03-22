@@ -13,7 +13,7 @@
 
 namespace arpiyi_editor::tileset_manager {
 
-Tileset current_tileset;
+assets::Tileset current_tileset;
 /* clang-format off */
 const char* tile_frag_shader_src =
     #include "shaders/tile.frag"
