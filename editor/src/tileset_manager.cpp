@@ -16,57 +16,15 @@
 namespace arpiyi_editor::tileset_manager {
 
 assets::Tileset current_tileset;
+asset_manager::Handle<assets::Shader> tile_shader;
 
-/* clang-format off */
-const char* tile_frag_shader_src =
-    #include "shaders/tile.frag"
-
-const char* tile_vert_shader_src =
-    #include "shaders/tile.vert"
-/* clang-format on */
-
-unsigned int tile_program;
 glm::mat4 proj_mat;
 
 math::IVec2D tile_selection_start{0, 0};
 math::IVec2D tile_selection_end{0, 0};
 
 void init() {
-    unsigned int tile_vert_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(tile_vert_shader, 1, &tile_vert_shader_src, NULL);
-    glCompileShader(tile_vert_shader);
-
-    int success;
-    char infoLog[512];
-    glGetShaderiv(tile_vert_shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(tile_vert_shader, 512, NULL, infoLog);
-        std::cerr << "Vertex shader COMPILATION FAILED:\n" << infoLog << std::endl;
-    }
-
-    unsigned int tile_frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(tile_frag_shader, 1, &tile_frag_shader_src, NULL);
-    glCompileShader(tile_frag_shader);
-
-    glGetShaderiv(tile_frag_shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(tile_frag_shader, 512, NULL, infoLog);
-        std::cerr << "Fragment shader COMPILATION FAILED:\n" << infoLog << std::endl;
-    }
-
-    tile_program = glCreateProgram();
-    glAttachShader(tile_program, tile_vert_shader);
-    glAttachShader(tile_program, tile_frag_shader);
-    glLinkProgram(tile_program);
-
-    glGetProgramiv(tile_program, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(tile_program, 512, NULL, infoLog);
-        std::cerr << "Tile program LINKING FAILED:\n" << infoLog << std::endl;
-    }
-
-    glDeleteShader(tile_vert_shader);
-    glDeleteShader(tile_frag_shader);
+    tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert","data/tile.frag"});
 }
 
 void render() {
@@ -171,7 +129,7 @@ void render() {
         draw_list->AddCallback(
             [](const ImDrawList* parent_list, const ImDrawCmd* cmd) {
                 const TilesetDrawData* data = (TilesetDrawData*)cmd->UserCallbackData;
-                glUseProgram(tile_program);
+                glUseProgram(tile_shader.get()->handle);
                 glBindVertexArray(current_tileset.display_mesh.get()->vao);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, data->tex->handle);

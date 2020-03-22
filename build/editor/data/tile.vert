@@ -1,4 +1,3 @@
-R"(
 #version 430 core
 
 layout(location = 0) in vec2 iPos;
@@ -14,4 +13,3 @@ void main() {
 
     gl_Position = projection * model * vec4(iPos, 0, 1);
 }
-)";
