@@ -3,6 +3,7 @@
 
 #include "asset_manager.hpp"
 #include "util/math.hpp"
+#include "assets/texture.hpp"
 
 namespace arpiyi_editor::tileset_manager {
 
