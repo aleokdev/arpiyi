@@ -3,6 +3,7 @@
 
 #include "assets/asset.hpp"
 
+#include <cassert>
 #include <unordered_map>
 
 namespace arpiyi_editor::asset_manager {
@@ -28,8 +29,11 @@ public:
 
     T* operator->() {
         if (!has_value)
-            throw std::runtime_error("Tried to access null Expected value");
+            assert("Tried to access null Expected value");
         return value.val;
+    }
+    T& operator*() {
+        return *operator->();
     }
 
     operator bool() { return has_value; }
@@ -57,6 +61,10 @@ public:
             return &asset_it->second;
     }
 
+    void save(assets::SaveParams<AssetT> const& params) {
+        assets::raw_save(*get().operator->(), params);
+    }
+
     void unload() {
         if (id == -1)
             return;
@@ -64,8 +72,7 @@ public:
         auto asset_it = container.map.find(id);
         if (asset_it == container.map.end())
             return;
-        else
-        {
+        else {
             assets::raw_unload(asset_it->second);
             container.map.erase(asset_it);
         }
@@ -80,6 +87,13 @@ template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& 
     std::size_t id_to_use = container.last_id++;
     AssetT& asset = container.map.emplace(id_to_use, AssetT{}).first->second;
     assets::raw_load(asset, load_params);
+    return Handle<AssetT>(id_to_use);
+}
+
+template<typename AssetT> Handle<AssetT> put(AssetT&& asset) {
+    auto& container = detail::AssetContainer<AssetT>::get_instance();
+    std::size_t id_to_use = container.last_id++;
+    container.map.emplace(id_to_use, std::move(asset)).first->second;
     return Handle<AssetT>(id_to_use);
 }
 

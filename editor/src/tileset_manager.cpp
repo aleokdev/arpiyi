@@ -11,166 +11,25 @@
 
 #include <util/math.hpp>
 
+#include "assets/shader.hpp"
+
 namespace arpiyi_editor::tileset_manager {
 
 assets::Tileset current_tileset;
+
 /* clang-format off */
 const char* tile_frag_shader_src =
     #include "shaders/tile.frag"
 
 const char* tile_vert_shader_src =
     #include "shaders/tile.vert"
+/* clang-format on */
 
-        /* clang-format on */
-    unsigned int tile_program;
+unsigned int tile_program;
 glm::mat4 proj_mat;
 
 math::IVec2D tile_selection_start{0, 0};
 math::IVec2D tile_selection_end{0, 0};
-
-void generate_splitted_quad(unsigned int* vao,
-                            unsigned int* vbo,
-                            std::size_t x_slices,
-                            std::size_t y_slices) {
-    // Format: {pos.x pos.y  ...}
-    // UV and position data here is the same since position 0,0 is linked to UV 0,0 and
-    // position 1,1 is linked to UV 1,1.
-    // 2 because it's 2 position coords.
-    constexpr auto sizeof_vertex = 2;
-    constexpr auto sizeof_triangle = 3 * sizeof_vertex;
-    constexpr auto sizeof_quad = 2 * sizeof_triangle;
-    const auto sizeof_splitted_quad = y_slices * x_slices * sizeof_quad;
-
-    float* result = new float[sizeof_splitted_quad];
-    const float x_slice_size = 1.f / x_slices;
-    const float y_slice_size = 1.f / y_slices;
-    // Create a quad for each {x, y} position.
-    for (int y = 0; y < y_slices; y++) {
-        for (int x = 0; x < x_slices; x++) {
-            const float min_x_pos = x * x_slice_size;
-            const float min_y_pos = y * y_slice_size;
-            const float max_x_pos = min_x_pos + x_slice_size;
-            const float max_y_pos = min_y_pos + y_slice_size;
-
-            // First triangle //
-            /* X pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 0] = min_x_pos;
-            /* Y pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 1] = min_y_pos;
-            /* X pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 2] = max_x_pos;
-            /* Y pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 3] = min_y_pos;
-            /* X pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 4] = min_x_pos;
-            /* Y pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 5] = max_y_pos;
-
-            // Second triangle //
-            /* X pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 6] = max_x_pos;
-            /* Y pos 1st vertex */ result[(x + y * x_slices) * sizeof_quad + 7] = min_y_pos;
-            /* X pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 8] = max_x_pos;
-            /* Y pos 2nd vertex */ result[(x + y * x_slices) * sizeof_quad + 9] = max_y_pos;
-            /* X pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 10] = min_x_pos;
-            /* Y pos 3rd vertex */ result[(x + y * x_slices) * sizeof_quad + 11] = max_y_pos;
-        }
-    }
-
-    glGenVertexArrays(1, vao);
-    glGenBuffers(1, vbo);
-
-    // Fill buffer
-    glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof_splitted_quad * sizeof(float), result, GL_STATIC_DRAW);
-
-    glBindVertexArray(*vao);
-    // Positions
-    glEnableVertexAttribArray(0); // location 0
-    glVertexAttribFormat(0, 2, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, *vbo, 0, 2 * sizeof(float));
-    glVertexAttribBinding(0, 0);
-
-    delete[] result;
-}
-
-void generate_wrapping_splitted_quad(unsigned int* vao,
-                                     unsigned int* vbo,
-                                     std::size_t x_slices,
-                                     std::size_t y_slices,
-                                     std::size_t max_quads_per_row) {
-    // Format: {pos.x pos.y uv.x uv.y ...}
-    // UV and position data here are NOT the same since position 1,0 *may* not be linked to UV 1,0
-    // because it might have wrapped over.
-
-    // 2 because it's 2 vertex coords and 2 UV coords.
-    constexpr auto sizeof_vertex = 4;
-    constexpr auto sizeof_triangle = 3 * sizeof_vertex;
-    constexpr auto sizeof_quad = 2 * sizeof_triangle;
-    const auto sizeof_splitted_quad = y_slices * x_slices * sizeof_quad;
-
-    std::vector<float> result(sizeof_splitted_quad);
-    const float x_slice_size = 1.f / x_slices;
-    const float y_slice_size = 1.f / y_slices;
-    // Create a quad for each position.
-    for (int i = 0; i < x_slices * y_slices; i++) {
-        const std::size_t quad_x = i % max_quads_per_row;
-        const std::size_t quad_y = i / max_quads_per_row;
-        const float min_vertex_x_pos = (float)quad_x * x_slice_size;
-        const float min_vertex_y_pos = (float)quad_y * y_slice_size;
-        const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
-        const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
-
-        const float min_uv_x_pos = (float)(i % x_slices) * x_slice_size;
-        const float min_uv_y_pos = (float)(i / x_slices) * y_slice_size;
-        const float max_uv_x_pos = min_uv_x_pos + x_slice_size;
-        const float max_uv_y_pos = min_uv_y_pos + y_slice_size;
-
-        std::size_t quad_n = sizeof_quad * i;
-        // First triangle //
-        /* X pos 1st vertex */ result[quad_n + 0] = min_vertex_x_pos;
-        /* Y pos 1st vertex */ result[quad_n + 1] = min_vertex_y_pos;
-        /* X UV 1st vertex  */ result[quad_n + 2] = min_uv_x_pos;
-        /* Y UV 1st vertex  */ result[quad_n + 3] = min_uv_y_pos;
-        /* X pos 2nd vertex */ result[quad_n + 4] = max_vertex_x_pos;
-        /* Y pos 2nd vertex */ result[quad_n + 5] = min_vertex_y_pos;
-        /* X UV 2nd vertex  */ result[quad_n + 6] = max_uv_x_pos;
-        /* Y UV 2nd vertex  */ result[quad_n + 7] = min_uv_y_pos;
-        /* X pos 3rd vertex */ result[quad_n + 8] = min_vertex_x_pos;
-        /* Y pos 3rd vertex */ result[quad_n + 9] = max_vertex_y_pos;
-        /* X UV 2nd vertex  */ result[quad_n + 10] = min_uv_x_pos;
-        /* Y UV 2nd vertex  */ result[quad_n + 11] = max_uv_y_pos;
-
-        // Second triangle //
-        /* X pos 1st vertex */ result[quad_n + 12] = max_vertex_x_pos;
-        /* Y pos 1st vertex */ result[quad_n + 13] = min_vertex_y_pos;
-        /* X UV 1st vertex  */ result[quad_n + 14] = max_uv_x_pos;
-        /* Y UV 1st vertex  */ result[quad_n + 15] = min_uv_y_pos;
-        /* X pos 2nd vertex */ result[quad_n + 16] = max_vertex_x_pos;
-        /* Y pos 2nd vertex */ result[quad_n + 17] = max_vertex_y_pos;
-        /* X UV 2nd vertex  */ result[quad_n + 18] = max_uv_x_pos;
-        /* Y UV 2nd vertex  */ result[quad_n + 19] = max_uv_y_pos;
-        /* X pos 3rd vertex */ result[quad_n + 20] = min_vertex_x_pos;
-        /* Y pos 3rd vertex */ result[quad_n + 21] = max_vertex_y_pos;
-        /* X UV 3rd vertex  */ result[quad_n + 22] = min_uv_x_pos;
-        /* Y UV 3rd vertex  */ result[quad_n + 23] = max_uv_y_pos;
-    }
-
-    glGenVertexArrays(1, vao);
-    glGenBuffers(1, vbo);
-
-    // Fill buffer
-    glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof_splitted_quad * sizeof(float), result.data(),
-                 GL_STATIC_DRAW);
-
-    glBindVertexArray(*vao);
-    // Vertex Positions
-    glEnableVertexAttribArray(0); // location 0
-    glVertexAttribFormat(0, 2, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, *vbo, 0, 4 * sizeof(float));
-    glVertexAttribBinding(0, 0);
-    // UV Positions
-    glEnableVertexAttribArray(1); // location 1
-    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float));
-    glBindVertexBuffer(1, *vbo, 0, 4 * sizeof(float));
-    glVertexAttribBinding(1, 1);
-
-    glBindVertexArray(0);
-}
 
 void init() {
     unsigned int tile_vert_shader = glCreateShader(GL_VERTEX_SHADER);
@@ -220,7 +79,12 @@ void render() {
     }
     const auto& update_tileset_quads = [&]() {
         math::IVec2D slices = current_tileset.get_size_in_tiles();
-        generate_splitted_quad(&current_tileset.vao, &current_tileset.vbo, slices.x, slices.y);
+        if(auto mesh = current_tileset.display_mesh.get()) {
+            mesh->destroy();
+            (*mesh) = assets::Mesh::generate_split_quad(slices.x, slices.y);
+        } else {
+            current_tileset.display_mesh = asset_manager::put(assets::Mesh::generate_split_quad(slices.x, slices.y));
+        }
     };
 
     if (ImGui::BeginMenuBar()) {
@@ -236,10 +100,6 @@ void render() {
                         current_tileset.texture.unload();
                     current_tileset.texture =
                         asset_manager::load<assets::Texture>({path_selected, false});
-                    if (current_tileset.vao != -1)
-                        glDeleteBuffers(1, &current_tileset.vao);
-                    if (current_tileset.vbo != -1)
-                        glDeleteBuffers(1, &current_tileset.vbo);
                     update_tileset_quads();
                 }
             }
@@ -265,11 +125,6 @@ void render() {
                 current_tileset.tile_size = tile_size_slider;
                 // Re-split the tileset if tilesize changed
                 ImGui::SameLine();
-                if (current_tileset.vao != -1)
-                    glDeleteBuffers(1, &current_tileset.vao);
-                if (current_tileset.vbo != -1)
-                    glDeleteBuffers(1, &current_tileset.vbo);
-                auto& tex = *current_tileset.texture.get().operator->();
                 update_tileset_quads();
             }
 
@@ -317,7 +172,7 @@ void render() {
             [](const ImDrawList* parent_list, const ImDrawCmd* cmd) {
                 const TilesetDrawData* data = (TilesetDrawData*)cmd->UserCallbackData;
                 glUseProgram(tile_program);
-                glBindVertexArray(current_tileset.vao);
+                glBindVertexArray(current_tileset.display_mesh.get()->vao);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, data->tex->handle);
                 int fb_w, fb_h;
