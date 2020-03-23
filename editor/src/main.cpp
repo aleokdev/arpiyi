@@ -14,6 +14,7 @@
 #include "tileset_manager.hpp"
 #include "window_manager.hpp"
 #include "plugin_manager.hpp"
+#include "map_manager.hpp"
 
 #include <sol/sol.hpp>
 
@@ -27,7 +28,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 int main() {
     window_manager::init();
     tileset_manager::init();
-
+    map_manager::init();
     editor::style::set_default_style();
     editor::lua_wrapper::init();
     plugin_manager::init();
@@ -50,7 +51,8 @@ int main() {
 
         editor::renderer::render();
         tileset_manager::render();
-        ImGui::ShowDemoWindow();
+        map_manager::render();
+        ImGui::ShowMetricsWindow();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -58,6 +60,7 @@ int main() {
         glfwSwapBuffers(window_manager::get_window());
     }
 
+    ImGui::SaveIniSettingsToDisk("imgui.ini");
     glfwTerminate();
     return 0;
 }

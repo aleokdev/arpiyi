@@ -31,7 +31,7 @@ template<> struct LoadParams<Shader> {
     fs::path frag_path;
 };
 
-unsigned int create_shader_stage(GLenum stage, fs::path path) {
+inline unsigned int create_shader_stage(GLenum stage, fs::path path) {
     using namespace std::literals::string_literals;
 
     std::ifstream f(path);

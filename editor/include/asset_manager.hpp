@@ -78,6 +78,10 @@ public:
         }
     }
 
+    bool operator==(Handle const& h) {
+        return id == h.id;
+    }
+
 private:
     std::size_t id;
 };
@@ -90,7 +94,7 @@ template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& 
     return Handle<AssetT>(id_to_use);
 }
 
-template<typename AssetT> Handle<AssetT> put(AssetT&& asset) {
+template<typename AssetT> Handle<AssetT> put(AssetT const& asset) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
     std::size_t id_to_use = container.last_id++;
     container.map.emplace(id_to_use, std::move(asset)).first->second;
