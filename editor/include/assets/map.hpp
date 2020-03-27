@@ -4,8 +4,10 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 #include "texture.hpp"
+#include "tileset.hpp"
 #include "mesh.hpp"
 #include "asset_manager.hpp"
 #include "util/math.hpp"
@@ -29,14 +31,13 @@ struct Map {
             return tiles[pos.x + pos.y * width];
         }
 
+        asset_manager::Handle<assets::Tileset> tileset;
         std::string name;
     private:
         std::size_t width = 0, height = 0;
         std::vector<Tile> tiles;
     };
 
-    asset_manager::Handle<assets::Texture> texture_atlas;
-    asset_manager::Handle<assets::Mesh> display_mesh;
     std::vector<Layer> layers;
     std::string name;
 

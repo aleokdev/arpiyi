@@ -35,6 +35,7 @@ void init() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEBUG_OUTPUT);
+    glCullFace(GL_FRONT_AND_BACK);
 
     // Setup ImGui context
     IMGUI_CHECKVERSION();

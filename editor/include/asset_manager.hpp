@@ -78,9 +78,11 @@ public:
         }
     }
 
-    bool operator==(Handle const& h) {
+    bool operator==(Handle const& h) const {
         return id == h.id;
     }
+
+    [[nodiscard]] std::size_t get_id() const { return id; }
 
 private:
     std::size_t id;

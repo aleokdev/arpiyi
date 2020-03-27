@@ -4,16 +4,19 @@
 #include "asset_manager.hpp"
 #include "texture.hpp"
 #include "mesh.hpp"
+#include "util/math.hpp"
+
+#include <string>
 
 namespace arpiyi_editor::assets {
 
 struct Tileset {
     asset_manager::Handle<assets::Texture> texture;
-    unsigned int tile_size = 48;
-    asset_manager::Handle<assets::Mesh> display_mesh;
+    std::string name;
 
-    math::IVec2D get_size_in_tiles() {
-        return math::IVec2D{(int)texture.get()->w/(int)tile_size, (int)texture.get()->h/(int)tile_size};
+    math::IVec2D get_size_in_tiles(std::size_t tile_size) {
+        auto tex = texture.get();
+        return math::IVec2D{(int)tex->w/(int)tile_size, (int)tex->h/(int)tile_size};
     }
 };
 

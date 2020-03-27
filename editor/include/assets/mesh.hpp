@@ -24,6 +24,8 @@ struct Mesh {
         }
     }
 
+    static Mesh generate_quad();
+
     static Mesh generate_split_quad(std::size_t x_slices,
                                        std::size_t y_slices);
 
@@ -31,6 +33,7 @@ struct Mesh {
                                                 std::size_t y_slices,
                                                 std::size_t max_quads_per_row);
 
+    // TODO: Use global VAO
     unsigned int vao = -1;
     unsigned int vbo = -1;
 };

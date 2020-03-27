@@ -148,4 +148,53 @@ Mesh Mesh::generate_wrapping_split_quad(std::size_t x_slices,
     return Mesh{vao, vbo};
 }
 
+Mesh Mesh::generate_quad() {
+    // Format: {pos.x pos.y  ...}
+    // UV and position data here is the same since position 0,0 is linked to UV 0,0 and
+    // position 1,1 is linked to UV 1,1.
+    // 2 because it's 2 position coords.
+    constexpr auto sizeof_vertex = 2;
+    constexpr auto sizeof_triangle = 3 * sizeof_vertex;
+    constexpr auto sizeof_quad = 2 * sizeof_triangle;
+
+    std::vector<float> result(sizeof_quad);
+    constexpr float min_x_pos = 0;
+    constexpr float min_y_pos = 0;
+    constexpr float max_x_pos = 1;
+    constexpr float max_y_pos = 1;
+    // First triangle //
+    /* X pos 1st vertex */ result[0] = min_x_pos;
+    /* Y pos 1st vertex */ result[1] = min_y_pos;
+    /* X pos 2nd vertex */ result[2] = max_x_pos;
+    /* Y pos 2nd vertex */ result[3] = min_y_pos;
+    /* X pos 3rd vertex */ result[4] = min_x_pos;
+    /* Y pos 3rd vertex */ result[5] = max_y_pos;
+
+    // Second triangle //
+    /* X pos 1st vertex */ result[6] = max_x_pos;
+    /* Y pos 1st vertex */ result[7] = min_y_pos;
+    /* X pos 2nd vertex */ result[8] = max_x_pos;
+    /* Y pos 2nd vertex */ result[9] = max_y_pos;
+    /* X pos 3rd vertex */ result[10] = min_x_pos;
+    /* Y pos 3rd vertex */ result[11] = max_y_pos;
+
+    unsigned int vao, vbo;
+
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    // Fill buffer
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof_quad * sizeof(float), result.data(), GL_STATIC_DRAW);
+
+    glBindVertexArray(vao);
+    // Positions
+    glEnableVertexAttribArray(0); // location 0
+    glVertexAttribFormat(0, 2, GL_FLOAT, GL_FALSE, 0);
+    glBindVertexBuffer(0, vbo, 0, 2 * sizeof(float));
+    glVertexAttribBinding(0, 0);
+
+    return Mesh{vao, vbo};
+}
+
 }
