@@ -14,9 +14,10 @@ namespace fs = std::filesystem;
 namespace arpiyi_editor::assets {
 
 struct Texture {
-    unsigned int handle;
+    unsigned int handle = -1;
     u32 w;
     u32 h;
+    constexpr static auto nohandle = static_cast<decltype(handle)>(-1);
 };
 
 template<> struct LoadParams<Texture> {

@@ -34,7 +34,7 @@ static void update_grid_view_texture() {
     if (!map)
         return;
 
-    if (grid_view_texture.handle == -1)
+    if (grid_view_texture.handle == assets::Texture::nohandle)
         glDeleteTextures(1, &grid_view_texture.handle);
     glGenTextures(1, &grid_view_texture.handle);
     glBindTexture(GL_TEXTURE_2D, grid_view_texture.handle);

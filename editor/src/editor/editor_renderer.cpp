@@ -71,7 +71,6 @@ void render() {
     ImGui::PopStyleVar(3);
 
     // DockSpace
-    ImGuiIO& io = ImGui::GetIO();
     ImGuiID dockspace_id = ImGui::GetID("_MainDock");
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
 

@@ -25,7 +25,6 @@ void ToolbarWrapper::lua_destroy() {
 }
 
 WindowWrapper::WindowWrapper(std::string const& title) {
-    using Window = editor::renderer::Window;
     auto it = editor::renderer::add_window(title);
     id = it.id;
 }

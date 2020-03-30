@@ -32,7 +32,7 @@ static void update_grid_texture() {
     auto tileset = selection.tileset.get();
     if(!tileset) return;
 
-    if (grid_texture.handle == -1)
+    if (grid_texture.handle == assets::Texture::nohandle)
         glDeleteTextures(1, &grid_texture.handle);
     glGenTextures(1, &grid_texture.handle);
     glBindTexture(GL_TEXTURE_2D, grid_texture.handle);

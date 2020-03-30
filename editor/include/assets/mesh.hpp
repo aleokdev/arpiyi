@@ -16,13 +16,13 @@ namespace arpiyi_editor::assets {
 
 struct Mesh {
     void destroy() {
-        if (vao != -1){
+        if (vao != noobj){
             glDeleteVertexArrays(1, &vao);
-            vao = -1;
+            vao = noobj;
         }
-        if (vbo != -1){
+        if (vbo != noobj){
             glDeleteBuffers(1, &vbo);
-            vbo = -1;
+            vbo = noobj;
         }
     }
 
@@ -38,6 +38,7 @@ struct Mesh {
     // TODO: Use global VAO
     unsigned int vao = -1;
     unsigned int vbo = -1;
+    constexpr static auto noobj = static_cast<decltype(vao)>(-1);
 };
 
 } // namespace arpiyi_editor::assets

@@ -17,13 +17,14 @@ namespace arpiyi_editor::assets {
 
 struct Shader {
     void destroy() {
-        if (handle != -1){
+        if (handle != nohandle){
             glDeleteProgram(handle);
-            handle = -1;
+            handle = nohandle;
         }
     }
 
     unsigned int handle = -1;
+    constexpr static auto nohandle = static_cast<decltype(handle)>(-1);
 };
 
 template<> struct LoadParams<Shader> {
