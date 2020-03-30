@@ -60,6 +60,16 @@ public:
         else
             return &asset_it->second;
     }
+    Expected<const AssetT> const_get() const {
+        if (id == -1)
+            return nullptr;
+        auto& container = detail::AssetContainer<AssetT>::get_instance();
+        auto asset_it = container.map.find(id);
+        if (asset_it == container.map.end())
+            return nullptr;
+        else
+            return &asset_it->second;
+    }
 
     void save(assets::SaveParams<AssetT> const& params) {
         assets::raw_save(*get().operator->(), params);

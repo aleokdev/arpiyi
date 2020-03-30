@@ -7,6 +7,15 @@ struct IVec2D {
     int x, y;
 };
 
+struct Vec2D {
+    float x, y;
+};
+
+struct Rect2D {
+    Vec2D start;
+    Vec2D end;
+};
+
 }
 
 #endif // ARPIYI_MATH_HPP

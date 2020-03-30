@@ -16,7 +16,6 @@
 namespace arpiyi_editor::tileset_manager {
 
 std::vector<asset_manager::Handle<assets::Tileset>> tilesets;
-asset_manager::Handle<assets::Tileset> current_tileset;
 asset_manager::Handle<assets::Shader> tile_shader;
 asset_manager::Handle<assets::Shader> grid_shader;
 asset_manager::Handle<assets::Mesh> quad_mesh;
@@ -27,11 +26,10 @@ assets::Texture grid_texture;
 
 glm::mat4 proj_mat;
 
-math::IVec2D tile_selection_start{0, 0};
-math::IVec2D tile_selection_end{0, 0};
+TilesetSelection selection{0, {0,0}, {0,0}};
 
 static void update_grid_texture() {
-    auto tileset = current_tileset.get();
+    auto tileset = selection.tileset.get();
     if(!tileset) return;
 
     if (grid_texture.handle == -1)
@@ -71,7 +69,7 @@ static void update_grid_texture() {
 void init() {
     glGenFramebuffers(1, &grid_framebuffer);
 
-    tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
+    tile_shader = asset_manager::load<assets::Shader>({"data/basic.vert", "data/basic.frag"});
     grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
@@ -82,7 +80,7 @@ void render() {
     if (!ImGui::Begin("Tileset", nullptr, ImGuiWindowFlags_MenuBar)) {
         ImGui::End();
     } else {
-        if (auto ts = current_tileset.get()) {
+        if (auto ts = selection.tileset.get()) {
             if (ImGui::BeginMenuBar()) {
                 /*
                 auto img = ts->texture.get();
@@ -145,11 +143,11 @@ void render() {
                 draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
 
                 const ImVec2 tile_selection_start_rel =
-                    ImVec2{tileset_render_pos.x + (float)tile_selection_start.x * tile_size,
-                           tileset_render_pos.y + (float)tile_selection_start.y * tile_size};
+                    ImVec2{tileset_render_pos.x + (float)selection.selection_start.x * tile_size,
+                           tileset_render_pos.y + (float)selection.selection_start.y * tile_size};
                 const ImVec2 tile_selection_end_rel =
-                    ImVec2{tileset_render_pos.x + (float)(tile_selection_end.x + 1) * tile_size,
-                           tileset_render_pos.y + (float)(tile_selection_end.y + 1) * tile_size};
+                    ImVec2{tileset_render_pos.x + (float)(selection.selection_end.x + 1) * tile_size,
+                           tileset_render_pos.y + (float)(selection.selection_end.y + 1) * tile_size};
                 // Draw the selected rect
                 draw_list->AddRect(tile_selection_start_rel, tile_selection_end_rel, 0xFFFFFFFF, 0,
                                    ImDrawCornerFlags_All, 5.f);
@@ -173,6 +171,21 @@ void render() {
                                        0xFF000000, 0, ImDrawCornerFlags_All, 2.f);
 
                     draw_list->PopClipRect();
+
+                    static bool pressed_last_frame = false;
+                    if (io.MouseDown[ImGuiMouseButton_Left]) {
+                        if (!pressed_last_frame) {
+                            selection.selection_start = {(int)(relative_mouse_pos.x / tile_size),
+                                                         (int)(relative_mouse_pos.y / tile_size)};
+                            selection.selection_end = selection.selection_start;
+                        } else {
+                            selection.selection_end = {std::max(selection.selection_start.x,
+                                                                (int)(relative_mouse_pos.x / tile_size)),
+                                                       std::max(selection.selection_start.y,
+                                                                (int)(relative_mouse_pos.y / tile_size))};
+                        }
+                    }
+                    pressed_last_frame = io.MouseDown[ImGuiMouseButton_Left];
                 } else {
                     update_tooltip_info = false;
                     tooltip_alpha += (0.f - tooltip_alpha) / 4.f;
@@ -206,21 +219,6 @@ void render() {
                 }
                 ImGui::EndTooltip();
 
-                static bool pressed_last_frame = false;
-                if (io.MouseDown[ImGuiMouseButton_Left]) {
-                    if (!pressed_last_frame) {
-                        tile_selection_start = {(int)(relative_mouse_pos.x / tile_size),
-                                                (int)(relative_mouse_pos.y / tile_size)};
-                        tile_selection_end = tile_selection_start;
-                    } else {
-                        tile_selection_end = {std::max(tile_selection_start.x,
-                                                       (int)(relative_mouse_pos.x / tile_size)),
-                                              std::max(tile_selection_start.y,
-                                                       (int)(relative_mouse_pos.y / tile_size))};
-                    }
-                }
-                pressed_last_frame = io.MouseDown[ImGuiMouseButton_Left];
-
             } else
                 ImGui::TextDisabled("No texture attached to tileset.");
         } else
@@ -243,7 +241,7 @@ void render() {
                     assets::Tileset tileset;
                     tileset.texture = asset_manager::load<assets::Texture>({path_selected, false});
                     tileset.name = fs::path(path_selected).filename();
-                    current_tileset = tilesets.emplace_back(asset_manager::put(tileset));
+                    selection.tileset = tilesets.emplace_back(asset_manager::put(tileset));
                     update_grid_texture();
                 }
             }
@@ -256,8 +254,8 @@ void render() {
                 if (auto tileset = _t.get()) {
                     ImGui::TextDisabled("%zu", _t.get_id());
                     ImGui::SameLine();
-                    if (ImGui::Selectable(tileset->name.c_str(), _t == current_tileset)) {
-                        current_tileset = _t;
+                    if (ImGui::Selectable(tileset->name.c_str(), _t == selection.tileset)) {
+                        selection.tileset = _t;
                         update_grid_texture();
                     }
                 } else {
@@ -273,5 +271,9 @@ void render() {
 std::size_t get_tile_size() { return tile_size; }
 
 std::vector<asset_manager::Handle<assets::Tileset>>& get_tilesets() { return tilesets; }
+
+TilesetSelection& get_selection() {
+    return selection;
+}
 
 } // namespace arpiyi_editor::tileset_manager
