@@ -1,10 +1,12 @@
 #ifndef ARPIYI_MATH_HPP
 #define ARPIYI_MATH_HPP
 
+#include "util/intdef.hpp"
+
 namespace math {
 
 struct IVec2D {
-    int x, y;
+    i32 x, y;
 };
 
 struct Vec2D {

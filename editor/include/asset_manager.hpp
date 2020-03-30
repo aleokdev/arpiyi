@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <unordered_map>
+#include "util/intdef.hpp"
 
 namespace arpiyi_editor::asset_manager {
 
@@ -12,7 +13,7 @@ namespace detail {
 
 template<typename AssetT> struct AssetContainer {
     std::unordered_map<std::size_t, AssetT> map;
-    std::size_t last_id;
+    u64 last_id;
 
     static AssetContainer& get_instance() {
         static AssetContainer<AssetT> instance;
@@ -48,10 +49,12 @@ private:
 
 template<typename AssetT> class Handle {
 public:
-    Handle() noexcept : id(-1) {}
+    static constexpr auto noid = static_cast<u64>(-1);
+
+    Handle() noexcept : id(noid) {}
     Handle(std::size_t id) noexcept : id(id) {}
     Expected<AssetT> get() noexcept {
-        if (id == -1)
+        if (id == noid)
             return nullptr;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
         auto asset_it = container.map.find(id);
@@ -61,7 +64,7 @@ public:
             return &asset_it->second;
     }
     Expected<const AssetT> const_get() const noexcept {
-        if (id == -1)
+        if (id == noid)
             return nullptr;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
         auto asset_it = container.map.find(id);
@@ -76,7 +79,7 @@ public:
     }
 
     void unload() noexcept {
-        if (id == -1)
+        if (id == noid)
             return;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
         auto asset_it = container.map.find(id);
@@ -92,15 +95,15 @@ public:
         return id == h.id;
     }
 
-    [[nodiscard]] std::size_t get_id() const noexcept { return id; }
+    [[nodiscard]] u64 get_id() const noexcept { return id; }
 
 private:
-    std::size_t id;
+    u64 id;
 };
 
 template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& load_params) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
-    std::size_t id_to_use = container.last_id++;
+    u64 id_to_use = container.last_id++;
     AssetT& asset = container.map.emplace(id_to_use, AssetT{}).first->second;
     assets::raw_load(asset, load_params);
     return Handle<AssetT>(id_to_use);
@@ -108,7 +111,7 @@ template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& 
 
 template<typename AssetT> Handle<AssetT> put(AssetT const& asset) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
-    std::size_t id_to_use = container.last_id++;
+    u64 id_to_use = container.last_id++;
     container.map.emplace(id_to_use, std::move(asset)).first->second;
     return Handle<AssetT>(id_to_use);
 }

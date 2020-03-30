@@ -5,6 +5,7 @@
 #include "texture.hpp"
 #include "mesh.hpp"
 #include "util/math.hpp"
+#include "util/intdef.hpp"
 
 #include <string>
 
@@ -18,13 +19,13 @@ struct Tileset {
     [[nodiscard]] math::IVec2D get_size_in_tiles() const;
 
     /// Returns the size of this tileset in tiles, taking the tilesize as an argument.
-    [[nodiscard]] math::IVec2D get_size_in_tiles(std::size_t tile_size) const;
+    [[nodiscard]] math::IVec2D get_size_in_tiles(u32 tile_size) const;
 
-    [[nodiscard]] math::Rect2D get_uv(std::uint32_t id) const;
+    [[nodiscard]] math::Rect2D get_uv(u32 id) const;
 
-    [[nodiscard]] math::Rect2D get_uv(std::uint32_t id, std::size_t tile_size) const;
+    [[nodiscard]] math::Rect2D get_uv(u32 id, u32 tile_size) const;
 
-    [[nodiscard]] std::uint32_t get_id(math::IVec2D pos);
+    [[nodiscard]] u32 get_id(math::IVec2D pos);
 };
 
 }

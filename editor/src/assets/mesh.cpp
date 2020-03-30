@@ -4,8 +4,8 @@
 
 namespace arpiyi_editor::assets {
 
-Mesh Mesh::generate_split_quad(std::size_t x_slices,
-                            std::size_t y_slices) {
+Mesh Mesh::generate_split_quad(u32 x_slices,
+                               u32 y_slices) {
     // Format: {pos.x pos.y uv.x uv.y ...}
     // 2 because it's 2 position coords and 2 UV coords.
     constexpr auto sizeof_vertex = 4;
@@ -17,8 +17,8 @@ Mesh Mesh::generate_split_quad(std::size_t x_slices,
     const float x_slice_size = 1.f / x_slices;
     const float y_slice_size = 1.f / y_slices;
     // Create a quad for each {x, y} position.
-    for (int y = 0; y < y_slices; y++) {
-        for (int x = 0; x < x_slices; x++) {
+    for (u32 y = 0; y < y_slices; y++) {
+        for (u32 x = 0; x < x_slices; x++) {
             const float min_x_pos = x * x_slice_size;
             const float min_y_pos = y * y_slice_size;
             const float max_x_pos = min_x_pos + x_slice_size;
@@ -79,9 +79,9 @@ Mesh Mesh::generate_split_quad(std::size_t x_slices,
     return Mesh{vao, vbo};
 }
 
-Mesh Mesh::generate_wrapping_split_quad(std::size_t x_slices,
-                                            std::size_t y_slices,
-                                            std::size_t max_quads_per_row) {
+Mesh Mesh::generate_wrapping_split_quad(u32 x_slices,
+                                        u32 y_slices,
+                                        u32 max_quads_per_row) {
     // Format: {pos.x pos.y uv.x uv.y ...}
     // UV and position data here are NOT the same since position 1,0 *may* not be linked to UV 1,0
     // because it might have wrapped over.
@@ -96,7 +96,7 @@ Mesh Mesh::generate_wrapping_split_quad(std::size_t x_slices,
     const float x_slice_size = 1.f / x_slices;
     const float y_slice_size = 1.f / y_slices;
     // Create a quad for each position.
-    for (int i = 0; i < x_slices * y_slices; i++) {
+    for (u64 i = 0; i < x_slices * y_slices; i++) {
         const std::size_t quad_x = i % max_quads_per_row;
         const std::size_t quad_y = i / max_quads_per_row;
         const float min_vertex_x_pos = (float)quad_x * x_slice_size;
@@ -104,8 +104,8 @@ Mesh Mesh::generate_wrapping_split_quad(std::size_t x_slices,
         const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
         const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
 
-        const float min_uv_x_pos = (float)(i % x_slices) * x_slice_size;
-        const float min_uv_y_pos = (float)(i / x_slices) * y_slice_size;
+        const float min_uv_x_pos = static_cast<float>(i % x_slices) * x_slice_size;
+        const float min_uv_y_pos = static_cast<float>(i / static_cast<u32>(x_slices)) * y_slice_size;
         const float max_uv_x_pos = min_uv_x_pos + x_slice_size;
         const float max_uv_y_pos = min_uv_y_pos + y_slice_size;
 

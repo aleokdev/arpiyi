@@ -81,8 +81,8 @@ Mesh Map::Layer::generate_layer_split_quad() {
     return Mesh{vao, vbo};
 }
 
-Map::Layer::Layer(std::size_t width, std::size_t height, asset_manager::Handle<assets::Tileset> t) :
-    width(width), height(height), tiles(width * height), tileset(t) {
+Map::Layer::Layer(i64 width, i64 height, asset_manager::Handle<assets::Tileset> t) :
+    tileset(t), width(width), height(height), tiles(width * height) {
     mesh = asset_manager::put(generate_layer_split_quad());
 }
 

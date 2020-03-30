@@ -11,20 +11,21 @@
 #include "texture.hpp"
 #include "tileset.hpp"
 #include "util/math.hpp"
+#include "util/intdef.hpp"
 
 namespace arpiyi_editor::assets {
 
 struct Map {
     struct Tile {
         /// ID of tile (within layer tileset) being used
-        std::uint32_t id;
+        u32 id;
     };
 
     class Layer {
     public:
         Layer() = delete;
-        Layer(std::size_t width,
-              std::size_t height,
+        Layer(i64 width,
+              i64 height,
               asset_manager::Handle<assets::Tileset> tileset);
 
         [[nodiscard]] Tile const& get_tile(math::IVec2D pos) const {
@@ -43,7 +44,7 @@ struct Map {
     private:
         assets::Mesh generate_layer_split_quad();
 
-        std::size_t width = 0, height = 0;
+        i64 width = 0, height = 0;
         std::vector<Tile> tiles;
         asset_manager::Handle<assets::Mesh> mesh;
     };
@@ -51,8 +52,7 @@ struct Map {
     std::vector<Layer> layers;
     std::string name;
 
-    std::size_t width;
-    std::size_t height;
+    i64 width, height;
 };
 
 } // namespace arpiyi_editor::assets

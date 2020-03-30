@@ -54,9 +54,7 @@ static void update_grid_view_texture() {
 }
 
 static void show_add_layer_window(bool* p_open) {
-    if (!ImGui::Begin("New Map Layer", p_open)) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("New Map Layer", p_open)) {
         static char name[32];
         static asset_manager::Handle<assets::Tileset> tileset;
         const auto& show_info_tip = [](const char* c) {
@@ -102,16 +100,14 @@ static void show_add_layer_window(bool* p_open) {
             ImGui::PopItemFlag();
             ImGui::PopStyleVar();
         }
-        ImGui::End();
     }
+    ImGui::End();
 }
 
 static void show_add_map_window(bool* p_open) {
-    if (!ImGui::Begin("New Map", p_open)) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("New Map", p_open)) {
         static char name[32];
-        static int map_size[2];
+        static i32 map_size[2];
         const auto& show_info_tip = [](const char* c) {
             ImGui::SameLine();
             ImGui::TextDisabled("(?)");
@@ -134,15 +130,15 @@ static void show_add_map_window(bool* p_open) {
         ImGui::SameLine();
         if (ImGui::Button("OK")) {
             assets::Map map;
-            map.width = map_size[0];
-            map.height = map_size[1];
+            map.width = static_cast<decltype(map.width)>(map_size[0]);
+            map.height = static_cast<decltype(map.height)>(map_size[1]);
             map.name = name;
             current_map = maps.emplace_back(asset_manager::put<assets::Map>(map));
             update_grid_view_texture();
             *p_open = false;
         }
-        ImGui::End();
     }
+    ImGui::End();
 }
 
 void init() {

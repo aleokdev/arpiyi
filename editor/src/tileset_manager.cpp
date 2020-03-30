@@ -264,7 +264,7 @@ void render() {
     ImGui::End();
 }
 
-std::size_t get_tile_size() { return tile_size; }
+u32 get_tile_size() { return tile_size; }
 
 std::vector<asset_manager::Handle<assets::Tileset>>& get_tilesets() { return tilesets; }
 

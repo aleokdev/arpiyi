@@ -25,7 +25,7 @@ void load_plugins(fs::path const& dir) {
             sol::script_throw_on_error(lua.lua_state(), result);
         }
 
-        sol::function func(thread.thread_state(), (sol::function)result);
+        sol::function func(thread.thread_state(), static_cast<sol::function>(result));
         func(); // Call it for the first time to make the script initialize whatever it needs
         coroutines.emplace_back(func);
     }

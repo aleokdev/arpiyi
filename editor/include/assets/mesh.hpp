@@ -10,6 +10,8 @@
 
 #include <cstdint>
 
+#include "util/intdef.hpp"
+
 namespace arpiyi_editor::assets {
 
 struct Mesh {
@@ -26,12 +28,12 @@ struct Mesh {
 
     static Mesh generate_quad();
 
-    static Mesh generate_split_quad(std::size_t x_slices,
-                                       std::size_t y_slices);
+    static Mesh generate_split_quad(u32 x_slices,
+                                       u32 y_slices);
 
-    static Mesh generate_wrapping_split_quad(std::size_t x_slices,
-                                                std::size_t y_slices,
-                                                std::size_t max_quads_per_row);
+    static Mesh generate_wrapping_split_quad(u32 x_slices,
+                                             u32 y_slices,
+                                             u32 max_quads_per_row);
 
     // TODO: Use global VAO
     unsigned int vao = -1;

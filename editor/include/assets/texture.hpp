@@ -7,6 +7,7 @@
 
 #include <glad/glad.h>
 #include <stb_image.h>
+#include "util/intdef.hpp"
 
 namespace fs = std::filesystem;
 
@@ -14,8 +15,8 @@ namespace arpiyi_editor::assets {
 
 struct Texture {
     unsigned int handle;
-    unsigned int w;
-    unsigned int h;
+    u32 w;
+    u32 h;
 };
 
 template<> struct LoadParams<Texture> {
