@@ -77,9 +77,7 @@ void init() {
 }
 
 void render() {
-    if (!ImGui::Begin("Tileset", nullptr, ImGuiWindowFlags_MenuBar)) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("Tileset", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (auto ts = selection.tileset.get()) {
             if (ImGui::BeginMenuBar()) {
                 /*
@@ -224,12 +222,10 @@ void render() {
         } else
             ImGui::TextDisabled("No tileset loaded.");
 
-        ImGui::End();
     }
+    ImGui::End();
 
-    if (!ImGui::Begin("Tileset List", nullptr, ImGuiWindowFlags_MenuBar)) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("Tileset List", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
                 const char* compatible_file_formats =
@@ -264,8 +260,8 @@ void render() {
                     ImGui::PopStyleColor(1);
                 }
             }
-        ImGui::End();
     }
+    ImGui::End();
 }
 
 std::size_t get_tile_size() { return tile_size; }

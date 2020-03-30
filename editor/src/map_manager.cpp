@@ -195,9 +195,7 @@ void render() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    if (!ImGui::Begin("Map View")) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("Map View")) {
         if (map) {
             ImVec2 base_cursor_pos = ImGui::GetCursorScreenPos();
             ImGui::Image(reinterpret_cast<ImTextureID>(grid_view_texture.handle),
@@ -271,13 +269,11 @@ void render() {
             }
         } else
             ImGui::TextDisabled("No map loaded to view.");
-        ImGui::End();
     }
+    ImGui::End();
 
     static bool show_add_layer = false;
-    if (!ImGui::Begin("Map Layers", nullptr, ImGuiWindowFlags_MenuBar)) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("Map Layers", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
                 show_add_layer = true;
@@ -302,18 +298,15 @@ void render() {
         } else {
             ImGui::TextDisabled("No map selected");
         }
-
-        ImGui::End();
     }
+    ImGui::End();
 
     if (show_add_layer) {
         show_add_layer_window(&show_add_layer);
     }
 
     static bool show_add_map = false;
-    if (!ImGui::Begin("Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
-        ImGui::End();
-    } else {
+    if (ImGui::Begin("Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
                 show_add_map = true;
@@ -337,8 +330,8 @@ void render() {
                     ImGui::PopStyleColor(1);
                 }
             }
-        ImGui::End();
     }
+    ImGui::End();
 
     if (show_add_map) {
         show_add_map_window(&show_add_map);
