@@ -48,9 +48,9 @@ private:
 
 template<typename AssetT> class Handle {
 public:
-    Handle() : id(-1) {}
-    Handle(std::size_t id) : id(id) {}
-    Expected<AssetT> get() {
+    Handle() noexcept : id(-1) {}
+    Handle(std::size_t id) noexcept : id(id) {}
+    Expected<AssetT> get() noexcept {
         if (id == -1)
             return nullptr;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
@@ -60,7 +60,7 @@ public:
         else
             return &asset_it->second;
     }
-    Expected<const AssetT> const_get() const {
+    Expected<const AssetT> const_get() const noexcept {
         if (id == -1)
             return nullptr;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
@@ -75,7 +75,7 @@ public:
         assets::raw_save(*get().operator->(), params);
     }
 
-    void unload() {
+    void unload() noexcept {
         if (id == -1)
             return;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
@@ -88,11 +88,11 @@ public:
         }
     }
 
-    bool operator==(Handle const& h) const {
+    [[nodiscard]] bool operator==(Handle const& h) const noexcept {
         return id == h.id;
     }
 
-    [[nodiscard]] std::size_t get_id() const { return id; }
+    [[nodiscard]] std::size_t get_id() const noexcept { return id; }
 
 private:
     std::size_t id;

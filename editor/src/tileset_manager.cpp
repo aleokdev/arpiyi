@@ -202,7 +202,7 @@ void render() {
                                         (float)tile_hovering.y / (float)size_in_tiles.y};
                     const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
                                         (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
-                    ImGui::Image((ImTextureID)img->handle, img_size, uv_min, uv_max,
+                    ImGui::Image(reinterpret_cast<ImTextureID>(img->handle), img_size, uv_min, uv_max,
                                  ImVec4(1, 1, 1, tooltip_alpha));
                     ImGui::SameLine();
                     static std::size_t tile_id;

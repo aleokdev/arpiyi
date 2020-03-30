@@ -25,6 +25,7 @@ unsigned int map_view_framebuffer;
 assets::Texture grid_view_texture;
 glm::mat4 proj_mat;
 std::size_t current_layer_selected = 0;
+ImVec2 map_scroll{0,0};
 
 /// Updates grid_view_texture to fit the width and height of current_map.
 // TODO: Replace with imgui custom callbacks, remove framebuffer
