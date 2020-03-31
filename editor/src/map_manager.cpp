@@ -109,8 +109,8 @@ static void show_add_layer_window(bool* p_open) {
 
 static void show_add_map_window(bool* p_open) {
     if (ImGui::Begin("New Map", p_open)) {
-        static char name[32];
-        static i32 map_size[2];
+        static char name[32] = "Default";
+        static i32 map_size[2] = {16, 16};
         const auto& show_info_tip = [](const char* c) {
             ImGui::SameLine();
             ImGui::TextDisabled("(?)");
@@ -176,7 +176,7 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
             if (!layer.visible)
                 continue;
 
-            glBindVertexArray(layer.get_mesh().const_get()->vao);
+            glBindVertexArray(layer.get_mesh().get()->vao);
             glBindTexture(GL_TEXTURE_2D, layer.tileset.get()->texture.get()->handle);
             glViewport(0.f, 0.f, grid_view_texture.w, grid_view_texture.h);
             glm::mat4 model = glm::mat4(1);
@@ -203,6 +203,30 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
+    int start_my = pos.y;
+    const auto selection = tileset_manager::get_selection();
+    if (pos.x >= 0 && pos.y >= 0 && pos.x < map.width &&
+        pos.y < map.height) {
+        for (int tx = selection.selection_start.x; tx <= selection.selection_end.x;
+             tx++) {
+            for (int ty = selection.selection_start.y;
+                 ty <= selection.selection_end.y; ty++) {
+                if (!(pos.x >= 0 && pos.y >= 0 &&
+                    pos.x < map.width && pos.y < map.height))
+                    continue;
+                map.layers[current_layer_selected].set_tile(
+                    {pos.x, pos.y},
+                    {map.layers[current_layer_selected].tileset.get()->get_id(
+                        {tx, ty})});
+                pos.y++;
+            }
+            pos.x++;
+            pos.y = start_my;
+        }
+    }
 }
 
 void init() {
@@ -249,10 +273,9 @@ void render() {
             relative_mouse_pos.y = static_cast<int>(relative_mouse_pos.y) -
                                    static_cast<int>(static_cast<int>(relative_mouse_pos.y) %
                                                     tileset_manager::get_tile_size());
-            i32 mouse_tile_x =
-                    static_cast<i64>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
-                mouse_tile_y =
-                    static_cast<i64>(relative_mouse_pos.y / tileset_manager::get_tile_size());
+            math::IVec2D mouse_tile_pos = {
+                    static_cast<i32>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
+                    static_cast<i32>(relative_mouse_pos.y / tileset_manager::get_tile_size())};
 
             auto selection = tileset_manager::get_selection();
             if (auto selection_tileset = selection.tileset.get()) {
@@ -286,37 +309,26 @@ void render() {
                     uv_min, uv_max, ImGui::GetColorU32({1, 1, 1, 0.4f}));
                 ImGui::GetWindowDrawList()->PopClipRect();
             }
-            if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                int start_my = mouse_tile_y;
-                if (mouse_tile_x >= 0 && mouse_tile_y >= 0 && mouse_tile_x < map->width &&
-                    mouse_tile_y < map->height && !map->layers.empty()) {
-                    for (int tx = selection.selection_start.x; tx <= selection.selection_end.x;
-                         tx++) {
-                        for (int ty = selection.selection_start.y; ty <= selection.selection_end.y;
-                             ty++) {
-                            if (!(mouse_tile_x >= 0 && mouse_tile_y >= 0 &&
-                                  mouse_tile_x < map->width && mouse_tile_y < map->height))
-                                continue;
-                            map->layers[current_layer_selected].set_tile(
-                                {mouse_tile_x, mouse_tile_y},
-                                {map->layers[current_layer_selected].tileset.get()->get_id(
-                                    {tx, ty})});
-                            mouse_tile_y++;
-                        }
-                        mouse_tile_x++;
-                        mouse_tile_y = start_my;
+            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) ||
+                ImGui::IsWindowHovered(ImGuiHoveredFlags_RootWindow)) {
+                if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                    if (!map->layers.empty()) {
+                        place_tile_on_pos(*map, mouse_tile_pos);
                     }
                 }
-            }
-            if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
-                ImGuiIO& io = ImGui::GetIO();
-                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
+
+                if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
+                    ImGui::SetWindowFocus();
+                    ImGuiIO& io = ImGui::GetIO();
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                    map_scroll =
+                        ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
+                }
             }
 
             ImVec2 rel_mouse_px_pos =
                 ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
-            draw_pos_info_bar({mouse_tile_x, mouse_tile_y}, rel_mouse_px_pos);
+            draw_pos_info_bar({mouse_tile_pos.x, mouse_tile_pos.y}, rel_mouse_px_pos);
         } else
             ImGui::TextDisabled("No map loaded to view.");
     }
@@ -387,10 +399,10 @@ void render() {
             ImGui::TextDisabled("No maps");
         else
             for (auto& _m : maps) {
-                if (auto map = _m.get()) {
+                if (auto i_map = _m.get()) {
                     ImGui::TextDisabled("%zu", _m.get_id());
                     ImGui::SameLine();
-                    if (ImGui::Selectable(map->name.c_str(), _m == current_map)) {
+                    if (ImGui::Selectable(i_map->name.c_str(), _m == current_map)) {
                         current_map = _m;
                         update_grid_view_texture();
                     }

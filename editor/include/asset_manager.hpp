@@ -63,7 +63,7 @@ public:
         else
             return &asset_it->second;
     }
-    Expected<const AssetT> const_get() const noexcept {
+    Expected<const AssetT> get() const noexcept {
         if (id == noid)
             return nullptr;
         auto& container = detail::AssetContainer<AssetT>::get_instance();
