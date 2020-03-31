@@ -28,7 +28,7 @@ int main() {
     window_manager::init();
     tileset_manager::init();
     map_manager::init();
-    editor::style::set_default_style();
+    editor::style::init();
     editor::lua_wrapper::init();
     plugin_manager::init();
     plugin_manager::load_plugins("data/plugins");
@@ -51,7 +51,7 @@ int main() {
         editor::renderer::render();
         tileset_manager::render();
         map_manager::render();
-        ImGui::ShowMetricsWindow();
+        ImGui::ShowDemoWindow(nullptr);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

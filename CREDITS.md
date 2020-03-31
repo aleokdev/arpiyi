@@ -1,0 +1,1 @@
+MaterialIcons-Regular by Google (https://github.com/google/material-design-icons/blob/master/iconfont/MaterialIcons-Regular.ttf)

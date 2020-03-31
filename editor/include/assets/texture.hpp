@@ -20,9 +20,14 @@ struct Texture {
     constexpr static auto nohandle = static_cast<decltype(handle)>(-1);
 };
 
+enum TextureFilter {
+    point,
+    linear
+};
 template<> struct LoadParams<Texture> {
     fs::path path;
     bool flip = true;
+    TextureFilter filter = TextureFilter::point;
 };
 
 template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& params) {
@@ -34,12 +39,21 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    // Disable filtering
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    switch(params.filter) {
+        case point:
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            break;
+        case linear:
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            break;
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glGenerateMipmap(GL_TEXTURE_2D);
+
     stbi_image_free(data);
     texture.handle = tex;
     texture.w = w;

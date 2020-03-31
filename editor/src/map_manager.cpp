@@ -5,14 +5,17 @@
 #include <vector>
 
 #include "assets/shader.hpp"
+#include "assets/texture.hpp"
+#include "editor/editor_style.hpp"
+#include "tileset_manager.hpp"
+#include "util/icons_material_design.hpp"
+#include "window_manager.hpp"
+
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <window_manager.hpp>
-
-#include "tileset_manager.hpp"
 
 namespace arpiyi_editor::map_manager {
 
@@ -142,9 +145,9 @@ static void show_add_map_window(bool* p_open) {
 }
 
 static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) {
-    ImVec2 info_rect_start{ImGui::GetWindowPos().x,
-                           ImGui::GetWindowPos().y + ImGui::GetWindowSize().y -
-                           ImGui::GetTextLineHeightWithSpacing()};
+    ImVec2 info_rect_start{ImGui::GetWindowPos().x, ImGui::GetWindowPos().y +
+                                                        ImGui::GetWindowSize().y -
+                                                        ImGui::GetTextLineHeightWithSpacing()};
     ImVec2 info_rect_end{ImGui::GetWindowPos().x + ImGui::GetWindowSize().x,
                          ImGui::GetWindowPos().y + ImGui::GetWindowSize().y};
     ImGui::GetWindowDrawList()->PushClipRectFullScreen();
@@ -155,14 +158,13 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
                     info_rect_start.y};
     {
         char buf[128];
-        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%.0f, %.0f}", tile_pos.x,
-                tile_pos.y, relative_mouse_pos.x, relative_mouse_pos.y);
-        ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
-                                            buf);
+        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%.0f, %.0f}", tile_pos.x, tile_pos.y,
+                relative_mouse_pos.x, relative_mouse_pos.y);
+        ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }
 
-static void draw_map_to_fb(assets::Map const& map) {
+static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
     glBindFramebuffer(GL_FRAMEBUFFER, map_view_framebuffer);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -171,6 +173,9 @@ static void draw_map_to_fb(assets::Map const& map) {
         glActiveTexture(GL_TEXTURE0);
         // Draw each layer
         for (auto& layer : current_map.get()->layers) {
+            if (!layer.visible)
+                continue;
+
             glBindVertexArray(layer.get_mesh().const_get()->vao);
             glBindTexture(GL_TEXTURE_2D, layer.tileset.get()->texture.get()->handle);
             glViewport(0.f, 0.f, grid_view_texture.w, grid_view_texture.h);
@@ -182,18 +187,20 @@ static void draw_map_to_fb(assets::Map const& map) {
             glDrawArrays(GL_TRIANGLES, 0, map.width * map.height * quad_verts);
         }
     }
-    // Draw mesh grid
-    glUseProgram(grid_shader.get()->handle);
-    glBindVertexArray(quad_mesh.get()->vao);
-    glUniform4f(3, .9f, .9f, .9f, .4f);
-    glUniform2ui(4, current_map.get()->width, current_map.get()->height);
-    glViewport(0.f, 0.f, grid_view_texture.w, grid_view_texture.h);
-    glm::mat4 model = glm::mat4(1);
-    glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
-    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
+    if (show_grid) {
+        // Draw mesh grid
+        glUseProgram(grid_shader.get()->handle);
+        glBindVertexArray(quad_mesh.get()->vao);
+        glUniform4f(3, .9f, .9f, .9f, .4f);
+        glUniform2ui(4, current_map.get()->width, current_map.get()->height);
+        glViewport(0.f, 0.f, grid_view_texture.w, grid_view_texture.h);
+        glm::mat4 model = glm::mat4(1);
+        glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
 
-    constexpr int quad_verts = 2 * 3;
-    glDrawArrays(GL_TRIANGLES, 0, quad_verts);
+        constexpr int quad_verts = 2 * 3;
+        glDrawArrays(GL_TRIANGLES, 0, quad_verts);
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -212,34 +219,44 @@ void init() {
 asset_manager::Handle<assets::Map> get_current_map() { return current_map; }
 
 void render() {
+    static bool show_grid = true;
     auto map = current_map.get();
     if (map)
-        draw_map_to_fb(*map);
+        draw_map_to_fb(*map, show_grid);
 
-
-    if (ImGui::Begin("Map View", nullptr, ImGuiWindowFlags_NoScrollbar)) {
+    if (ImGui::Begin("Map View", nullptr,
+                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar)) {
         if (map) {
+            if (ImGui::BeginMenuBar()) {
+                ImGui::Checkbox("Grid", &show_grid);
+                ImGui::EndMenuBar();
+            }
+
             ImVec2 base_cursor_pos{ImGui::GetCursorScreenPos().x + map_scroll.x,
                                    ImGui::GetCursorScreenPos().y + map_scroll.y};
             ImGui::SetCursorScreenPos(base_cursor_pos);
             ImGui::Image(reinterpret_cast<ImTextureID>(grid_view_texture.handle),
                          ImVec2{(float)grid_view_texture.w, (float)grid_view_texture.h});
 
+            ImVec2 mouse_pos = ImGui::GetIO().MousePos;
+            ImVec2 relative_mouse_pos =
+                ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
+
+            // Snap the relative mouse position
+            relative_mouse_pos.x = static_cast<int>(relative_mouse_pos.x) -
+                                   static_cast<int>(static_cast<int>(relative_mouse_pos.x) %
+                                                    tileset_manager::get_tile_size());
+            relative_mouse_pos.y = static_cast<int>(relative_mouse_pos.y) -
+                                   static_cast<int>(static_cast<int>(relative_mouse_pos.y) %
+                                                    tileset_manager::get_tile_size());
+            i32 mouse_tile_x =
+                    static_cast<i64>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
+                mouse_tile_y =
+                    static_cast<i64>(relative_mouse_pos.y / tileset_manager::get_tile_size());
+
             auto selection = tileset_manager::get_selection();
             if (auto selection_tileset = selection.tileset.get()) {
                 ImGui::SetCursorScreenPos(base_cursor_pos);
-
-                ImVec2 mouse_pos = ImGui::GetIO().MousePos;
-                ImVec2 relative_mouse_pos =
-                    ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
-
-                // Snap the relative mouse position
-                relative_mouse_pos.x = static_cast<int>(relative_mouse_pos.x) -
-                                       static_cast<int>(static_cast<int>(relative_mouse_pos.x) %
-                                                        tileset_manager::get_tile_size());
-                relative_mouse_pos.y = static_cast<int>(relative_mouse_pos.y) -
-                                       static_cast<int>(static_cast<int>(relative_mouse_pos.y) %
-                                                        tileset_manager::get_tile_size());
 
                 ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + base_cursor_pos.x,
                                                      relative_mouse_pos.y + base_cursor_pos.y);
@@ -268,44 +285,38 @@ void render() {
                      selection_render_pos.y + selection_size.y},
                     uv_min, uv_max, ImGui::GetColorU32({1, 1, 1, 0.4f}));
                 ImGui::GetWindowDrawList()->PopClipRect();
-                i32 mouse_tile_x =
-                        static_cast<i64>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
-                    mouse_tile_y =
-                        static_cast<i64>(relative_mouse_pos.y / tileset_manager::get_tile_size());
-
-                if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                    int start_my = mouse_tile_y;
-                    if (mouse_tile_x >= 0 && mouse_tile_y >= 0 && mouse_tile_x < map->width &&
-                        mouse_tile_y < map->height && !map->layers.empty()) {
-                        for (int tx = selection.selection_start.x; tx <= selection.selection_end.x;
-                             tx++) {
-                            for (int ty = selection.selection_start.y;
-                                 ty <= selection.selection_end.y; ty++) {
-                                if (!(mouse_tile_x >= 0 && mouse_tile_y >= 0 &&
-                                      mouse_tile_x < map->width && mouse_tile_y < map->height))
-                                    continue;
-                                map->layers[current_layer_selected].set_tile(
-                                    {mouse_tile_x, mouse_tile_y},
-                                    {map->layers[current_layer_selected].tileset.get()->get_id(
-                                        {tx, ty})});
-                                mouse_tile_y++;
-                            }
-                            mouse_tile_x++;
-                            mouse_tile_y = start_my;
+            }
+            if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                int start_my = mouse_tile_y;
+                if (mouse_tile_x >= 0 && mouse_tile_y >= 0 && mouse_tile_x < map->width &&
+                    mouse_tile_y < map->height && !map->layers.empty()) {
+                    for (int tx = selection.selection_start.x; tx <= selection.selection_end.x;
+                         tx++) {
+                        for (int ty = selection.selection_start.y; ty <= selection.selection_end.y;
+                             ty++) {
+                            if (!(mouse_tile_x >= 0 && mouse_tile_y >= 0 &&
+                                  mouse_tile_x < map->width && mouse_tile_y < map->height))
+                                continue;
+                            map->layers[current_layer_selected].set_tile(
+                                {mouse_tile_x, mouse_tile_y},
+                                {map->layers[current_layer_selected].tileset.get()->get_id(
+                                    {tx, ty})});
+                            mouse_tile_y++;
                         }
+                        mouse_tile_x++;
+                        mouse_tile_y = start_my;
                     }
                 }
-                if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
-                    ImGuiIO& io = ImGui::GetIO();
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                    map_scroll =
-                        ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
-                }
-
-                ImVec2 rel_mouse_px_pos =
-                    ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
-                draw_pos_info_bar({mouse_tile_x, mouse_tile_y}, rel_mouse_px_pos);
             }
+            if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
+                ImGuiIO& io = ImGui::GetIO();
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
+            }
+
+            ImVec2 rel_mouse_px_pos =
+                ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
+            draw_pos_info_bar({mouse_tile_x, mouse_tile_y}, rel_mouse_px_pos);
         } else
             ImGui::TextDisabled("No map loaded to view.");
     }
@@ -314,24 +325,44 @@ void render() {
     static bool show_add_layer = false;
     if (ImGui::Begin("Map Layers", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
-            if (ImGui::MenuItem("New...")) {
+            if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
                 show_add_layer = true;
             }
             ImGui::EndMenuBar();
         }
 
-        if (auto map = current_map.get()) {
+        if (map) {
             if (map->layers.empty())
                 ImGui::TextDisabled("No layers in current map");
             else {
+                std::size_t i_to_delete = -1;
                 std::size_t i = 0;
                 for (auto& layer : map->layers) {
                     ImGui::TextDisabled("%zu", i);
                     ImGui::SameLine();
-                    if (ImGui::Selectable(layer.name.c_str(), i == current_layer_selected)) {
+                    if (ImGui::TextDisabled("%s", layer.visible ? ICON_MD_VISIBILITY
+                                                                : ICON_MD_VISIBILITY_OFF),
+                        ImGui::IsItemClicked()) {
+                        layer.visible = !layer.visible;
+                    }
+                    ImGui::SameLine();
+                    if (i == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
+                                                    : ImGui::TextDisabled("%s", layer.name.c_str()),
+                        ImGui::IsItemClicked()) {
                         current_layer_selected = i;
                     }
+
+                    if (ImGui::BeginPopupContextItem("Layer Context Menu")) {
+                        if (ImGui::Selectable("Delete"))
+                            i_to_delete = i;
+                        ImGui::EndPopup();
+                    }
                     i++;
+                }
+
+                if (i_to_delete != static_cast<std::size_t>(-1)) {
+                    map->layers.erase(map->layers.begin() + i_to_delete);
+                    current_layer_selected--;
                 }
             }
         } else {

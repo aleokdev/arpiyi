@@ -1,10 +1,13 @@
 #include "editor/editor_style.hpp"
+#include "util/icons_material_design.hpp"
 
 #include <imgui.h>
 
+static ImFont* icon_font;
+
 namespace arpiyi_editor::editor::style {
 
-void set_default_style() {
+void init() {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::GetStyle().ChildBorderSize = 0;
     ImGui::GetStyle().PopupBorderSize = 0;
@@ -65,6 +68,10 @@ void set_default_style() {
     ImFontConfig conf;
     conf.RasterizerMultiply = 1.3f;
     io.Fonts->AddFontFromFileTTF("data/monaco.ttf", 14.0f, &conf);
+    ImFontConfig iconf;
+    iconf.MergeMode = true;
+    static const ImWchar icon_ranges[] = { ICON_MIN_MD, ICON_MAX_MD, 0 };
+    icon_font = io.Fonts->AddFontFromFileTTF("data/" FONT_ICON_FILE_NAME_MD, 14.0f, &iconf, icon_ranges);
 }
 
 }

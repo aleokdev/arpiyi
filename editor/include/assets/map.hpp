@@ -40,6 +40,7 @@ struct Map {
 
         asset_manager::Handle<assets::Tileset> tileset;
         std::string name;
+        bool visible = true;
 
     private:
         assets::Mesh generate_layer_split_quad();
