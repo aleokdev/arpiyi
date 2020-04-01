@@ -56,7 +56,8 @@ static void update_grid_texture() {
     // Draw grid
     glUseProgram(grid_shader.get()->handle);
     glBindVertexArray(quad_mesh.get()->vao);
-    glUniform4f(3, .9f, .9f, .9f, .5f); // Grid color
+    ImVec4 bg_color = ImGui::ColorConvertU32ToFloat4(ImGui::GetColorU32(ImGuiCol_WindowBg));
+    glUniform4f(3, bg_color.x, bg_color.y, bg_color.z, 1.f); // Grid color
     glUniform2ui(4, tileset_size.x, tileset_size.y);
     glViewport(0.f, 0.f, grid_texture.w, grid_texture.h);
     glm::mat4 model = glm::mat4(1);
@@ -90,17 +91,17 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
 
     // 64 tiles are needed to cache all possible combinations of corners.
     // HOWEVER, some of them are equal. RPGMaker-style texture only uses corner textures when there
-    // aren't sides next to them. By doing some math, we end with the conclusion that only *46*
-    // tiles are needed. Since 46 can't be nicely split into a square/rectangle texture, we'll just
-    // do a 1*tile_size x 46*tile_size texture.
+    // aren't sides next to them. By doing some math, we end with the conclusion that only *47*
+    // tiles are needed. Since 47 can't be nicely split into a square/rectangle texture, we'll just
+    // do a 1*tile_size x 47*tile_size texture.
     unsigned int temp_fb;
     glGenFramebuffers(1, &temp_fb);
     assets::Texture generated_texture;
     glGenTextures(1, &generated_texture.handle);
     glBindTexture(GL_TEXTURE_2D, generated_texture.handle);
-    generated_texture.w = 8 * tile_size;
-    generated_texture.h = 8 * tile_size;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 8 * tile_size, 8 * tile_size, 0, GL_RGBA,
+    generated_texture.w = tile_size;
+    generated_texture.h = 47 * tile_size;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, generated_texture.w, generated_texture.h, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
     // Disable filtering
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -119,10 +120,31 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
     glBindTexture(GL_TEXTURE_2D, source_tex.handle);
     glViewport(0.f, 0.f, generated_texture.w, generated_texture.h);
 
+    enum tile_sides {
+        upper_left_corner =  1 << 0,
+        upper_middle_side =  1 << 1,
+        upper_right_corner = 1 << 2,
+        middle_left_side =   1 << 3,
+        middle_right_side =  1 << 4,
+        lower_left_corner =  1 << 5,
+        lower_middle_side =  1 << 6,
+        lower_right_corner = 1 << 7
+    };
+
+    u8 tile_index = 0;
     // Calculate each corner variation texture and draw it to the framebuffer.
     for (u8 corner_variation = 0; corner_variation < 0xFF; corner_variation++) {
-        // For each bit of corner_variation, 1 is "tile continues in that corner/side", 0 is the
+        // For each bit of corner_variation, 1 is "tile of same type adjacent in that corner/side", 0 is the
         // opposite.
+
+        if((corner_variation & upper_left_corner) && ((corner_variation & upper_middle_side) || (corner_variation & middle_left_side)))
+            continue;
+        if((corner_variation & upper_right_corner) && ((corner_variation & upper_middle_side) || (corner_variation & middle_right_side)))
+            continue;
+        if((corner_variation & lower_left_corner) && ((corner_variation & lower_middle_side) || (corner_variation & middle_left_side)))
+            continue;
+        if((corner_variation & lower_right_corner) && ((corner_variation & lower_middle_side) || (corner_variation & middle_right_side)))
+            continue;
 
         constexpr u8 minitile_count = 4;
         // Let's first go through each one of the minitiles in the corner variation.
@@ -151,17 +173,6 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
             bool has_vert_side;
             bool has_horz_side;
 
-            enum tile_sides {
-                upper_left_corner = 1 << 7,
-                upper_middle_side = 1 << 6,
-                upper_right_corner = 1 << 5,
-                middle_left_side = 1 << 4,
-                middle_right_side = 1 << 3,
-                lower_left_corner = 1 << 2,
-                lower_middle_side = 1 << 1,
-                lower_right_corner = 1 << 0
-            };
-
             switch (minitile) {
                 case 0: // Upper left minitile ("A" case)
                     has_corner = corner_variation & upper_left_corner;
@@ -185,7 +196,6 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
                     break;
             }
 
-            constexpr float target_tile_uv_scale = 1.f / 8.f;
             const float source_tile_uv_size_x =
                             1.f / static_cast<float>(rpgmaker_tileset_size_in_tiles.x),
                         source_tile_uv_size_y =
@@ -196,7 +206,7 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
                 source_minitile_relative_x =
                     source_tile_uv_size_x / 2.f * static_cast<float>((minitile % 2) + 2);
                 source_minitile_relative_y =
-                    source_tile_uv_size_y / 2.f * static_cast<float>((minitile / 2));
+                    source_tile_uv_size_y / 2.f * static_cast<float>(minitile / 2);
             } else { // Any other case ("2" to "5")
                 enum MinitileFacing { right = 0b01, down = 0b10 };
 
@@ -213,15 +223,13 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
                 source_minitile_relative_y = source_tile_uv_size_y / 2.f * (minitile_pos_y + 2);
             }
 
-            const float target_minitile_x =
-                            target_tile_uv_scale * (static_cast<float>(corner_variation % 8) +
-                                                    static_cast<float>(minitile % 2) / 2.f),
+            constexpr float target_tile_uv_y_scale = 1.f / 47.f;
+            const float target_minitile_x = static_cast<float>(minitile % 2) / 2.f,
                         target_minitile_y =
-                            target_tile_uv_scale * (static_cast<float>(corner_variation / 8) +
-                                                    static_cast<float>(minitile / 2) / 2.f);
+                target_tile_uv_y_scale * (static_cast<float>(tile_index) + static_cast<float>(minitile / 2) / 2.f);
             glm::mat4 model = glm::mat4(1);
             model = glm::translate(model, glm::vec3(target_minitile_x, target_minitile_y, 0));
-            model = glm::scale(model, glm::vec3(target_tile_uv_scale / 2.f));
+            model = glm::scale(model, glm::vec3(1.f / 2.f, target_tile_uv_y_scale / 2.f, 1));
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
             glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(tex_mat));
             glUniform2f(3, source_minitile_relative_x, source_minitile_relative_y); // UV start
@@ -230,6 +238,7 @@ calculate_rpgmaker_a12_auto_tileset_texture(assets::Texture const& source_tex) {
             constexpr int quad_verts = 2 * 3;
             glDrawArrays(GL_TRIANGLES, 0, quad_verts);
         }
+        tile_index++;
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
