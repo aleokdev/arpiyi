@@ -1,12 +1,10 @@
 #include "tileset_manager.hpp"
 #include "window_manager.hpp"
 
-#include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <iostream>
 #include <noc_file_dialog.h>
 #include <vector>
 
@@ -17,11 +15,11 @@
 
 namespace arpiyi_editor::tileset_manager {
 
-std::vector<asset_manager::Handle<assets::Tileset>> tilesets;
-asset_manager::Handle<assets::Shader> tile_shader;
-asset_manager::Handle<assets::Shader> grid_shader;
-asset_manager::Handle<assets::Shader> uv_tile_shader;
-asset_manager::Handle<assets::Mesh> quad_mesh;
+std::vector<Handle<assets::Tileset>> tilesets;
+Handle<assets::Shader> tile_shader;
+Handle<assets::Shader> grid_shader;
+Handle<assets::Shader> uv_tile_shader;
+Handle<assets::Mesh> quad_mesh;
 std::size_t tile_size = 48;
 
 unsigned int grid_framebuffer;
@@ -71,7 +69,7 @@ static void update_grid_texture() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-asset_manager::Handle<assets::Texture>
+Handle<assets::Texture>
 calculate_rpgmaker_a2_auto_tileset_texture(assets::Texture const& source_tex) {
     // The format RPGMaker uses for auto-tiling is pretty simple.
     // It consists of 6 tiles (Each one composed by 2x2 minitiles):
@@ -539,7 +537,7 @@ void render() {
 
 u32 get_tile_size() { return tile_size; }
 
-std::vector<asset_manager::Handle<assets::Tileset>>& get_tilesets() { return tilesets; }
+std::vector<Handle<assets::Tileset>>& get_tilesets() { return tilesets; }
 
 TilesetSelection& get_selection() { return selection; }
 

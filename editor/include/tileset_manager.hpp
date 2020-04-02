@@ -10,7 +10,7 @@
 namespace arpiyi_editor::tileset_manager {
 
 struct TilesetSelection {
-    asset_manager::Handle<assets::Tileset> tileset;
+    Handle<assets::Tileset> tileset;
     math::IVec2D selection_start;
     math::IVec2D selection_end;
 };
@@ -21,7 +21,7 @@ void render();
 
 u32 get_tile_size();
 
-std::vector<asset_manager::Handle<assets::Tileset>>& get_tilesets();
+std::vector<Handle<assets::Tileset>>& get_tilesets();
 
 TilesetSelection& get_selection();
 

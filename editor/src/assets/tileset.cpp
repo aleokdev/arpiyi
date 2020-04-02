@@ -1,5 +1,8 @@
 #include "assets/tileset.hpp"
 #include "tileset_manager.hpp"
+#include <set>
+
+#include "util/intdef.hpp"
 
 namespace arpiyi_editor::assets {
 

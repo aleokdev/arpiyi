@@ -21,7 +21,7 @@ struct Tileset {
         count
     } auto_type;
 
-    asset_manager::Handle<assets::Texture> texture;
+    Handle<assets::Texture> texture;
     std::string name;
 
     /// Returns the size of this tileset in tiles, taking the tilesize from tileset_manager::get_tile_size().

@@ -26,7 +26,7 @@ struct Map {
         Layer() = delete;
         Layer(i64 width,
               i64 height,
-              asset_manager::Handle<assets::Tileset> tileset);
+              Handle<assets::Tileset> tileset);
 
         [[nodiscard]] Tile const& get_tile(math::IVec2D pos) const {
             return tiles[pos.x + pos.y * width];
@@ -36,9 +36,9 @@ struct Map {
             mesh.get()->destroy();
             *mesh.get() = generate_layer_split_quad();
         }
-        [[nodiscard]] asset_manager::Handle<assets::Mesh> const get_mesh() const { return mesh; }
+        [[nodiscard]] Handle<assets::Mesh> const get_mesh() const { return mesh; }
 
-        asset_manager::Handle<assets::Tileset> tileset;
+        Handle<assets::Tileset> tileset;
         std::string name;
         bool visible = true;
 
@@ -47,7 +47,7 @@ struct Map {
 
         i64 width = 0, height = 0;
         std::vector<Tile> tiles;
-        asset_manager::Handle<assets::Mesh> mesh;
+        Handle<assets::Mesh> mesh;
     };
 
     std::vector<Layer> layers;

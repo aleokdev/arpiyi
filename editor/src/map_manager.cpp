@@ -19,11 +19,11 @@
 
 namespace arpiyi_editor::map_manager {
 
-std::vector<asset_manager::Handle<assets::Map>> maps;
-asset_manager::Handle<assets::Map> current_map;
-asset_manager::Handle<assets::Shader> tile_shader;
-asset_manager::Handle<assets::Shader> grid_shader;
-asset_manager::Handle<assets::Mesh> quad_mesh;
+std::vector<Handle<assets::Map>> maps;
+Handle<assets::Map> current_map;
+Handle<assets::Shader> tile_shader;
+Handle<assets::Shader> grid_shader;
+Handle<assets::Mesh> quad_mesh;
 unsigned int map_view_framebuffer;
 assets::Texture grid_view_texture;
 glm::mat4 proj_mat;
@@ -59,7 +59,7 @@ static void update_grid_view_texture() {
 static void show_add_layer_window(bool* p_open) {
     if (ImGui::Begin("New Map Layer", p_open)) {
         static char name[32];
-        static asset_manager::Handle<assets::Tileset> tileset;
+        static Handle<assets::Tileset> tileset;
         const auto& show_info_tip = [](const char* c) {
             ImGui::SameLine();
             ImGui::TextDisabled("(?)");
@@ -240,7 +240,7 @@ void init() {
     update_grid_view_texture();
 }
 
-asset_manager::Handle<assets::Map> get_current_map() { return current_map; }
+Handle<assets::Map> get_current_map() { return current_map; }
 
 void render() {
     static bool show_grid = true;

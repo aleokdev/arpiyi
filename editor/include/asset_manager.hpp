@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include "util/intdef.hpp"
 
-namespace arpiyi_editor::asset_manager {
+namespace arpiyi_editor {
 
 namespace detail {
 
@@ -100,6 +100,10 @@ public:
 private:
     u64 id;
 };
+
+}
+
+namespace arpiyi_editor::asset_manager {
 
 template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& load_params) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();

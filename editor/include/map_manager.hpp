@@ -9,7 +9,7 @@ namespace arpiyi_editor::map_manager {
 void init();
 void render();
 
-asset_manager::Handle<assets::Map> get_current_map();
+Handle<assets::Map> get_current_map();
 
 }
 
