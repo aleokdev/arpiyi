@@ -14,9 +14,10 @@ namespace arpiyi_editor::assets {
 struct Tileset {
     enum class AutoType {
         none,
-        // Used for RPGMaker A1 & A2 tilesets (Those that only contain floor / floor details).
-        // i.e. Outside_A1 or Inside_A2
-        rpgmaker_a12,
+        // Used for RPGMaker A2 tilesets (Those that only contain floor / floor details).
+        // i.e. Inside_A2
+        // This will also work with A1 tilesets, but those are meant to be animated.
+        rpgmaker_a2,
         count
     } auto_type;
 
