@@ -2,9 +2,27 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(arpiyi-editor src/main.cpp src/editor/editor_lua_wrapper.cpp src/editor/editor_renderer.cpp src/editor/editor_style.cpp include/plugin_manager.hpp src/plugin_manager.cpp
-        include/asset_manager.hpp src/tileset_manager.cpp src/stb_image.cpp src/noc_file_dialog.cpp src/window_manager.cpp src/assets/mesh.cpp src/map_manager.cpp src/assets/map.cpp src/assets/tileset.cpp)
+set(ARPIYI_EDITOR_VERSION 0.0.0)
+
+add_executable(arpiyi-editor src/main.cpp
+        src/editor/editor_lua_wrapper.cpp
+        src/editor/editor_renderer.cpp
+        src/editor/editor_style.cpp
+        src/plugin_manager.cpp
+        src/tileset_manager.cpp
+        src/stb_image.cpp
+        src/stb_image_write.cpp
+        src/noc_file_dialog.cpp
+        src/window_manager.cpp
+        src/assets/mesh.cpp
+        src/map_manager.cpp
+        src/assets/map.cpp
+        src/assets/tileset.cpp
+        src/startup_dialog.cpp
+        src/serializer.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
+target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # Use the package PkgConfig to detect GTK+ headers/library files
 FIND_PACKAGE(PkgConfig REQUIRED)

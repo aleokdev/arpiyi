@@ -26,7 +26,7 @@ struct Map {
         Layer() = delete;
         Layer(i64 width, i64 height, Handle<assets::Tileset> tileset);
 
-        [[nodiscard]] Tile get_tile(math::IVec2D pos) {
+        [[nodiscard]] Tile get_tile(math::IVec2D pos) const {
             assert(is_pos_valid(pos));
             return tiles[pos.x + pos.y * width];
         }

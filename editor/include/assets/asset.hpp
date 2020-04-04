@@ -12,7 +12,7 @@ template<typename AssetT>
 void raw_unload(AssetT&);
 
 template<typename AssetT>
-void raw_save(AssetT&, SaveParams<AssetT> const& params);
+void raw_save(AssetT const&, SaveParams<AssetT> const& params);
 
 }
 

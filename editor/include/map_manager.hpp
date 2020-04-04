@@ -11,6 +11,8 @@ void render();
 
 Handle<assets::Map> get_current_map();
 
+std::vector<Handle<assets::Map>>& get_maps();
+
 }
 
 #endif // ARPIYI_EDITOR_MAP_MANAGER_HPP

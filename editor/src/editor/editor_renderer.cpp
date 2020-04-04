@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <map>
+#include <noc_file_dialog.h>
+#include <serializer.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -78,6 +80,17 @@ void render() {
             if (ImGui::MenuItem(toolbar.name.c_str())) {
                 std::cout << "Clicked toolbar!" << std::endl;
                 toolbar.callback(toolbar);
+            }
+        }
+        if(ImGui::MenuItem("Save")) {
+            if (const char* c_path = noc_file_dialog_open(NOC_FILE_DIALOG_DIR, nullptr, nullptr, nullptr)) {
+                if (!fs::is_directory(c_path)) {
+                    // TODO: change this to a popup
+                    assert(false);
+                }
+                fs::path base_dir(c_path);
+
+                serializer::save_project(base_dir);
             }
         }
         ImGui::EndMenuBar();

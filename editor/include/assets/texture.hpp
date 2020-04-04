@@ -5,9 +5,10 @@
 
 #include <filesystem>
 
+#include "util/intdef.hpp"
 #include <glad/glad.h>
 #include <stb_image.h>
-#include "util/intdef.hpp"
+#include <stb_image_write.h>
 
 namespace fs = std::filesystem;
 
@@ -20,10 +21,7 @@ struct Texture {
     constexpr static auto nohandle = static_cast<decltype(handle)>(-1);
 };
 
-enum TextureFilter {
-    point,
-    linear
-};
+enum TextureFilter { point, linear };
 template<> struct LoadParams<Texture> {
     fs::path path;
     bool flip = true;
@@ -39,7 +37,7 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    switch(params.filter) {
+    switch (params.filter) {
         case point:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -58,6 +56,18 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
     texture.handle = tex;
     texture.w = w;
     texture.h = h;
+}
+
+template<> struct SaveParams<Texture> { fs::path path; };
+
+template<> inline void raw_save(Texture const& texture, SaveParams<Texture> const& params) {
+    constexpr u8 channel_width = 4;
+    void* data = malloc(texture.w * texture.h * channel_width);
+    glBindTexture(GL_TEXTURE_2D, texture.handle);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    stbi_write_png(params.path.c_str(), texture.w, texture.h, STBI_rgb_alpha, data,
+                   texture.w * channel_width);
+    free(data);
 }
 
 template<> inline void raw_unload(Texture& texture) { glDeleteTextures(1, &texture.handle); }

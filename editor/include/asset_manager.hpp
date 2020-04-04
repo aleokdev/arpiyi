@@ -74,7 +74,7 @@ public:
             return &asset_it->second;
     }
 
-    void save(assets::SaveParams<AssetT> const& params) {
+    void save(assets::SaveParams<AssetT> const& params) const {
         assets::raw_save(*get().operator->(), params);
     }
 

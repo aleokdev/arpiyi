@@ -467,4 +467,6 @@ void render() {
     }
 }
 
+std::vector<Handle<assets::Map>>& get_maps() { return maps; }
+
 } // namespace arpiyi_editor::map_manager

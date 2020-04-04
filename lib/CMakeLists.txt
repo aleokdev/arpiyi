@@ -9,6 +9,7 @@ target_include_directories(arpiyi-editor PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/sol2/single/include/
         ${CMAKE_CURRENT_SOURCE_DIR}/stb/
         ${CMAKE_CURRENT_SOURCE_DIR}/noc/
+        ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson/include
         )
 target_sources(arpiyi-editor PRIVATE ${imgui_source} imgui/examples/imgui_impl_opengl3.cpp imgui/examples/imgui_impl_glfw.cpp)
 target_link_libraries(arpiyi-editor PRIVATE glad glfw lua glm)
