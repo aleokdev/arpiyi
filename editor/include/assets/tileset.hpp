@@ -40,6 +40,10 @@ struct Tileset {
     [[nodiscard]] u32 get_x_index_from_auto_id(u32 id) const;
 };
 
+template<> inline void raw_unload<Tileset>(Tileset& tileset) {
+    tileset.texture.unload();
+}
+
 }
 
 #endif // ARPIYI_TILESET_HPP

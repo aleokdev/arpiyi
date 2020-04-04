@@ -1,6 +1,7 @@
 #include "tileset_manager.hpp"
 #include "window_manager.hpp"
 
+#include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -447,7 +448,9 @@ void render() {
         }
         if (tilesets.empty())
             ImGui::TextDisabled("No tilesets");
-        else
+        else {
+            int i = 0;
+            int index_to_delete = -1;
             for (auto& _t : tilesets) {
                 if (auto tileset = _t.get()) {
                     ImGui::TextDisabled("%zu", _t.get_id());
@@ -456,12 +459,27 @@ void render() {
                         selection.tileset = _t;
                         update_grid_texture();
                     }
+                    if (ImGui::BeginPopupContextItem()) {
+                        if (ImGui::Selectable("Delete")) {
+                            index_to_delete = i;
+                            selection.tileset = Handle<assets::Tileset>(Handle<assets::Tileset>::noid);
+                        }
+                        ImGui::EndPopup();
+                    }
                 } else {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, 0.f, 0.f, 1.f});
                     ImGui::TextUnformatted("Empty reference");
                     ImGui::PopStyleColor(1);
                 }
+                i++;
             }
+
+            if (index_to_delete != -1) {
+                tilesets[index_to_delete].unload();
+                tilesets.erase(std::remove(tilesets.begin(), tilesets.end(), index_to_delete),
+                               tilesets.end());
+            }
+        }
     }
     ImGui::End();
 

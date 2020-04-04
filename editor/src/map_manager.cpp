@@ -231,7 +231,6 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
         case (assets::Tileset::AutoType::rpgmaker_a2): {
             auto& layer = map.layers[current_layer_selected];
             const auto& tileset = *selection.tileset.get();
-            const assets::Map::Tile self_tile = layer.get_tile(pos);
             const auto update_auto_id = [&layer, &tileset, &selection](math::IVec2D pos) {
                 u8 surroundings = 0xFF;
                 u8 bit = 0;
