@@ -48,8 +48,7 @@ bool has_window(std::size_t id) {
 
 void render() {
 
-    static ImGuiDockNodeFlags dockspace_flags =
-        ImGuiDockNodeFlags_AutoHideTabBar | ImGuiDockNodeFlags_PassthruCentralNode;
+    static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 
     // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
     // because it would be confusing to have two docking targets within each others.
@@ -76,7 +75,7 @@ void render() {
 
     if (ImGui::BeginMenuBar()) {
         for (auto& [_, toolbar] : toolbars) {
-            if (ImGui::MenuItem(toolbar.name.c_str())){
+            if (ImGui::MenuItem(toolbar.name.c_str())) {
                 std::cout << "Clicked toolbar!" << std::endl;
                 toolbar.callback(toolbar);
             }
@@ -84,8 +83,8 @@ void render() {
         ImGui::EndMenuBar();
     }
 
-    for(auto it = toolbars.begin(); it != toolbars.end();){
-        if(toolbars_to_remove.find(it->first) != toolbars_to_remove.end())
+    for (auto it = toolbars.begin(); it != toolbars.end();) {
+        if (toolbars_to_remove.find(it->first) != toolbars_to_remove.end())
             it = toolbars.erase(it);
         else
             it++;

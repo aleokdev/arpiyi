@@ -15,6 +15,7 @@ void init() {
     ImGui::GetStyle().ChildRounding = 5;
     ImGui::GetStyle().PopupRounding = 5;
     ImGui::GetStyle().WindowRounding = 5;
+    ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
     ImVec4* colors = ImGui::GetStyle().Colors;
     colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);

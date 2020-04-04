@@ -8,6 +8,7 @@
 #include "assets/texture.hpp"
 #include "editor/editor_style.hpp"
 #include "tileset_manager.hpp"
+#include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
 #include "window_manager.hpp"
 
@@ -57,7 +58,7 @@ static void update_grid_view_texture() {
 }
 
 static void show_add_layer_window(bool* p_open) {
-    if (ImGui::Begin("New Map Layer", p_open)) {
+    if (ImGui::Begin(ICON_MD_ADD_BOX " New Map Layer", p_open)) {
         static char name[32];
         static Handle<assets::Tileset> tileset;
         const auto& show_info_tip = [](const char* c) {
@@ -108,7 +109,7 @@ static void show_add_layer_window(bool* p_open) {
 }
 
 static void show_add_map_window(bool* p_open) {
-    if (ImGui::Begin("New Map", p_open)) {
+    if (ImGui::Begin(ICON_MD_ADD_BOX " New Map", p_open)) {
         static char name[32] = "Default";
         static i32 map_size[2] = {16, 16};
         const auto& show_info_tip = [](const char* c) {
@@ -263,11 +264,14 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
             for (int iy = -1; iy <= 1; ++iy) {
                 for (int ix = -1; ix <= 1; ++ix) {
                     const math::IVec2D ipos = {pos.x + ix, pos.y + iy};
-                    if(!layer.is_pos_valid(ipos)) continue;
+                    if (!layer.is_pos_valid(ipos))
+                        continue;
                     update_auto_id(ipos);
                 }
             }
         } break;
+
+        default: ARPIYI_UNREACHABLE(); break;
     }
 }
 
@@ -290,11 +294,10 @@ void render() {
     if (map)
         draw_map_to_fb(*map, show_grid);
 
-    if (ImGui::Begin("Map View", nullptr,
+    if (ImGui::Begin(ICON_MD_TERRAIN " Map View", nullptr,
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar)) {
         if (map) {
             if (ImGui::BeginMenuBar()) {
-                ImGui::Text("%s Map View", ICON_MD_EDIT);
                 ImGui::Checkbox("Grid", &show_grid);
 
                 ImGui::EndMenuBar();
@@ -379,7 +382,7 @@ void render() {
     ImGui::End();
 
     static bool show_add_layer = false;
-    if (ImGui::Begin("Map Layers", nullptr, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(ICON_MD_LAYERS " Map Layers", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
                 show_add_layer = true;
@@ -432,7 +435,7 @@ void render() {
     }
 
     static bool show_add_map = false;
-    if (ImGui::Begin("Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(ICON_MD_VIEW_LIST " Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
                 show_add_map = true;

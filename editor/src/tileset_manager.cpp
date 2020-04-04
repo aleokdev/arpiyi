@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "util/defs.hpp"
+#include "util/icons_material_design.hpp"
 #include "util/math.hpp"
 
 #include "assets/shader.hpp"
@@ -287,40 +288,40 @@ void init() {
 }
 
 void render() {
-    if (ImGui::Begin("Tileset", nullptr, ImGuiWindowFlags_MenuBar)) {
-        if (auto ts = selection.tileset.get()) {
-            if (ImGui::BeginMenuBar()) {
-                /*
-                auto img = ts->texture.get();
-                if (ImGui::BeginMenu("Edit", img)) {
-                    static bool two_power = true;
-                    static int tile_size_slider = ts->tile_size;
-                    static int last_tile_size = tile_size_slider;
-                    if (ImGui::SliderInt("Tile size", &tile_size_slider, 8, 256)) {
-                        if (two_power) {
-                            tile_size_slider--;
-                            tile_size_slider |= tile_size_slider >> 1;
-                            tile_size_slider |= tile_size_slider >> 2;
-                            tile_size_slider |= tile_size_slider >> 4;
-                            tile_size_slider |= tile_size_slider >> 8;
-                            tile_size_slider |= tile_size_slider >> 16;
-                            tile_size_slider++;
-                        }
-                    }
-                    if (last_tile_size != tile_size_slider) {
-                        current_tileset.tile_size = tile_size_slider;
-                        // Re-split the tileset if tilesize changed
-                        ImGui::SameLine();
-                        update_tileset_quads();
-                    }
-
-                    ImGui::SameLine();
-                    ImGui::Checkbox("Power of two", &two_power);
-                    ImGui::EndMenu();
-                }*/
-                ImGui::EndMenuBar();
+    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr, ImGuiWindowFlags_MenuBar)) {
+        /* TODO: Move tile size slider elsewhere
+    if (ImGui::BeginMenuBar()) {
+        auto img = ts->texture.get();
+        if (ImGui::BeginMenu("Edit", img)) {
+            static bool two_power = true;
+            static int tile_size_slider = ts->tile_size;
+            static int last_tile_size = tile_size_slider;
+            if (ImGui::SliderInt("Tile size", &tile_size_slider, 8, 256)) {
+                if (two_power) {
+                    tile_size_slider--;
+                    tile_size_slider |= tile_size_slider >> 1;
+                    tile_size_slider |= tile_size_slider >> 2;
+                    tile_size_slider |= tile_size_slider >> 4;
+                    tile_size_slider |= tile_size_slider >> 8;
+                    tile_size_slider |= tile_size_slider >> 16;
+                    tile_size_slider++;
+                }
+            }
+            if (last_tile_size != tile_size_slider) {
+                current_tileset.tile_size = tile_size_slider;
+                // Re-split the tileset if tilesize changed
+                ImGui::SameLine();
+                update_tileset_quads();
             }
 
+            ImGui::SameLine();
+            ImGui::Checkbox("Power of two", &two_power);
+            ImGui::EndMenu();
+        }
+            ImGui::EndMenuBar();
+        }
+        */
+        if (auto ts = selection.tileset.get()) {
             if (auto img = ts->texture.get()) {
                 const ImVec2 tileset_render_pos = {ImGui::GetCursorScreenPos().x,
                                                    ImGui::GetCursorScreenPos().y};
@@ -437,7 +438,7 @@ void render() {
     ImGui::End();
 
     static bool show_new_tileset = false;
-    if (ImGui::Begin("Tileset List", nullptr, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(ICON_MD_LIBRARY_BOOKS " Tileset List", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
                 show_new_tileset = true;
@@ -465,7 +466,7 @@ void render() {
     ImGui::End();
 
     if (show_new_tileset) {
-        if (ImGui::Begin("New Tileset")) {
+        if (ImGui::Begin(ICON_MD_LIBRARY_ADD " New Tileset")) {
             static char path_selected[4096] = "\0";
             ImGui::InputTextWithHint("Path", "Enter path...", path_selected, 4096);
             ImGui::SameLine();
@@ -481,7 +482,7 @@ void render() {
             }
 
             static auto auto_type = assets::Tileset::AutoType::none;
-            static const char* auto_type_bindings[] = {"None", "RPGMaker A2 Tileset"};
+            static const char* auto_type_bindings[] = {"Normal", "RPGMaker A2 Tileset"};
             constexpr u32 auto_type_bindings_count = 2;
             static_assert(auto_type_bindings_count == (u32)assets::Tileset::AutoType::count);
             if (ImGui::BeginCombo("Type", auto_type_bindings[static_cast<u32>(auto_type)])) {

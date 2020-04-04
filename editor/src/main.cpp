@@ -51,7 +51,7 @@ int main() {
         editor::renderer::render();
         tileset_manager::render();
         map_manager::render();
-        ImGui::ShowDemoWindow(nullptr);
+        // ImGui::ShowDemoWindow(nullptr);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
