@@ -10,32 +10,37 @@
 #include "mesh.hpp"
 #include "texture.hpp"
 #include "tileset.hpp"
-#include "util/math.hpp"
 #include "util/intdef.hpp"
+#include "util/math.hpp"
 
 namespace arpiyi_editor::assets {
 
 struct Map {
     struct Tile {
         /// ID of tile (within layer tileset) being used
-        u32 id;
+        u32 id = 0;
     };
 
     class Layer {
     public:
         Layer() = delete;
-        Layer(i64 width,
-              i64 height,
-              Handle<assets::Tileset> tileset);
+        Layer(i64 width, i64 height, Handle<assets::Tileset> tileset);
 
-        [[nodiscard]] Tile const& get_tile(math::IVec2D pos) const {
+        [[nodiscard]] Tile get_tile(math::IVec2D pos) {
+            assert(is_pos_valid(pos));
             return tiles[pos.x + pos.y * width];
         }
+
+        [[nodiscard]] bool is_pos_valid(math::IVec2D pos) const {
+            return pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height;
+        }
+
         void set_tile(math::IVec2D pos, Tile new_val) {
             tiles[pos.x + pos.y * width] = new_val;
             mesh.get()->destroy();
             *mesh.get() = generate_layer_split_quad();
         }
+
         [[nodiscard]] Handle<assets::Mesh> const get_mesh() const { return mesh; }
 
         Handle<assets::Tileset> tileset;

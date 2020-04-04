@@ -206,26 +206,68 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
 }
 
 static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
-    int start_my = pos.y;
+    if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
+        return;
+
     const auto selection = tileset_manager::get_selection();
-    if (pos.x >= 0 && pos.y >= 0 && pos.x < map.width &&
-        pos.y < map.height) {
-        for (int tx = selection.selection_start.x; tx <= selection.selection_end.x;
-             tx++) {
-            for (int ty = selection.selection_start.y;
-                 ty <= selection.selection_end.y; ty++) {
-                if (!(pos.x >= 0 && pos.y >= 0 &&
-                    pos.x < map.width && pos.y < map.height))
-                    continue;
-                map.layers[current_layer_selected].set_tile(
-                    {pos.x, pos.y},
-                    {map.layers[current_layer_selected].tileset.get()->get_id(
-                        {tx, ty})});
-                pos.y++;
+
+    switch (selection.tileset.get()->auto_type) {
+        case (assets::Tileset::AutoType::none): {
+            int start_my = pos.y;
+            for (int tx = selection.selection_start.x; tx <= selection.selection_end.x; tx++) {
+                for (int ty = selection.selection_start.y; ty <= selection.selection_end.y; ty++) {
+                    if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
+                        continue;
+                    map.layers[current_layer_selected].set_tile(
+                        pos, {map.layers[current_layer_selected].tileset.get()->get_id({tx, ty})});
+                    pos.y++;
+                }
+                pos.x++;
+                pos.y = start_my;
             }
-            pos.x++;
-            pos.y = start_my;
-        }
+        } break;
+
+        case (assets::Tileset::AutoType::rpgmaker_a2): {
+            auto& layer = map.layers[current_layer_selected];
+            const auto& tileset = *selection.tileset.get();
+            const assets::Map::Tile self_tile = layer.get_tile(pos);
+            const auto update_auto_id = [&layer, &tileset, &selection](math::IVec2D pos) {
+                u8 surroundings = 0xFF;
+                u8 bit = 0;
+                const assets::Map::Tile self_tile = layer.get_tile(pos);
+                for (int iy = -1; iy <= 1; ++iy) {
+                    for (int ix = -1; ix <= 1; ++ix) {
+                        if (ix == 0 && iy == 0)
+                            continue;
+                        math::IVec2D neighbour_pos{pos.x + ix, pos.y + iy};
+                        if (!layer.is_pos_valid(neighbour_pos)) {
+                            bit++;
+                            continue;
+                        }
+                        assets::Map::Tile neighbour = layer.get_tile(neighbour_pos);
+                        bool is_neighbour_of_same_type =
+                            tileset.get_x_index_from_auto_id(neighbour.id) ==
+                            tileset.get_x_index_from_auto_id(self_tile.id);
+                        surroundings ^= is_neighbour_of_same_type << bit;
+                        bit++;
+                    }
+                }
+                layer.set_tile(pos,
+                               {tileset.get_id_auto(tileset.get_x_index_from_auto_id(self_tile.id),
+                                                    surroundings)});
+            };
+            // Set the tile below the cursor and don't worry about the surroundings; we'll update
+            // them later
+            layer.set_tile(pos, {tileset.get_id_auto(selection.selection_start.x, 0)});
+            // Update autoID of tile placed and all others near it
+            for (int iy = -1; iy <= 1; ++iy) {
+                for (int ix = -1; ix <= 1; ++ix) {
+                    const math::IVec2D ipos = {pos.x + ix, pos.y + iy};
+                    if(!layer.is_pos_valid(ipos)) continue;
+                    update_auto_id(ipos);
+                }
+            }
+        } break;
     }
 }
 
@@ -252,7 +294,9 @@ void render() {
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar)) {
         if (map) {
             if (ImGui::BeginMenuBar()) {
+                ImGui::Text("%s Map View", ICON_MD_EDIT);
                 ImGui::Checkbox("Grid", &show_grid);
+
                 ImGui::EndMenuBar();
             }
 
@@ -274,8 +318,8 @@ void render() {
                                    static_cast<int>(static_cast<int>(relative_mouse_pos.y) %
                                                     tileset_manager::get_tile_size());
             math::IVec2D mouse_tile_pos = {
-                    static_cast<i32>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
-                    static_cast<i32>(relative_mouse_pos.y / tileset_manager::get_tile_size())};
+                static_cast<i32>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
+                static_cast<i32>(relative_mouse_pos.y / tileset_manager::get_tile_size())};
 
             auto selection = tileset_manager::get_selection();
             if (auto selection_tileset = selection.tileset.get()) {

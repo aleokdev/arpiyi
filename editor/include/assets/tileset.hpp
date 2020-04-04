@@ -35,6 +35,9 @@ struct Tileset {
     [[nodiscard]] math::Rect2D get_uv(u32 id, u32 tile_size) const;
 
     [[nodiscard]] u32 get_id(math::IVec2D pos) const;
+    [[nodiscard]] u32 get_id_auto(u32 x_index, u32 surroundings) const;
+    [[nodiscard]] u32 get_surroundings_from_auto_id(u32 id) const;
+    [[nodiscard]] u32 get_x_index_from_auto_id(u32 id) const;
 };
 
 }
