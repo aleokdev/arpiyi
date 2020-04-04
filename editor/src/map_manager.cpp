@@ -26,7 +26,7 @@ Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
 Handle<assets::Mesh> quad_mesh;
 unsigned int map_view_framebuffer;
-assets::Texture grid_view_texture;
+assets::Texture map_view_texture;
 glm::mat4 proj_mat;
 std::size_t current_layer_selected = 0;
 ImVec2 map_scroll{0, 0};
@@ -38,21 +38,21 @@ static void update_grid_view_texture() {
     if (!map)
         return;
 
-    if (grid_view_texture.handle == assets::Texture::nohandle)
-        glDeleteTextures(1, &grid_view_texture.handle);
-    glGenTextures(1, &grid_view_texture.handle);
-    glBindTexture(GL_TEXTURE_2D, grid_view_texture.handle);
+    if (map_view_texture.handle == assets::Texture::nohandle)
+        glDeleteTextures(1, &map_view_texture.handle);
+    glGenTextures(1, &map_view_texture.handle);
+    glBindTexture(GL_TEXTURE_2D, map_view_texture.handle);
 
-    grid_view_texture.w = map->width * tileset_manager::get_tile_size();
-    grid_view_texture.h = map->height * tileset_manager::get_tile_size();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, grid_view_texture.w, grid_view_texture.h, 0, GL_RGBA,
+    map_view_texture.w = map->width * tileset_manager::get_tile_size();
+    map_view_texture.h = map->height * tileset_manager::get_tile_size();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, map_view_texture.w, map_view_texture.h, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
     // Disable filtering (Because it needs mipmaps, which we haven't set)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, map_view_framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           grid_view_texture.handle, 0);
+                           map_view_texture.handle, 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -179,7 +179,7 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
 
             glBindVertexArray(layer.get_mesh().get()->vao);
             glBindTexture(GL_TEXTURE_2D, layer.tileset.get()->texture.get()->handle);
-            glViewport(0.f, 0.f, grid_view_texture.w, grid_view_texture.h);
+            glViewport(0.f, 0.f, map_view_texture.w, map_view_texture.h);
             glm::mat4 model = glm::mat4(1);
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
             glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
@@ -194,7 +194,7 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
         glBindVertexArray(quad_mesh.get()->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f);
         glUniform2ui(4, current_map.get()->width, current_map.get()->height);
-        glViewport(0.f, 0.f, grid_view_texture.w, grid_view_texture.h);
+        glViewport(0.f, 0.f, map_view_texture.w, map_view_texture.h);
         glm::mat4 model = glm::mat4(1);
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
@@ -302,11 +302,20 @@ void render() {
                 ImGui::EndMenuBar();
             }
 
+            bool is_tileset_appropiate_for_layer;
+            if (current_layer_selected >= map->layers.size())
+                is_tileset_appropiate_for_layer = true;
+            else
+                is_tileset_appropiate_for_layer = tileset_manager::get_selection().tileset ==
+                                                  map->layers[current_layer_selected].tileset;
+            float c = is_tileset_appropiate_for_layer ? 1.f : 0.4f;
+
             ImVec2 base_cursor_pos{ImGui::GetCursorScreenPos().x + map_scroll.x,
                                    ImGui::GetCursorScreenPos().y + map_scroll.y};
             ImGui::SetCursorScreenPos(base_cursor_pos);
-            ImGui::Image(reinterpret_cast<ImTextureID>(grid_view_texture.handle),
-                         ImVec2{(float)grid_view_texture.w, (float)grid_view_texture.h});
+            ImGui::Image(reinterpret_cast<ImTextureID>(map_view_texture.handle),
+                         ImVec2{(float)map_view_texture.w, (float)map_view_texture.h}, {0, 0},
+                         {1, 1}, {c, c, c, 1.f});
 
             ImVec2 mouse_pos = ImGui::GetIO().MousePos;
             ImVec2 relative_mouse_pos =
@@ -352,11 +361,22 @@ void render() {
                     selection_render_pos,
                     {selection_render_pos.x + selection_size.x,
                      selection_render_pos.y + selection_size.y},
-                    uv_min, uv_max, ImGui::GetColorU32({1, 1, 1, 0.4f}));
+                    uv_min, uv_max, ImGui::GetColorU32({c, c, c, 0.4f}));
                 ImGui::GetWindowDrawList()->PopClipRect();
+                if (!is_tileset_appropiate_for_layer) {
+                    constexpr std::string_view text =
+                        "Tileset does not correspond the one specified in the selected layer.";
+                    ImVec2 text_size = ImGui::CalcTextSize(text.data());
+                    ImVec2 text_pos{ImGui::GetWindowPos().x + ImGui::GetWindowWidth() / 2.f -
+                                        text_size.x / 2.f,
+                                    ImGui::GetWindowPos().y + ImGui::GetWindowHeight() / 2.f -
+                                        text_size.y / 2.f};
+                    ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
+                                                        text.data());
+                }
             }
-            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) ||
-                ImGui::IsWindowHovered(ImGuiHoveredFlags_RootWindow)) {
+            if (is_tileset_appropiate_for_layer && (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) ||
+                ImGui::IsWindowHovered(ImGuiHoveredFlags_RootWindow))) {
                 if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                     if (!map->layers.empty()) {
                         place_tile_on_pos(*map, mouse_tile_pos);
