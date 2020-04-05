@@ -11,7 +11,7 @@ void render();
 
 Handle<assets::Map> get_current_map();
 
-std::vector<Handle<assets::Map>>& get_maps();
+std::vector<Handle<assets::Map>> get_maps();
 
 }
 

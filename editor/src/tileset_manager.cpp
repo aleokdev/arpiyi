@@ -9,6 +9,7 @@
 #include <noc_file_dialog.h>
 #include <vector>
 
+#include "assets/map.hpp"
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
 #include "util/math.hpp"
@@ -17,7 +18,6 @@
 
 namespace arpiyi_editor::tileset_manager {
 
-std::vector<Handle<assets::Tileset>> tilesets;
 Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
 Handle<assets::Shader> uv_tile_shader;
@@ -446,38 +446,29 @@ void render() {
             }
             ImGui::EndMenuBar();
         }
-        if (tilesets.empty())
+        if (detail::AssetContainer<assets::Tileset>::get_instance().map.empty())
             ImGui::TextDisabled("No tilesets");
         else {
-            int i = 0;
-            int index_to_delete = -1;
-            for (auto& _t : tilesets) {
-                if (auto tileset = _t.get()) {
-                    ImGui::TextDisabled("%zu", _t.get_id());
-                    ImGui::SameLine();
-                    if (ImGui::Selectable(tileset->name.c_str(), _t == selection.tileset)) {
-                        selection.tileset = _t;
-                        update_grid_texture();
-                    }
-                    if (ImGui::BeginPopupContextItem()) {
-                        if (ImGui::Selectable("Delete")) {
-                            index_to_delete = i;
-                            selection.tileset = Handle<assets::Tileset>(Handle<assets::Tileset>::noid);
-                        }
-                        ImGui::EndPopup();
-                    }
-                } else {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, 0.f, 0.f, 1.f});
-                    ImGui::TextUnformatted("Empty reference");
-                    ImGui::PopStyleColor(1);
+            int id_to_delete = -1;
+            for (auto& [_id, _t] : detail::AssetContainer<assets::Tileset>::get_instance().map) {
+                ImGui::TextDisabled("%zu", _id);
+                ImGui::SameLine();
+                if (ImGui::Selectable(_t.name.c_str(), _id == selection.tileset.get_id())) {
+                    selection.tileset = Handle<assets::Tileset>(_id);
+                    update_grid_texture();
                 }
-                i++;
+                if (ImGui::BeginPopupContextItem()) {
+                    if (ImGui::Selectable("Delete")) {
+                        id_to_delete = _id;
+                        selection.tileset = Handle<assets::Tileset>(Handle<assets::Tileset>::noid);
+                    }
+                    ImGui::EndPopup();
+                }
             }
 
-            if (index_to_delete != -1) {
-                tilesets[index_to_delete].unload();
-                tilesets.erase(std::remove(tilesets.begin(), tilesets.end(), index_to_delete),
-                               tilesets.end());
+            if (id_to_delete != -1) {
+                Handle<assets::Tileset>(id_to_delete).unload();
+                detail::AssetContainer<assets::Tileset>::get_instance().map.erase(id_to_delete);
             }
         }
     }
@@ -541,7 +532,7 @@ void render() {
                         assert(false); // not implemented, outta here
                         break;
                 }
-                selection.tileset = tilesets.emplace_back(asset_manager::put(tileset));
+                selection.tileset = asset_manager::put(tileset);
                 update_grid_texture();
                 show_new_tileset = false;
             }
@@ -556,7 +547,13 @@ void render() {
 
 u32 get_tile_size() { return tile_size; }
 
-std::vector<Handle<assets::Tileset>>& get_tilesets() { return tilesets; }
+std::vector<Handle<assets::Tileset>> get_tilesets() {
+    std::vector<Handle<assets::Tileset>> tilesets;
+    for (const auto& [id, tileset] : detail::AssetContainer<assets::Tileset>::get_instance().map) {
+        tilesets.emplace_back(id);
+    }
+    return tilesets;
+}
 
 TilesetSelection& get_selection() { return selection; }
 

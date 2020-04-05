@@ -49,7 +49,7 @@ public:
     static constexpr auto noid = static_cast<u64>(-1);
 
     Handle() noexcept : id(noid) {}
-    Handle(std::size_t id) noexcept : id(id) {}
+    Handle(u64 id) noexcept : id(id) {}
     Expected<AssetT> get() noexcept {
         if (id == noid)
             return nullptr;
@@ -110,9 +110,23 @@ template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& 
     return Handle<AssetT>(id_to_use);
 }
 
+template<typename AssetT>
+Handle<AssetT> load(assets::LoadParams<AssetT> const& load_params, u64 id_to_use) {
+    auto& container = detail::AssetContainer<AssetT>::get_instance();
+    AssetT& asset = container.map.emplace(id_to_use, AssetT{}).first->second;
+    assets::raw_load(asset, load_params);
+    return Handle<AssetT>(id_to_use);
+}
+
 template<typename AssetT> Handle<AssetT> put(AssetT const& asset) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
     u64 id_to_use = container.last_id++;
+    container.map.emplace(id_to_use, std::move(asset));
+    return Handle<AssetT>(id_to_use);
+}
+
+template<typename AssetT> Handle<AssetT> put(AssetT const& asset, u64 id_to_use) {
+    auto& container = detail::AssetContainer<AssetT>::get_instance();
     container.map.emplace(id_to_use, std::move(asset));
     return Handle<AssetT>(id_to_use);
 }

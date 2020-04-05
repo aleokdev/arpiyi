@@ -3,11 +3,13 @@
 #include "noc_file_dialog.h"
 
 #include <fstream>
+#include <sstream>
 
 #include "map_manager.hpp"
 #include "project_info.hpp"
 #include "tileset_manager.hpp"
 
+#include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
@@ -108,6 +110,7 @@ constexpr std::string_view layers_json_key = "layers";
 namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view data_json_key = "data";
+constexpr std::string_view tileset_id_json_key = "tileset";
 } // namespace layer_file_definitions
 } // namespace map_file_definitions
 
@@ -134,10 +137,12 @@ static void save_map_files(fs::path base_dir) {
             w.StartObject();
             w.Key(lfd::name_json_key.data());
             w.String(layer.name.data());
+            w.Key(lfd::tileset_id_json_key.data());
+            w.Uint64(layer.tileset.get_id());
             w.Key(lfd::data_json_key.data());
             w.StartArray();
-            for (int x = 0; x < map.get()->width; ++x) {
-                for (int y = 0; y < map.get()->height; ++y) { w.Uint(layer.get_tile({x, y}).id); }
+            for (int y = 0; y < map.get()->height; ++y) {
+                for (int x = 0; x < map.get()->width; ++x) { w.Uint(layer.get_tile({x, y}).id); }
             }
             w.EndArray();
             w.EndObject();
@@ -155,6 +160,182 @@ static void save_map_files(fs::path base_dir) {
     }
 }
 
+struct TilesetFileData {
+    u64 id;
+    std::string name;
+    assets::Tileset::AutoType auto_type;
+    fs::path texture_path;
+};
+
+static TilesetFileData load_tileset(fs::path tileset_path) {
+    std::ifstream f(tileset_path);
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    rapidjson::Document doc;
+    doc.Parse(buffer.str().data());
+
+    TilesetFileData file_data;
+
+    using namespace tileset_file_definitions;
+
+    for (auto const& obj : doc.GetObject()) {
+        if (obj.name == id_json_key.data()) {
+            file_data.id = obj.value.GetUint64();
+        } else if (obj.name == name_json_key.data()) {
+            file_data.name = obj.value.GetString();
+        } else if (obj.name == autotype_json_key.data()) {
+            u32 auto_type = obj.value.GetUint();
+
+            // TODO: Move check to load_tilesets and throw a proper exception
+            assert(auto_type >= static_cast<u32>(assets::Tileset::AutoType::none) &&
+                   auto_type < static_cast<u32>(assets::Tileset::AutoType::count));
+
+            file_data.auto_type = static_cast<assets::Tileset::AutoType>(auto_type);
+        } else if (obj.name == texture_path_json_key.data()) {
+            file_data.texture_path = obj.value.GetString();
+        } else
+            assert("Unknown JSON key in tileset file");
+    }
+
+    return file_data;
+}
+
+static void load_tilesets(fs::path project_dir, fs::path tilesets_dir) {
+    for (const auto& entry : fs::directory_iterator(tilesets_dir)) {
+        if (!entry.is_regular_file())
+            continue;
+
+        TilesetFileData tile_data = load_tileset(entry.path());
+        Handle<assets::Texture> tex =
+            asset_manager::load<assets::Texture>({project_dir / tile_data.texture_path, false});
+
+        asset_manager::put(assets::Tileset{tile_data.auto_type, tex, tile_data.name}, tile_data.id);
+    }
+}
+
+struct MapFileData {
+    u64 id;
+    std::string name;
+    struct LayerFileData {
+        std::string name;
+        u64 tileset_id;
+        std::vector<u32> raw_tile_data;
+    };
+    std::vector<LayerFileData> layers;
+    i64 width = -1, height = -1;
+};
+
+static MapFileData load_map(fs::path map_path) {
+    std::ifstream f(map_path);
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    rapidjson::Document doc;
+    doc.Parse(buffer.str().data());
+
+    MapFileData file_data;
+
+    using namespace map_file_definitions;
+
+    for (auto const& obj : doc.GetObject()) {
+        if (obj.name == id_json_key.data()) {
+            file_data.id = obj.value.GetUint64();
+        } else if (obj.name == name_json_key.data()) {
+            file_data.name = obj.value.GetString();
+        } else if (obj.name == width_json_key.data()) {
+            file_data.width = obj.value.GetInt64();
+        } else if (obj.name == height_json_key.data()) {
+            file_data.height = obj.value.GetInt64();
+        } else if (obj.name == layers_json_key.data()) {
+            for (auto const& layer_object : obj.value.GetArray()) {
+                namespace lfd = layer_file_definitions;
+                auto& layer = file_data.layers.emplace_back();
+
+                for (auto const& layer_val : layer_object.GetObject()) {
+                    if (layer_val.name == lfd::name_json_key.data()) {
+                        layer.name = layer_val.value.GetString();
+                    } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
+                        layer.tileset_id = layer_val.value.GetUint64();
+                    } else if (layer_val.name == lfd::data_json_key.data()) {
+                        if (file_data.width != -1 && file_data.height != -1) {
+                            layer.raw_tile_data.resize(file_data.width * file_data.height);
+                        } else
+                            assert("Layer data defined before width & height");
+
+                        u64 i = 0;
+                        for (auto const& layer_tile : layer_val.value.GetArray()) {
+                            layer.raw_tile_data[i] = layer_tile.GetUint();
+                            ++i;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return file_data;
+}
+
+static void load_maps(fs::path maps_dir) {
+    for (const auto& entry : fs::directory_iterator(maps_dir)) {
+        if (!entry.is_regular_file())
+            continue;
+
+        MapFileData map_data = load_map(entry.path());
+        assets::Map map;
+        map.width = map_data.width;
+        map.height = map_data.height;
+        map.name = map_data.name;
+
+        for (MapFileData::LayerFileData const& raw_layer : map_data.layers) {
+            assets::Map::Layer& layer = map.layers.emplace_back(
+                map.width, map.height, Handle<assets::Tileset>(raw_layer.tileset_id));
+            layer.name = raw_layer.name;
+
+            i32 i = 0;
+            for (const auto& raw_tile : raw_layer.raw_tile_data) {
+                layer.set_tile({static_cast<i32>(i % map.width), static_cast<i32>(i / map.width)},
+                               {raw_tile});
+                ++i;
+            }
+        }
+
+        asset_manager::put(map, map_data.id);
+    }
+}
+
+struct ProjectFileData {
+    fs::path tilesets_path;
+    fs::path maps_path;
+    std::string editor_version;
+};
+
+static ProjectFileData load_project_file(fs::path base_dir) {
+    std::ifstream f(base_dir / "project.json");
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    rapidjson::Document doc;
+    doc.Parse(buffer.str().data());
+
+    ProjectFileData file_data;
+
+    using namespace project_file_definitions;
+
+    for (auto const& obj : doc.GetObject()) {
+        if (obj.name == tilesets_path_json_key.data()) {
+            file_data.tilesets_path = obj.value.GetString();
+        } else if (obj.name == maps_path_json_key.data()) {
+            file_data.maps_path = obj.value.GetString();
+        } else if (obj.name == editor_version_json_key.data()) {
+            file_data.editor_version = obj.value.GetString();
+        }
+    }
+
+    return file_data;
+}
+
 namespace arpiyi_editor::serializer {
 
 void save_project(fs::path dir) {
@@ -163,6 +344,31 @@ void save_project(fs::path dir) {
     save_map_files(dir);
 }
 
-void load_project(fs::path dir) { assert(false); }
+void load_project(fs::path dir) {
+    ProjectFileData file_data(load_project_file(dir));
+
+    if (ARPIYI_EDITOR_VERSION != file_data.editor_version) {
+        // TODO: do something if current editor version doesn't correspond the one from the
+        // project loaded
+    }
+
+    if (file_data.tilesets_path.empty()) {
+        assert("Tileset path is empty"); // TODO: Throw proper exception
+    }
+
+    if (file_data.maps_path.empty()) {
+        assert("Maps path is empty"); // TODO: Throw proper exception
+    }
+
+    if (file_data.tilesets_path.is_relative()) {
+        file_data.tilesets_path = dir / file_data.tilesets_path;
+    }
+    if (file_data.maps_path.is_relative()) {
+        file_data.maps_path = dir / file_data.maps_path;
+    }
+
+    load_tilesets(dir, file_data.tilesets_path);
+    load_maps(file_data.maps_path);
+}
 
 } // namespace arpiyi_editor::serializer

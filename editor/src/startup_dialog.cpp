@@ -1,8 +1,15 @@
 #include "startup_dialog.hpp"
 #include <imgui.h>
 
+#include "serializer.hpp"
+
 #include "util/icons_material_design.hpp"
 #include "project_info.hpp"
+
+#include <noc_file_dialog.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace arpiyi_editor::startup_dialog {
 
@@ -24,10 +31,21 @@ void render() {
         if (ImGui::Button(ICON_MD_ADD " New Project")) {
             ImGui::CloseCurrentPopup();
         }
-        if (ImGui::Button(ICON_MD_FOLDER " Load Project")) {}
+        if (ImGui::Button(ICON_MD_FOLDER " Load Project")) {
+            if (const char* c_path =
+                    noc_file_dialog_open(NOC_FILE_DIALOG_DIR, nullptr, nullptr, nullptr)) {
+                fs::path base_dir(c_path);
+                if (!fs::is_directory(base_dir)) {
+                    base_dir = base_dir.parent_path();
+                }
+
+                serializer::load_project(base_dir);
+                ImGui::CloseCurrentPopup();
+            }
+        }
         if(ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
-            ImGui::TextUnformatted("Not implemented");
+            ImGui::TextUnformatted("Experimental, extremely buggy");
             ImGui::EndTooltip();
         }
         if (ImGui::Button(ICON_MD_WIDGETS " Open ImGui Demo")) {

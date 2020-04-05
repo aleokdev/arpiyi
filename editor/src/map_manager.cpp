@@ -20,7 +20,6 @@
 
 namespace arpiyi_editor::map_manager {
 
-std::vector<Handle<assets::Map>> maps;
 Handle<assets::Map> current_map;
 Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
@@ -137,7 +136,7 @@ static void show_add_map_window(bool* p_open) {
             map.width = static_cast<decltype(map.width)>(map_size[0]);
             map.height = static_cast<decltype(map.height)>(map_size[1]);
             map.name = name;
-            current_map = maps.emplace_back(asset_manager::put<assets::Map>(map));
+            current_map = asset_manager::put<assets::Map>(map);
             update_grid_view_texture();
             *p_open = false;
         }
@@ -161,7 +160,8 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
         math::IVec2D mpos{static_cast<i32>(relative_mouse_pos.x),
                           static_cast<i32>(relative_mouse_pos.y)};
         char buf[128];
-        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%i, %i}", tile_pos.x, tile_pos.y, mpos.x, mpos.y);
+        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%i, %i}", tile_pos.x, tile_pos.y, mpos.x,
+                mpos.y);
         ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }
@@ -463,21 +463,15 @@ void render() {
             }
             ImGui::EndMenuBar();
         }
-        if (maps.empty())
+        if (detail::AssetContainer<assets::Map>::get_instance().map.empty())
             ImGui::TextDisabled("No maps");
         else
-            for (auto& _m : maps) {
-                if (auto i_map = _m.get()) {
-                    ImGui::TextDisabled("%zu", _m.get_id());
-                    ImGui::SameLine();
-                    if (ImGui::Selectable(i_map->name.c_str(), _m == current_map)) {
-                        current_map = _m;
-                        update_grid_view_texture();
-                    }
-                } else {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, 0.f, 0.f, 1.f});
-                    ImGui::TextUnformatted("Empty reference");
-                    ImGui::PopStyleColor(1);
+            for (auto& [_id, _m] : detail::AssetContainer<assets::Map>::get_instance().map) {
+                ImGui::TextDisabled("%zu", _id);
+                ImGui::SameLine();
+                if (ImGui::Selectable(_m.name.c_str(), _id == current_map.get_id())) {
+                    current_map = Handle<assets::Map>(_id);
+                    update_grid_view_texture();
                 }
             }
     }
@@ -488,6 +482,12 @@ void render() {
     }
 }
 
-std::vector<Handle<assets::Map>>& get_maps() { return maps; }
+std::vector<Handle<assets::Map>> get_maps() {
+    std::vector<Handle<assets::Map>> maps;
+    for (const auto& [id, map] : detail::AssetContainer<assets::Map>::get_instance().map) {
+        maps.emplace_back(id);
+    }
+    return maps;
+}
 
 } // namespace arpiyi_editor::map_manager

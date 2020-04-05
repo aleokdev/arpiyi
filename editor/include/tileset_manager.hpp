@@ -21,7 +21,7 @@ void render();
 
 u32 get_tile_size();
 
-std::vector<Handle<assets::Tileset>>& get_tilesets();
+std::vector<Handle<assets::Tileset>> get_tilesets();
 
 TilesetSelection& get_selection();
 
