@@ -520,7 +520,7 @@ void render() {
             }
             if (ImGui::Button("OK")) {
                 assets::Tileset tileset;
-                tileset.name = fs::path(path_selected).filename();
+                tileset.name = fs::path(path_selected).filename().generic_string();
                 tileset.auto_type = auto_type;
                 switch (auto_type) {
                     case (assets::Tileset::AutoType::none):

@@ -25,13 +25,13 @@ template<typename AssetT> struct AssetContainer {
 
 template<typename T> class Expected {
 public:
-    Expected(std::nullptr_t) : value{0}, has_value{false} {}
-    Expected(T* val) : value{val}, has_value{true} {}
+    Expected(std::nullptr_t) : val{nullptr}, has_value{false} {}
+    Expected(T* val) : val{val}, has_value{true} {}
 
     T* operator->() {
         if (!has_value)
             assert("Tried to access null Expected value");
-        return value.val;
+        return val;
     }
     T& operator*() {
         return *operator->();
@@ -40,10 +40,7 @@ public:
     operator bool() { return has_value; }
 
 private:
-    union {
-        T* val;
-        char unused;
-    } value;
+    T* val;
     bool has_value;
 };
 
@@ -116,7 +113,7 @@ template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& 
 template<typename AssetT> Handle<AssetT> put(AssetT const& asset) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
     u64 id_to_use = container.last_id++;
-    container.map.emplace(id_to_use, std::move(asset)).first->second;
+    container.map.emplace(id_to_use, std::move(asset));
     return Handle<AssetT>(id_to_use);
 }
 

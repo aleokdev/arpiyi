@@ -1,0 +1,4 @@
+.vs/
+.idea/
+build_win/
+CMakeSettings.json

@@ -86,7 +86,7 @@ static void save_tileset_files(fs::path base_dir) {
                 empty_file.open(base_dir / tileset_texture_path, std::ios::out);
             }
             tileset.get()->texture.save({base_dir / tileset_texture_path});
-            w.String(tileset_texture_path.c_str());
+            w.String(tileset_texture_path.generic_string().c_str());
         }
         w.EndObject();
         {
@@ -121,6 +121,8 @@ static void save_map_files(fs::path base_dir) {
         w.StartObject();
         w.Key(id_json_key.data());
         w.Uint64(map.get_id());
+        w.Key(name_json_key.data());
+        w.String(map.get()->name.c_str());
         w.Key(width_json_key.data());
         w.Int64(map.get()->width);
         w.Key(height_json_key.data());

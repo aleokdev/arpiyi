@@ -89,7 +89,7 @@ void init() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     window = glfwCreateWindow(1080, 720, "Arpiyi Editor", nullptr, nullptr);
     if (!window) {
-        std::cerr << "Couldn't create window." << std::endl;
+        std::cerr << "Couldn't create window. Check your OpenGL version and GPU drivers, as arpiyi requires OpenGL 4.5." << std::endl;
         return;
     }
     // Activate VSync and fix FPS

@@ -158,9 +158,10 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
     ImVec2 text_pos{ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                     info_rect_start.y};
     {
+        math::IVec2D mpos{static_cast<i32>(relative_mouse_pos.x),
+                          static_cast<i32>(relative_mouse_pos.y)};
         char buf[128];
-        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%.0f, %.0f}", tile_pos.x, tile_pos.y,
-                relative_mouse_pos.x, relative_mouse_pos.y);
+        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%i, %i}", tile_pos.x, tile_pos.y, mpos.x, mpos.y);
         ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }
@@ -375,8 +376,9 @@ void render() {
                                                         text.data());
                 }
             }
-            if (is_tileset_appropiate_for_layer && (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) ||
-                ImGui::IsWindowHovered(ImGuiHoveredFlags_RootWindow))) {
+            if (is_tileset_appropiate_for_layer &&
+                (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) ||
+                 ImGui::IsWindowHovered(ImGuiHoveredFlags_RootWindow))) {
                 if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                     if (!map->layers.empty()) {
                         place_tile_on_pos(*map, mouse_tile_pos);

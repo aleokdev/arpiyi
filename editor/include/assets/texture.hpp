@@ -65,7 +65,7 @@ template<> inline void raw_save(Texture const& texture, SaveParams<Texture> cons
     void* data = malloc(texture.w * texture.h * channel_width);
     glBindTexture(GL_TEXTURE_2D, texture.handle);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    stbi_write_png(params.path.c_str(), texture.w, texture.h, STBI_rgb_alpha, data,
+    stbi_write_png(params.path.generic_string().c_str(), texture.w, texture.h, STBI_rgb_alpha, data,
                    texture.w * channel_width);
     free(data);
 }
