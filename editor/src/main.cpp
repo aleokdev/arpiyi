@@ -31,8 +31,8 @@ int main() {
     map_manager::init();
     editor::style::init();
     editor::lua_wrapper::init();
-    plugin_manager::init();
-    plugin_manager::load_plugins("data/plugins");
+    // plugin_manager::init();
+    // plugin_manager::load_plugins("data/plugins");
 
     glfwSetKeyCallback(window_manager::get_window(), key_callback);
     while (!glfwWindowShouldClose(window_manager::get_window())) {
