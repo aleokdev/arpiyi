@@ -357,8 +357,6 @@ void render() {
                     {base_cursor_pos.x + map->width * tileset_manager::get_tile_size(),
                      base_cursor_pos.y + map->height * tileset_manager::get_tile_size()},
                     true);
-                ImGui::SetCursorScreenPos(selection_render_pos);
-                ImGui::InvisibleButton("##_tileset_img", {selection_size.x, selection_size.y});
                 ImGui::GetWindowDrawList()->AddImage(
                     reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
                     selection_render_pos,
@@ -377,22 +375,24 @@ void render() {
                     ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
                                                         text.data());
                 }
-            }
-            if (is_tileset_appropiate_for_layer &&
-                (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) ||
-                 ImGui::IsWindowHovered(ImGuiHoveredFlags_RootWindow))) {
-                if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                    if (!map->layers.empty()) {
-                        place_tile_on_pos(*map, mouse_tile_pos);
-                    }
-                }
 
-                if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
-                    ImGui::SetWindowFocus();
-                    ImGuiIO& io = ImGui::GetIO();
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                    map_scroll =
-                        ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
+                ImGui::SetCursorScreenPos(selection_render_pos);
+                ImGui::InvisibleButton("##_tileset_img", {selection_size.x, selection_size.y});
+                if (is_tileset_appropiate_for_layer &&
+                    ImGui::IsItemHovered()) {
+                    if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                        if (!map->layers.empty()) {
+                            place_tile_on_pos(*map, mouse_tile_pos);
+                        }
+                    }
+
+                    if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
+                        ImGui::SetWindowFocus();
+                        ImGuiIO& io = ImGui::GetIO();
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                        map_scroll =
+                            ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
+                    }
                 }
             }
 

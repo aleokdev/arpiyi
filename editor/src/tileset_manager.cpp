@@ -369,7 +369,7 @@ void render() {
                 ImGui::SetNextWindowPos(io.MousePos);
                 static float tooltip_alpha = 0;
                 bool update_tooltip_info;
-                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow) &&
+                if (ImGui::IsWindowHovered(ImGuiFocusedFlags_RootWindow) &&
                     ImGui::IsMouseHoveringRect(tileset_render_pos, tileset_render_pos_max)) {
                     update_tooltip_info = true;
                     tooltip_alpha += (1.f - tooltip_alpha) / 16.f;
