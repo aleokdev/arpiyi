@@ -29,7 +29,7 @@ assets::Texture grid_texture;
 
 glm::mat4 proj_mat;
 
-TilesetSelection selection{0, {0, 0}, {0, 0}};
+TilesetSelection selection{-1, {0, 0}, {0, 0}};
 
 static void update_grid_texture() {
     auto tileset = selection.tileset.get();
@@ -288,9 +288,7 @@ void init() {
     proj_mat = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f);
 }
 
-void render() {
-    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
-        /* TODO: Move tile size slider elsewhere
+/* // TODO: Move tile size slider elsewhere
     if (ImGui::BeginMenuBar()) {
         auto img = ts->texture.get();
         if (ImGui::BeginMenu("Edit", img)) {
@@ -322,6 +320,9 @@ void render() {
             ImGui::EndMenuBar();
         }
         */
+
+void render() {
+    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         if (auto ts = selection.tileset.get()) {
             if (auto img = ts->texture.get()) {
                 const ImVec2 tileset_render_pos = {ImGui::GetCursorScreenPos().x,
