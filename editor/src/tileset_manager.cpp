@@ -556,6 +556,13 @@ std::vector<Handle<assets::Tileset>> get_tilesets() {
     return tilesets;
 }
 
-TilesetSelection& get_selection() { return selection; }
+TilesetSelection const& get_selection() { return selection; }
+void set_selection_tileset(Handle<assets::Tileset> tileset) {
+    selection.tileset = tileset;
+    selection.selection_start = {0,0};
+    selection.selection_end = {0,0};
+
+    update_grid_texture();
+}
 
 } // namespace arpiyi_editor::tileset_manager

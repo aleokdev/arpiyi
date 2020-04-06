@@ -23,7 +23,8 @@ u32 get_tile_size();
 
 std::vector<Handle<assets::Tileset>> get_tilesets();
 
-TilesetSelection& get_selection();
+void set_selection_tileset(Handle<assets::Tileset>);
+TilesetSelection const& get_selection();
 
 }
 

@@ -470,6 +470,7 @@ void render() {
                                                     : ImGui::TextDisabled("%s", layer.name.c_str()),
                         ImGui::IsItemClicked()) {
                         current_layer_selected = i;
+                        tileset_manager::set_selection_tileset(layer.tileset);
                     }
 
                     if (ImGui::BeginPopupContextItem("Layer Context Menu")) {
