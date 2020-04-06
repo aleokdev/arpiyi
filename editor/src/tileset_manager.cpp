@@ -289,7 +289,7 @@ void init() {
 }
 
 void render() {
-    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         /* TODO: Move tile size slider elsewhere
     if (ImGui::BeginMenuBar()) {
         auto img = ts->texture.get();
