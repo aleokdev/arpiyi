@@ -29,6 +29,10 @@ assets::Texture map_view_texture;
 glm::mat4 proj_mat;
 std::size_t current_layer_selected = 0;
 ImVec2 map_scroll{0, 0};
+std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
+int current_zoom_level = 2;
+
+static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
 /// Updates grid_view_texture to fit the width and height of current_map.
 // TODO: Replace with imgui custom callbacks, remove framebuffer
@@ -109,7 +113,8 @@ static void show_add_layer_window(bool* p_open) {
 
 static void show_add_map_window(bool* p_open) {
     ImGui::SetNextWindowSize({390, 190}, ImGuiCond_Once);
-    if (ImGui::Begin(ICON_MD_ADD_BOX " New Map", p_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+    if (ImGui::Begin(ICON_MD_ADD_BOX " New Map", p_open,
+                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         static char name[32] = "Default";
         static i32 map_size[2] = {16, 16};
         static bool create_default_layer = true;
@@ -132,9 +137,10 @@ static void show_add_map_window(bool* p_open) {
         show_info_tip("The map size (In tiles). Can be changed later.");
 
         ImGui::Checkbox("Create default layer", &create_default_layer);
-        if(create_default_layer) {
+        if (create_default_layer) {
             ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.f);
-            ImGui::BeginChild("Default layer options", {0,-ImGui::GetTextLineHeightWithSpacing()}, true, ImGuiWindowFlags_AlwaysAutoResize);
+            ImGui::BeginChild("Default layer options", {0, -ImGui::GetTextLineHeightWithSpacing()},
+                              true, ImGuiWindowFlags_AlwaysAutoResize);
             ImGui::InputText("Name", layer_name, 32);
             auto t = layer_tileset.get();
             if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
@@ -165,8 +171,7 @@ static void show_add_map_window(bool* p_open) {
             map.width = static_cast<decltype(map.width)>(map_size[0]);
             map.height = static_cast<decltype(map.height)>(map_size[1]);
             map.name = name;
-            if(create_default_layer)
-            {
+            if (create_default_layer) {
                 map.layers.emplace_back(map.width, map.height, layer_tileset);
                 map.layers[0].name = layer_name;
             }
@@ -198,8 +203,8 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
         math::IVec2D mpos{static_cast<i32>(relative_mouse_pos.x),
                           static_cast<i32>(relative_mouse_pos.y)};
         char buf[128];
-        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%i, %i}", tile_pos.x, tile_pos.y, mpos.x,
-                mpos.y);
+        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%i, %i} - Zoom: %i%%", tile_pos.x,
+                tile_pos.y, mpos.x, mpos.y, static_cast<i32>(get_map_zoom() * 10.f) * 10);
         ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }
@@ -333,7 +338,8 @@ void render() {
         draw_map_to_fb(*map, show_grid);
 
     if (ImGui::Begin(ICON_MD_TERRAIN " Map View", nullptr,
-                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar)) {
+                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar |
+                         ImGuiWindowFlags_NoScrollWithMouse)) {
         if (map) {
             if (ImGui::BeginMenuBar()) {
                 ImGui::Checkbox("Grid", &show_grid);
@@ -341,6 +347,7 @@ void render() {
                 ImGui::EndMenuBar();
             }
 
+            // Draw the map
             bool is_tileset_appropiate_for_layer;
             if (current_layer_selected >= map->layers.size())
                 is_tileset_appropiate_for_layer = true;
@@ -349,27 +356,40 @@ void render() {
                                                   map->layers[current_layer_selected].tileset;
             float c = is_tileset_appropiate_for_layer ? 1.f : 0.4f;
 
-            ImVec2 base_cursor_pos{ImGui::GetCursorScreenPos().x + map_scroll.x,
-                                   ImGui::GetCursorScreenPos().y + map_scroll.y};
+            ImVec2 base_cursor_pos{ImGui::GetCursorScreenPos().x + map_scroll.x * get_map_zoom() +
+                                       static_cast<int>(ImGui::GetWindowWidth() / 2.f),
+                                   ImGui::GetCursorScreenPos().y + map_scroll.y * get_map_zoom() +
+                                       static_cast<int>(ImGui::GetWindowHeight() / 2.f)};
             ImGui::SetCursorScreenPos(base_cursor_pos);
             ImGui::Image(reinterpret_cast<ImTextureID>(map_view_texture.handle),
-                         ImVec2{(float)map_view_texture.w, (float)map_view_texture.h}, {0, 0},
-                         {1, 1}, {c, c, c, 1.f});
+                         ImVec2{(float)map_view_texture.w * get_map_zoom(),
+                                (float)map_view_texture.h * get_map_zoom()},
+                         {0, 0}, {1, 1}, {c, c, c, 1.f});
 
             ImVec2 mouse_pos = ImGui::GetIO().MousePos;
             ImVec2 relative_mouse_pos =
                 ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
+            if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
+                if (ImGui::GetIO().MouseWheel > 0 && current_zoom_level < zoom_levels.size() - 1)
+                    current_zoom_level += 1;
+                else if (ImGui::GetIO().MouseWheel < 0 && current_zoom_level > 0)
+                    current_zoom_level -= 1;
+            }
 
             // Snap the relative mouse position
-            relative_mouse_pos.x = static_cast<int>(relative_mouse_pos.x) -
-                                   static_cast<int>(static_cast<int>(relative_mouse_pos.x) %
-                                                    tileset_manager::get_tile_size());
-            relative_mouse_pos.y = static_cast<int>(relative_mouse_pos.y) -
-                                   static_cast<int>(static_cast<int>(relative_mouse_pos.y) %
-                                                    tileset_manager::get_tile_size());
+            relative_mouse_pos.x =
+                static_cast<int>(relative_mouse_pos.x) -
+                static_cast<int>(fmod(relative_mouse_pos.x,
+                                      (tileset_manager::get_tile_size() * get_map_zoom())));
+            relative_mouse_pos.y =
+                static_cast<int>(relative_mouse_pos.y) -
+                static_cast<int>(fmod(relative_mouse_pos.y,
+                                      (tileset_manager::get_tile_size() * get_map_zoom())));
             math::IVec2D mouse_tile_pos = {
-                static_cast<i32>(relative_mouse_pos.x / tileset_manager::get_tile_size()),
-                static_cast<i32>(relative_mouse_pos.y / tileset_manager::get_tile_size())};
+                static_cast<i32>(relative_mouse_pos.x /
+                                 (tileset_manager::get_tile_size() * get_map_zoom())),
+                static_cast<i32>(relative_mouse_pos.y /
+                                 (tileset_manager::get_tile_size() * get_map_zoom()))};
 
             auto selection = tileset_manager::get_selection();
             if (auto selection_tileset = selection.tileset.get()) {
@@ -377,29 +397,30 @@ void render() {
 
                 ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + base_cursor_pos.x,
                                                      relative_mouse_pos.y + base_cursor_pos.y);
-                ImVec2 selection_size =
+                ImVec2 map_selection_size =
                     ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
-                               tileset_manager::get_tile_size(),
+                               tileset_manager::get_tile_size() * get_map_zoom(),
                            (float)(selection.selection_end.y + 1 - selection.selection_start.y) *
-                               tileset_manager::get_tile_size()};
+                               tileset_manager::get_tile_size() * get_map_zoom()};
                 math::IVec2D tileset_size = selection_tileset->get_size_in_tiles();
-                ImVec2 uv_min =
-                    ImVec2{(float)selection.selection_start.x * 1.f / (float)tileset_size.x,
-                           (float)selection.selection_start.y * 1.f / (float)tileset_size.y};
+                ImVec2 uv_min = ImVec2{(float)selection.selection_start.x / (float)tileset_size.x,
+                                       (float)selection.selection_start.y / (float)tileset_size.y};
                 ImVec2 uv_max =
-                    ImVec2{(float)(selection.selection_end.x + 1) * 1.f / (float)tileset_size.x,
-                           (float)(selection.selection_end.y + 1) * 1.f / (float)tileset_size.y};
+                    ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
+                           (float)(selection.selection_end.y + 1) / (float)tileset_size.y};
 
                 ImGui::GetWindowDrawList()->PushClipRect(
                     base_cursor_pos,
-                    {base_cursor_pos.x + map->width * tileset_manager::get_tile_size(),
-                     base_cursor_pos.y + map->height * tileset_manager::get_tile_size()},
+                    {base_cursor_pos.x +
+                         map->width * tileset_manager::get_tile_size() * get_map_zoom(),
+                     base_cursor_pos.y +
+                         map->height * tileset_manager::get_tile_size() * get_map_zoom()},
                     true);
                 ImGui::GetWindowDrawList()->AddImage(
                     reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
                     selection_render_pos,
-                    {selection_render_pos.x + selection_size.x,
-                     selection_render_pos.y + selection_size.y},
+                    {selection_render_pos.x + map_selection_size.x,
+                     selection_render_pos.y + map_selection_size.y},
                     uv_min, uv_max, ImGui::GetColorU32({c, c, c, 0.4f}));
                 ImGui::GetWindowDrawList()->PopClipRect();
                 if (!is_tileset_appropiate_for_layer) {
@@ -415,21 +436,22 @@ void render() {
                 }
 
                 ImGui::SetCursorScreenPos(selection_render_pos);
-                ImGui::InvisibleButton("##_tileset_img", {selection_size.x, selection_size.y});
-                if (is_tileset_appropiate_for_layer &&
-                    ImGui::IsItemHovered()) {
-                    if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                ImGui::InvisibleButton("##_tileset_img",
+                                       {map_selection_size.x, map_selection_size.y});
+                if (is_tileset_appropiate_for_layer) {
+                    if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                         if (!map->layers.empty()) {
                             place_tile_on_pos(*map, mouse_tile_pos);
                         }
                     }
 
-                    if (ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
+                    if (ImGui::IsWindowHovered() &&
+                        ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
                         ImGui::SetWindowFocus();
                         ImGuiIO& io = ImGui::GetIO();
                         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                        map_scroll =
-                            ImVec2{map_scroll.x + io.MouseDelta.x, map_scroll.y + io.MouseDelta.y};
+                        map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
+                                            map_scroll.y + io.MouseDelta.y / get_map_zoom()};
                     }
                 }
             }
