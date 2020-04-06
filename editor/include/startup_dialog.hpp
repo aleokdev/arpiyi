@@ -3,6 +3,7 @@
 
 namespace arpiyi_editor::startup_dialog {
 
+void init();
 void render();
 
 }
