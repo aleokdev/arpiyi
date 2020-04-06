@@ -417,11 +417,11 @@ void render() {
 
             float c = is_tileset_appropiate_for_layer ? 1.f : 0.4f;
 
-            ImVec2 base_cursor_pos{ImGui::GetCursorScreenPos().x + map_scroll.x * get_map_zoom() +
-                                       static_cast<int>(ImGui::GetWindowWidth() / 2.f),
-                                   ImGui::GetCursorScreenPos().y + map_scroll.y * get_map_zoom() +
-                                       static_cast<int>(ImGui::GetWindowHeight() / 2.f)};
-            ImGui::SetCursorScreenPos(base_cursor_pos);
+            math::IVec2D base_cursor_pos{static_cast<int>(ImGui::GetCursorScreenPos().x + map_scroll.x * get_map_zoom() +
+                                       ImGui::GetWindowWidth() / 2.f),
+                                         static_cast<int>(ImGui::GetCursorScreenPos().y + map_scroll.y * get_map_zoom() +
+                                       ImGui::GetWindowHeight() / 2.f)};
+            ImGui::SetCursorScreenPos({base_cursor_pos.x, base_cursor_pos.y});
             ImGui::Image(reinterpret_cast<ImTextureID>(map_view_texture.handle),
                          ImVec2{(float)map_view_texture.w * get_map_zoom(),
                                 (float)map_view_texture.h * get_map_zoom()},
@@ -452,7 +452,7 @@ void render() {
                 static_cast<i32>(relative_mouse_pos.y /
                                  (tileset_manager::get_tile_size() * get_map_zoom()))};
 
-            draw_selection_on_map(*map, is_tileset_appropiate_for_layer, base_cursor_pos, relative_mouse_pos, mouse_tile_pos);
+            draw_selection_on_map(*map, is_tileset_appropiate_for_layer, {base_cursor_pos.x, base_cursor_pos.y}, relative_mouse_pos, mouse_tile_pos);
 
             if (!is_tileset_appropiate_for_layer) {
                 constexpr std::string_view text =
