@@ -85,6 +85,7 @@ public:
         else {
             assets::raw_unload(asset_it->second);
             container.map.erase(asset_it);
+            id = noid;
         }
     }
 

@@ -132,7 +132,8 @@ static void save_map_files(fs::path base_dir) {
         w.Int64(map.get()->height);
         w.Key(layers_json_key.data());
         w.StartArray();
-        for (const auto& layer : map.get()->layers) {
+        for (const auto& _l : map.get()->layers) {
+            auto& layer = *_l.get();
             namespace lfd = layer_file_definitions;
             w.StartObject();
             w.Key(lfd::name_json_key.data());
@@ -289,8 +290,11 @@ static void load_maps(fs::path maps_dir) {
         map.name = map_data.name;
 
         for (MapFileData::LayerFileData const& raw_layer : map_data.layers) {
-            assets::Map::Layer& layer = map.layers.emplace_back(
-                map.width, map.height, Handle<assets::Tileset>(raw_layer.tileset_id));
+            assets::Map::Layer& layer =
+                *map.layers
+                     .emplace_back(asset_manager::put(assets::Map::Layer(
+                         map.width, map.height, Handle<assets::Tileset>(raw_layer.tileset_id))))
+                     .get();
             layer.name = raw_layer.name;
 
             i32 i = 0;

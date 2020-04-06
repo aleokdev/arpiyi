@@ -55,11 +55,15 @@ struct Map {
         Handle<assets::Mesh> mesh;
     };
 
-    std::vector<Layer> layers;
+    std::vector<Handle<Layer>> layers;
     std::string name;
 
     i64 width, height;
 };
+
+template<> inline void raw_unload<Map::Layer>(Map::Layer& layer) {
+    layer.tileset.unload();
+}
 
 } // namespace arpiyi_editor::assets
 

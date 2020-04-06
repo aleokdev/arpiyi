@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #include "assets/shader.hpp"
 #include "assets/texture.hpp"
@@ -27,7 +28,7 @@ Handle<assets::Mesh> quad_mesh;
 unsigned int map_view_framebuffer;
 assets::Texture map_view_texture;
 glm::mat4 proj_mat;
-std::size_t current_layer_selected = 0;
+Handle<assets::Map::Layer> current_layer_selected;
 ImVec2 map_scroll{0, 0};
 std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 int current_zoom_level = 2;
@@ -100,7 +101,7 @@ static void show_add_layer_window(bool* p_open) {
         if (ImGui::Button("OK")) {
             assets::Map::Layer layer{current_map.get()->width, current_map.get()->height, tileset};
             layer.name = name;
-            current_map.get()->layers.emplace_back(layer);
+            current_map.get()->layers.emplace_back(asset_manager::put(layer));
             *p_open = false;
         }
         if (!t) {
@@ -172,8 +173,8 @@ static void show_add_map_window(bool* p_open) {
             map.height = static_cast<decltype(map.height)>(map_size[1]);
             map.name = name;
             if (create_default_layer) {
-                map.layers.emplace_back(map.width, map.height, layer_tileset);
-                map.layers[0].name = layer_name;
+                map.layers.emplace_back(asset_manager::put(assets::Map::Layer(map.width, map.height, layer_tileset)));
+                map.layers[0].get()->name = layer_name;
             }
             current_map = asset_manager::put<assets::Map>(map);
             update_grid_view_texture();
@@ -217,12 +218,13 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
         glUseProgram(tile_shader.get()->handle);
         glActiveTexture(GL_TEXTURE0);
         // Draw each layer
-        for (auto& layer : current_map.get()->layers) {
-            if (!layer.visible)
+        for (auto& _l : current_map.get()->layers) {
+            auto layer = _l.get();
+            if (!layer->visible)
                 continue;
 
-            glBindVertexArray(layer.get_mesh().get()->vao);
-            glBindTexture(GL_TEXTURE_2D, layer.tileset.get()->texture.get()->handle);
+            glBindVertexArray(layer->get_mesh().get()->vao);
+            glBindTexture(GL_TEXTURE_2D, layer->tileset.get()->texture.get()->handle);
             glViewport(0.f, 0.f, map_view_texture.w, map_view_texture.h);
             glm::mat4 model = glm::mat4(1);
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
@@ -263,8 +265,9 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
                 for (int ty = selection.selection_start.y; ty <= selection.selection_end.y; ty++) {
                     if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
                         continue;
-                    map.layers[current_layer_selected].set_tile(
-                        pos, {map.layers[current_layer_selected].tileset.get()->get_id({tx, ty})});
+                    auto layer = current_layer_selected.get();
+                    layer->set_tile(
+                        pos, {layer->tileset.get()->get_id({tx, ty})});
                     pos.y++;
                 }
                 pos.x++;
@@ -273,7 +276,7 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
         } break;
 
         case (assets::Tileset::AutoType::rpgmaker_a2): {
-            auto& layer = map.layers[current_layer_selected];
+            auto& layer = *current_layer_selected.get();
             const auto& tileset = *selection.tileset.get();
             const auto update_auto_id = [&layer, &tileset, &selection](math::IVec2D pos) {
                 u8 surroundings = 0xFF;
@@ -318,6 +321,63 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
     }
 }
 
+static void draw_selection_on_map(assets::Map& map, bool is_tileset_appropiate_for_layer, ImVec2 base_cursor_pos, ImVec2 relative_mouse_pos, math::IVec2D mouse_tile_pos) {
+    auto selection = tileset_manager::get_selection();
+    if (auto selection_tileset = selection.tileset.get()) {
+        ImGui::SetCursorScreenPos(base_cursor_pos);
+
+        ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + base_cursor_pos.x,
+                                             relative_mouse_pos.y + base_cursor_pos.y);
+        ImVec2 map_selection_size =
+            ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
+                   tileset_manager::get_tile_size() * get_map_zoom(),
+                   (float)(selection.selection_end.y + 1 - selection.selection_start.y) *
+                   tileset_manager::get_tile_size() * get_map_zoom()};
+        math::IVec2D tileset_size = selection_tileset->get_size_in_tiles();
+        ImVec2 uv_min = ImVec2{(float)selection.selection_start.x / (float)tileset_size.x,
+                               (float)selection.selection_start.y / (float)tileset_size.y};
+        ImVec2 uv_max =
+            ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
+                   (float)(selection.selection_end.y + 1) / (float)tileset_size.y};
+
+        ImGui::GetWindowDrawList()->PushClipRect(
+            base_cursor_pos,
+            {base_cursor_pos.x +
+             map.width * tileset_manager::get_tile_size() * get_map_zoom(),
+             base_cursor_pos.y +
+             map.height * tileset_manager::get_tile_size() * get_map_zoom()},
+            true);
+        ImGui::GetWindowDrawList()->AddImage(
+            reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
+            selection_render_pos,
+            {selection_render_pos.x + map_selection_size.x,
+             selection_render_pos.y + map_selection_size.y},
+            uv_min, uv_max, ImGui::GetColorU32({0.4f, 0.4f, 0.4f, 0.4f}));
+        ImGui::GetWindowDrawList()->PopClipRect();
+
+
+        ImGui::SetCursorScreenPos(selection_render_pos);
+        ImGui::InvisibleButton("##_tileset_img",
+                               {map_selection_size.x, map_selection_size.y});
+        if (is_tileset_appropiate_for_layer) {
+            if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                if (!map.layers.empty()) {
+                    place_tile_on_pos(map, mouse_tile_pos);
+                }
+            }
+
+            if (ImGui::IsWindowHovered() &&
+                ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
+                ImGui::SetWindowFocus();
+                ImGuiIO& io = ImGui::GetIO();
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+                map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
+                                    map_scroll.y + io.MouseDelta.y / get_map_zoom()};
+            }
+        }
+    }
+}
+
 void init() {
     glGenFramebuffers(1, &map_view_framebuffer);
 
@@ -349,11 +409,12 @@ void render() {
 
             // Draw the map
             bool is_tileset_appropiate_for_layer;
-            if (current_layer_selected >= map->layers.size())
-                is_tileset_appropiate_for_layer = true;
-            else
+            if (auto layer = current_layer_selected.get())
                 is_tileset_appropiate_for_layer = tileset_manager::get_selection().tileset ==
-                                                  map->layers[current_layer_selected].tileset;
+                                                  layer->tileset;
+            else
+                is_tileset_appropiate_for_layer = true;
+
             float c = is_tileset_appropiate_for_layer ? 1.f : 0.4f;
 
             ImVec2 base_cursor_pos{ImGui::GetCursorScreenPos().x + map_scroll.x * get_map_zoom() +
@@ -391,74 +452,23 @@ void render() {
                 static_cast<i32>(relative_mouse_pos.y /
                                  (tileset_manager::get_tile_size() * get_map_zoom()))};
 
-            auto selection = tileset_manager::get_selection();
-            if (auto selection_tileset = selection.tileset.get()) {
-                ImGui::SetCursorScreenPos(base_cursor_pos);
+            draw_selection_on_map(*map, is_tileset_appropiate_for_layer, base_cursor_pos, relative_mouse_pos, mouse_tile_pos);
 
-                ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + base_cursor_pos.x,
-                                                     relative_mouse_pos.y + base_cursor_pos.y);
-                ImVec2 map_selection_size =
-                    ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
-                               tileset_manager::get_tile_size() * get_map_zoom(),
-                           (float)(selection.selection_end.y + 1 - selection.selection_start.y) *
-                               tileset_manager::get_tile_size() * get_map_zoom()};
-                math::IVec2D tileset_size = selection_tileset->get_size_in_tiles();
-                ImVec2 uv_min = ImVec2{(float)selection.selection_start.x / (float)tileset_size.x,
-                                       (float)selection.selection_start.y / (float)tileset_size.y};
-                ImVec2 uv_max =
-                    ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
-                           (float)(selection.selection_end.y + 1) / (float)tileset_size.y};
-
-                ImGui::GetWindowDrawList()->PushClipRect(
-                    base_cursor_pos,
-                    {base_cursor_pos.x +
-                         map->width * tileset_manager::get_tile_size() * get_map_zoom(),
-                     base_cursor_pos.y +
-                         map->height * tileset_manager::get_tile_size() * get_map_zoom()},
-                    true);
-                ImGui::GetWindowDrawList()->AddImage(
-                    reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
-                    selection_render_pos,
-                    {selection_render_pos.x + map_selection_size.x,
-                     selection_render_pos.y + map_selection_size.y},
-                    uv_min, uv_max, ImGui::GetColorU32({c, c, c, 0.4f}));
-                ImGui::GetWindowDrawList()->PopClipRect();
-                if (!is_tileset_appropiate_for_layer) {
-                    constexpr std::string_view text =
-                        "Tileset does not correspond the one specified in the selected layer.";
-                    ImVec2 text_size = ImGui::CalcTextSize(text.data());
-                    ImVec2 text_pos{ImGui::GetWindowPos().x + ImGui::GetWindowWidth() / 2.f -
-                                        text_size.x / 2.f,
-                                    ImGui::GetWindowPos().y + ImGui::GetWindowHeight() / 2.f -
-                                        text_size.y / 2.f};
-                    ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
-                                                        text.data());
-                }
-
-                ImGui::SetCursorScreenPos(selection_render_pos);
-                ImGui::InvisibleButton("##_tileset_img",
-                                       {map_selection_size.x, map_selection_size.y});
-                if (is_tileset_appropiate_for_layer) {
-                    if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                        if (!map->layers.empty()) {
-                            place_tile_on_pos(*map, mouse_tile_pos);
-                        }
-                    }
-
-                    if (ImGui::IsWindowHovered() &&
-                        ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
-                        ImGui::SetWindowFocus();
-                        ImGuiIO& io = ImGui::GetIO();
-                        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                        map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
-                                            map_scroll.y + io.MouseDelta.y / get_map_zoom()};
-                    }
-                }
+            if (!is_tileset_appropiate_for_layer) {
+                constexpr std::string_view text =
+                    "Tileset does not correspond the one specified in the selected layer.";
+                ImVec2 text_size = ImGui::CalcTextSize(text.data());
+                ImVec2 text_pos{ImGui::GetWindowPos().x + ImGui::GetWindowWidth() / 2.f -
+                                text_size.x / 2.f,
+                                ImGui::GetWindowPos().y + ImGui::GetWindowHeight() / 2.f -
+                                text_size.y / 2.f};
+                ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
+                                                    text.data());
             }
 
             ImVec2 rel_mouse_px_pos =
                 ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
-            draw_pos_info_bar({mouse_tile_pos.x, mouse_tile_pos.y}, rel_mouse_px_pos);
+            draw_pos_info_bar(mouse_tile_pos, rel_mouse_px_pos);
         } else
             ImGui::TextDisabled("No map loaded to view.");
     }
@@ -477,10 +487,10 @@ void render() {
             if (map->layers.empty())
                 ImGui::TextDisabled("No layers in current map");
             else {
-                std::size_t i_to_delete = -1;
-                std::size_t i = 0;
-                for (auto& layer : map->layers) {
-                    ImGui::TextDisabled("%zu", i);
+                Handle<assets::Map::Layer> layer_to_delete = -1;
+                for (auto& l : map->layers) {
+                    auto& layer = *l.get();
+                    ImGui::TextDisabled("%zu", l.get_id());
                     ImGui::SameLine();
                     if (ImGui::TextDisabled("%s", layer.visible ? ICON_MD_VISIBILITY
                                                                 : ICON_MD_VISIBILITY_OFF),
@@ -488,24 +498,23 @@ void render() {
                         layer.visible = !layer.visible;
                     }
                     ImGui::SameLine();
-                    if (i == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
+                    if (l == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
                                                     : ImGui::TextDisabled("%s", layer.name.c_str()),
                         ImGui::IsItemClicked()) {
-                        current_layer_selected = i;
+                        current_layer_selected = l;
                         tileset_manager::set_selection_tileset(layer.tileset);
                     }
 
                     if (ImGui::BeginPopupContextItem("Layer Context Menu")) {
                         if (ImGui::Selectable("Delete"))
-                            i_to_delete = i;
+                            layer_to_delete = l;
                         ImGui::EndPopup();
                     }
-                    i++;
                 }
 
-                if (i_to_delete != static_cast<std::size_t>(-1)) {
-                    map->layers.erase(map->layers.begin() + i_to_delete);
-                    current_layer_selected--;
+                if (layer_to_delete.get_id() != Handle<assets::Map::Layer>::noid) {
+                    layer_to_delete.unload();
+                    map->layers.erase(std::remove(map->layers.begin(), map->layers.end(), layer_to_delete), map->layers.end());
                 }
             }
         } else {
@@ -534,6 +543,10 @@ void render() {
                 ImGui::SameLine();
                 if (ImGui::Selectable(_m.name.c_str(), _id == current_map.get_id())) {
                     current_map = Handle<assets::Map>(_id);
+                    if(!current_map.get()->layers.empty()) {
+                        current_layer_selected = current_map.get()->layers[0];
+                        tileset_manager::set_selection_tileset(current_layer_selected.get()->tileset);
+                    }
                     update_grid_view_texture();
                 }
             }
