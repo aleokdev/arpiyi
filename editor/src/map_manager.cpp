@@ -108,9 +108,13 @@ static void show_add_layer_window(bool* p_open) {
 }
 
 static void show_add_map_window(bool* p_open) {
-    if (ImGui::Begin(ICON_MD_ADD_BOX " New Map", p_open)) {
+    ImGui::SetNextWindowSize({390, 190}, ImGuiCond_Once);
+    if (ImGui::Begin(ICON_MD_ADD_BOX " New Map", p_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         static char name[32] = "Default";
         static i32 map_size[2] = {16, 16};
+        static bool create_default_layer = true;
+        static char layer_name[32] = "Base Layer";
+        static Handle<assets::Tileset> layer_tileset = Handle<assets::Tileset>::noid;
         const auto& show_info_tip = [](const char* c) {
             ImGui::SameLine();
             ImGui::TextDisabled("(?)");
@@ -127,18 +131,52 @@ static void show_add_map_window(bool* p_open) {
         ImGui::InputInt2("Map Size", map_size);
         show_info_tip("The map size (In tiles). Can be changed later.");
 
+        ImGui::Checkbox("Create default layer", &create_default_layer);
+        if(create_default_layer) {
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.f);
+            ImGui::BeginChild("Default layer options", {0,-ImGui::GetTextLineHeightWithSpacing()}, true, ImGuiWindowFlags_AlwaysAutoResize);
+            ImGui::InputText("Name", layer_name, 32);
+            auto t = layer_tileset.get();
+            if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
+                for (auto& ts : tileset_manager::get_tilesets()) {
+                    if (ImGui::Selectable(ts.get()->name.c_str(), ts == layer_tileset))
+                        layer_tileset = ts;
+
+                    if (ts == layer_tileset)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::EndChild();
+            ImGui::PopStyleVar();
+        }
+
         if (ImGui::Button("Cancel")) {
             *p_open = false;
         }
         ImGui::SameLine();
+        bool allow_ok = !create_default_layer || layer_tileset.get();
+        if (!allow_ok) {
+            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+        }
         if (ImGui::Button("OK")) {
             assets::Map map;
             map.width = static_cast<decltype(map.width)>(map_size[0]);
             map.height = static_cast<decltype(map.height)>(map_size[1]);
             map.name = name;
+            if(create_default_layer)
+            {
+                map.layers.emplace_back(map.width, map.height, layer_tileset);
+                map.layers[0].name = layer_name;
+            }
             current_map = asset_manager::put<assets::Map>(map);
             update_grid_view_texture();
             *p_open = false;
+        }
+        if (!allow_ok) {
+            ImGui::PopItemFlag();
+            ImGui::PopStyleVar();
         }
     }
     ImGui::End();
