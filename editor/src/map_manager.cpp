@@ -357,6 +357,8 @@ void render() {
                     {base_cursor_pos.x + map->width * tileset_manager::get_tile_size(),
                      base_cursor_pos.y + map->height * tileset_manager::get_tile_size()},
                     true);
+                ImGui::SetCursorScreenPos(selection_render_pos);
+                ImGui::InvisibleButton("##_tileset_img", {selection_size.x, selection_size.y});
                 ImGui::GetWindowDrawList()->AddImage(
                     reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
                     selection_render_pos,
