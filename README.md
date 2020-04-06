@@ -1,6 +1,7 @@
 ## Arpiyi Editor
 Arpiyi is an open-sourced 2D RPG editor in development designed to be modular,
-extensible and most importantly, more advanced than competing software (i.e. RPGMaker).
+extensible. Its objective is to be a more advanced alternative to other competing software,
+with features such as a cutscene editor.
 
 It is still on early development and lacks lots of features, but the project is updated
 regularly with new elements.
