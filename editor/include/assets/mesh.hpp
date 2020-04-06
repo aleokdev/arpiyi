@@ -15,17 +15,6 @@
 namespace arpiyi_editor::assets {
 
 struct Mesh {
-    void destroy() {
-        if (vao != noobj){
-            glDeleteVertexArrays(1, &vao);
-            vao = noobj;
-        }
-        if (vbo != noobj){
-            glDeleteBuffers(1, &vbo);
-            vbo = noobj;
-        }
-    }
-
     static Mesh generate_quad();
 
     static Mesh generate_split_quad(u32 x_slices,
@@ -40,6 +29,17 @@ struct Mesh {
     unsigned int vbo = -1;
     constexpr static auto noobj = static_cast<decltype(vao)>(-1);
 };
+
+template<> inline void raw_unload(Mesh& mesh) {
+    if (mesh.vao != Mesh::noobj){
+        glDeleteVertexArrays(1, &mesh.vao);
+        mesh.vao = Mesh::noobj;
+    }
+    if (mesh.vbo != Mesh::noobj){
+        glDeleteBuffers(1, &mesh.vbo);
+        mesh.vbo = Mesh::noobj;
+    }
+}
 
 } // namespace arpiyi_editor::assets
 

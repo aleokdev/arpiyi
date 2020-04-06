@@ -37,11 +37,11 @@ struct Map {
 
         void set_tile(math::IVec2D pos, Tile new_val) {
             tiles[pos.x + pos.y * width] = new_val;
-            mesh.get()->destroy();
-            *mesh.get() = generate_layer_split_quad();
+            regenerate_mesh();
         }
 
-        [[nodiscard]] Handle<assets::Mesh> const get_mesh() const { return mesh; }
+        [[nodiscard]] Handle<assets::Mesh> get_mesh() const { return mesh; }
+        void regenerate_mesh();
 
         Handle<assets::Tileset> tileset;
         std::string name;
@@ -55,7 +55,13 @@ struct Map {
         Handle<assets::Mesh> mesh;
     };
 
+    struct Comment {
+        std::string text;
+        math::IVec2D pos;
+    };
+
     std::vector<Handle<Layer>> layers;
+    std::vector<Comment> comments;
     std::string name;
 
     i64 width, height;

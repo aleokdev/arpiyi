@@ -367,7 +367,6 @@ void render() {
                                    ImDrawCornerFlags_All, 2.f);
 
                 // Draw the hovering rect and check if the preview tooltip should appear or not
-                ImGui::SetNextWindowPos(io.MousePos);
                 static float tooltip_alpha = 0;
                 bool update_tooltip_info;
                 if (ImGui::IsWindowHovered(ImGuiFocusedFlags_RootWindow) &&
@@ -407,31 +406,32 @@ void render() {
 
                 ImGui::SetNextWindowBgAlpha(tooltip_alpha);
                 // Draw preview of current tile being hovered
-                ImGui::BeginTooltip();
-                {
-                    const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / tile_size),
-                                                     (int)(relative_mouse_pos.y / tile_size)};
-                    const ImVec2 img_size{64, 64};
-                    const math::IVec2D size_in_tiles = ts->get_size_in_tiles(tile_size);
-                    const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
-                                        (float)tile_hovering.y / (float)size_in_tiles.y};
-                    const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
-                                        (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
-                    ImGui::Image(reinterpret_cast<ImTextureID>(img->handle), img_size, uv_min,
-                                 uv_max, ImVec4(1, 1, 1, tooltip_alpha));
-                    ImGui::SameLine();
-                    static std::size_t tile_id;
-                    if (update_tooltip_info)
-                        tile_id =
-                            tile_hovering.x + tile_hovering.y * ts->get_size_in_tiles(tile_size).x;
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
-                    ImGui::Text("ID %zu", tile_id);
-                    ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x, uv_min.y,
-                                uv_max.y);
-                    ImGui::PopStyleColor(1);
+                if(tooltip_alpha > 0.01f) {
+                    ImGui::BeginTooltip();
+                    {
+                        const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / tile_size),
+                                                         (int)(relative_mouse_pos.y / tile_size)};
+                        const ImVec2 img_size{64, 64};
+                        const math::IVec2D size_in_tiles = ts->get_size_in_tiles(tile_size);
+                        const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
+                                            (float)tile_hovering.y / (float)size_in_tiles.y};
+                        const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
+                                            (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
+                        ImGui::Image(reinterpret_cast<ImTextureID>(img->handle), img_size, uv_min,
+                                     uv_max, ImVec4(1, 1, 1, tooltip_alpha));
+                        ImGui::SameLine();
+                        static std::size_t tile_id;
+                        if (update_tooltip_info)
+                            tile_id =
+                                tile_hovering.x + tile_hovering.y * ts->get_size_in_tiles(tile_size).x;
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
+                        ImGui::Text("ID %zu", tile_id);
+                        ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x, uv_min.y,
+                                    uv_max.y);
+                        ImGui::PopStyleColor(1);
+                    }
+                    ImGui::EndTooltip();
                 }
-                ImGui::EndTooltip();
-
             } else
                 ImGui::TextDisabled("No texture attached to tileset.");
         } else

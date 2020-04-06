@@ -83,7 +83,14 @@ Mesh Map::Layer::generate_layer_split_quad() {
 
 Map::Layer::Layer(i64 width, i64 height, Handle<assets::Tileset> t) :
     tileset(t), width(width), height(height), tiles(width * height) {
-    mesh = asset_manager::put(generate_layer_split_quad());
+    regenerate_mesh();
+}
+
+void Map::Layer::regenerate_mesh() {
+    if (tileset.get()) {
+        mesh.unload();
+        mesh = asset_manager::put(generate_layer_split_quad());
+    }
 }
 
 } // namespace arpiyi_editor::assets

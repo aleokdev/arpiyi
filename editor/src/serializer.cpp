@@ -16,12 +16,14 @@
 using namespace arpiyi_editor;
 
 namespace project_file_definitions {
+
 constexpr std::string_view tilesets_path_json_key = "tilesets_path";
 constexpr std::string_view default_tilesets_path = "tilesets";
 constexpr std::string_view maps_path_json_key = "maps_path";
 constexpr std::string_view default_maps_path = "maps";
 
 constexpr std::string_view editor_version_json_key = "editor_version";
+
 } // namespace project_file_definitions
 
 static void save_project_file(fs::path base_dir) {
@@ -52,11 +54,13 @@ static void save_project_file(fs::path base_dir) {
 }
 
 namespace tileset_file_definitions {
+
 constexpr std::string_view id_json_key = "id";
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view autotype_json_key = "auto_type";
 constexpr std::string_view texture_path_json_key = "texture_path";
 constexpr std::string_view textures_path = "textures";
+
 } // namespace tileset_file_definitions
 
 static void save_tileset_files(fs::path base_dir) {
@@ -102,16 +106,25 @@ static void save_tileset_files(fs::path base_dir) {
 }
 
 namespace map_file_definitions {
+
 constexpr std::string_view id_json_key = "id";
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view width_json_key = "width";
 constexpr std::string_view height_json_key = "height";
 constexpr std::string_view layers_json_key = "layers";
+constexpr std::string_view comments_json_key = "comments";
+
 namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view data_json_key = "data";
 constexpr std::string_view tileset_id_json_key = "tileset";
 } // namespace layer_file_definitions
+
+namespace comment_file_definitions {
+constexpr std::string_view position_json_key = "pos";
+constexpr std::string_view text_json_key = "text";
+} // namespace comment_file_definitions
+
 } // namespace map_file_definitions
 
 static void save_map_files(fs::path base_dir) {
@@ -146,6 +159,25 @@ static void save_map_files(fs::path base_dir) {
                 for (int x = 0; x < map.get()->width; ++x) { w.Uint(layer.get_tile({x, y}).id); }
             }
             w.EndArray();
+            w.EndObject();
+        }
+        w.EndArray();
+        w.Key(comments_json_key.data());
+        w.StartArray();
+        for (const auto& comment : map.get()->comments) {
+            namespace cfd = comment_file_definitions;
+            w.StartObject();
+            w.Key(cfd::text_json_key.data());
+            w.String(comment.text.c_str());
+            w.Key(cfd::position_json_key.data());
+            w.StartObject();
+            {
+                w.Key("x");
+                w.Int(comment.pos.x);
+                w.Key("y");
+                w.Int(comment.pos.y);
+            }
+            w.EndObject();
             w.EndObject();
         }
         w.EndArray();
@@ -215,19 +247,7 @@ static void load_tilesets(fs::path project_dir, fs::path tilesets_dir) {
     }
 }
 
-struct MapFileData {
-    u64 id;
-    std::string name;
-    struct LayerFileData {
-        std::string name;
-        u64 tileset_id;
-        std::vector<u32> raw_tile_data;
-    };
-    std::vector<LayerFileData> layers;
-    i64 width = -1, height = -1;
-};
-
-static MapFileData load_map(fs::path map_path) {
+static void load_map(fs::path const& map_path, assets::Map& map, u64* id) {
     std::ifstream f(map_path);
     std::stringstream buffer;
     buffer << f.rdbuf();
@@ -235,47 +255,58 @@ static MapFileData load_map(fs::path map_path) {
     rapidjson::Document doc;
     doc.Parse(buffer.str().data());
 
-    MapFileData file_data;
+    map.width = -1;
+    map.height = -1;
 
     using namespace map_file_definitions;
 
     for (auto const& obj : doc.GetObject()) {
         if (obj.name == id_json_key.data()) {
-            file_data.id = obj.value.GetUint64();
+            *id = obj.value.GetUint64();
         } else if (obj.name == name_json_key.data()) {
-            file_data.name = obj.value.GetString();
+            map.name = obj.value.GetString();
         } else if (obj.name == width_json_key.data()) {
-            file_data.width = obj.value.GetInt64();
+            map.width = obj.value.GetInt64();
         } else if (obj.name == height_json_key.data()) {
-            file_data.height = obj.value.GetInt64();
+            map.height = obj.value.GetInt64();
         } else if (obj.name == layers_json_key.data()) {
             for (auto const& layer_object : obj.value.GetArray()) {
                 namespace lfd = layer_file_definitions;
-                auto& layer = file_data.layers.emplace_back();
+                if(map.width == -1 || map.height == -1) {assert("Map layer data loaded before width/height");}
+                auto& layer = *map.layers.emplace_back(asset_manager::put(assets::Map::Layer(map.width, map.height, -1))).get();
 
                 for (auto const& layer_val : layer_object.GetObject()) {
                     if (layer_val.name == lfd::name_json_key.data()) {
                         layer.name = layer_val.value.GetString();
                     } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
-                        layer.tileset_id = layer_val.value.GetUint64();
+                        layer.tileset = layer_val.value.GetUint64();
+                        layer.regenerate_mesh();
                     } else if (layer_val.name == lfd::data_json_key.data()) {
-                        if (file_data.width != -1 && file_data.height != -1) {
-                            layer.raw_tile_data.resize(file_data.width * file_data.height);
-                        } else
-                            assert("Layer data defined before width & height");
-
                         u64 i = 0;
                         for (auto const& layer_tile : layer_val.value.GetArray()) {
-                            layer.raw_tile_data[i] = layer_tile.GetUint();
+                            layer.set_tile({static_cast<i32>(i % map.width), static_cast<i32>(i / map.width)}, {layer_tile.GetUint()});
                             ++i;
                         }
                     }
                 }
             }
+        } else if (obj.name == comments_json_key.data()) {
+            for(auto const& comment_object : obj.value.GetArray()) {
+                namespace cfd = comment_file_definitions;
+
+                auto& comment = map.comments.emplace_back();
+
+                for (auto const& comment_val : comment_object.GetObject()) {
+                    if(comment_val.name == cfd::text_json_key.data()) {
+                        comment.text = comment_val.value.GetString();
+                    } else if (comment_val.name == cfd::position_json_key.data()) {
+                        comment.pos.x = comment_val.value.GetObject()["x"].GetInt();
+                        comment.pos.y = comment_val.value.GetObject()["y"].GetInt();
+                    }
+                }
+            }
         }
     }
-
-    return file_data;
 }
 
 static void load_maps(fs::path maps_dir) {
@@ -283,29 +314,11 @@ static void load_maps(fs::path maps_dir) {
         if (!entry.is_regular_file())
             continue;
 
-        MapFileData map_data = load_map(entry.path());
         assets::Map map;
-        map.width = map_data.width;
-        map.height = map_data.height;
-        map.name = map_data.name;
+        u64 map_id;
+        load_map(entry.path(), map, &map_id);
 
-        for (MapFileData::LayerFileData const& raw_layer : map_data.layers) {
-            assets::Map::Layer& layer =
-                *map.layers
-                     .emplace_back(asset_manager::put(assets::Map::Layer(
-                         map.width, map.height, Handle<assets::Tileset>(raw_layer.tileset_id))))
-                     .get();
-            layer.name = raw_layer.name;
-
-            i32 i = 0;
-            for (const auto& raw_tile : raw_layer.raw_tile_data) {
-                layer.set_tile({static_cast<i32>(i % map.width), static_cast<i32>(i / map.width)},
-                               {raw_tile});
-                ++i;
-            }
-        }
-
-        asset_manager::put(map, map_data.id);
+        asset_manager::put(map, map_id);
     }
 }
 
