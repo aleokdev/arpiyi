@@ -11,7 +11,7 @@
 
 namespace arpiyi_editor::window_manager {
 
-void init();
+bool init();
 
 GLFWwindow* get_window();
 glm::mat4 get_projection();

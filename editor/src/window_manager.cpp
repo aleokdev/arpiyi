@@ -29,8 +29,8 @@ static void debug_callback(GLenum const source, GLenum const type, GLuint, GLenu
               return u8"Third Party";
           case GL_DEBUG_SOURCE_OTHER:
               return u8"Other";
-          default: ARPIYI_UNREACHABLE();
       }
+      ARPIYI_UNREACHABLE();
     };
 
     auto stringify_type = [](GLenum const type) {
@@ -53,8 +53,8 @@ static void debug_callback(GLenum const source, GLenum const type, GLuint, GLenu
               return u8"Pop Group";
           case GL_DEBUG_TYPE_OTHER:
               return u8"Other";
-          default: ARPIYI_UNREACHABLE();
       }
+      ARPIYI_UNREACHABLE();
     };
 
     auto stringify_severity = [](GLenum const severity) {
@@ -67,8 +67,8 @@ static void debug_callback(GLenum const source, GLenum const type, GLuint, GLenu
               return u8"Warning";
           case GL_DEBUG_SEVERITY_NOTIFICATION:
               return u8"Note";
-          default: ARPIYI_UNREACHABLE();
       }
+      ARPIYI_UNREACHABLE();
     };
 
     std::cout << "[" << stringify_severity(severity) << ":" << stringify_type(type) << " in " << stringify_source(source) << "]: " << message << std::endl;
@@ -77,10 +77,10 @@ static void debug_callback(GLenum const source, GLenum const type, GLuint, GLenu
     //    assert(false);
 }
 
-void init() {
+bool init() {
     if (!glfwInit()) {
         std::cerr << "Couldn't init GLFW." << std::endl;
-        return;
+        return false;
     }
 
     // Use OpenGL 4.5
@@ -89,8 +89,8 @@ void init() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     window = glfwCreateWindow(1080, 720, "Arpiyi Editor", nullptr, nullptr);
     if (!window) {
-        std::cerr << "Couldn't create window. Check your OpenGL version and GPU drivers, as arpiyi requires OpenGL 4.5." << std::endl;
-        return;
+        std::cerr << "Couldn't create window. Check your GPU drivers, as arpiyi requires OpenGL 4.5." << std::endl;
+        return false;
     }
     // Activate VSync and fix FPS
     glfwSwapInterval(1);
@@ -112,6 +112,7 @@ void init() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+    return true;
 }
 
 GLFWwindow* get_window() {

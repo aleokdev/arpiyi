@@ -26,7 +26,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 }
 
 int main() {
-    window_manager::init();
+    if(!window_manager::init()) return -1;
     tileset_manager::init();
     map_manager::init();
     editor::style::init();
