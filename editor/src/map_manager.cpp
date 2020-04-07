@@ -25,41 +25,14 @@ Handle<assets::Map> current_map;
 Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
 Handle<assets::Mesh> quad_mesh;
-unsigned int map_view_framebuffer;
-assets::Texture map_view_texture;
 glm::mat4 proj_mat;
 Handle<assets::Map::Layer> current_layer_selected;
 ImVec2 map_scroll{0, 0};
 std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 int current_zoom_level = 2;
+static bool show_grid = true;
 
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
-
-/// Updates grid_view_texture to fit the width and height of current_map.
-// TODO: Replace with imgui custom callbacks, remove framebuffer
-static void update_grid_view_texture() {
-    auto map = current_map.get();
-    if (!map)
-        return;
-
-    if (map_view_texture.handle == assets::Texture::nohandle)
-        glDeleteTextures(1, &map_view_texture.handle);
-    glGenTextures(1, &map_view_texture.handle);
-    glBindTexture(GL_TEXTURE_2D, map_view_texture.handle);
-
-    map_view_texture.w = map->width * tileset_manager::get_tile_size();
-    map_view_texture.h = map->height * tileset_manager::get_tile_size();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, map_view_texture.w, map_view_texture.h, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
-    // Disable filtering (Because it needs mipmaps, which we haven't set)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, map_view_framebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           map_view_texture.handle, 0);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
 
 static void show_add_layer_window(bool* p_open) {
     if (ImGui::Begin(ICON_MD_ADD_BOX " New Map Layer", p_open)) {
@@ -178,7 +151,6 @@ static void show_add_map_window(bool* p_open) {
                 map.layers[0].get()->name = layer_name;
             }
             current_map = asset_manager::put<assets::Map>(map);
-            update_grid_view_texture();
             *p_open = false;
         }
         if (!allow_ok) {
@@ -211,10 +183,36 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
     }
 }
 
-static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
-    glBindFramebuffer(GL_FRAMEBUFFER, map_view_framebuffer);
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
+struct DrawMapCallbackData {
+    ImVec2 map_render_pos;
+    ImVec2 abs_content_min_rect;
+};
+static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cmd) {
+    auto fb_size = window_manager::get_framebuf_size();
+    const auto callback_data = *static_cast<DrawMapCallbackData*>(cmd->UserCallbackData);
+    glScissor(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w, cmd->ClipRect.z - callback_data.abs_content_min_rect.x,
+              cmd->ClipRect.w - callback_data.abs_content_min_rect.y);
+
+    const auto& map = *current_map.get();
+    // Calculate model matrix: This is the same for the grid and all layers, so we'll calculate it first.
+    float map_total_width = map.width * tileset_manager::get_tile_size() * get_map_zoom();
+    float map_total_height = map.height * tileset_manager::get_tile_size() * get_map_zoom();
+
+    float clip_rect_width = cmd->ClipRect.z - callback_data.abs_content_min_rect.x;
+    float clip_rect_height = cmd->ClipRect.w - callback_data.abs_content_min_rect.y;
+    glViewport(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w, clip_rect_width,
+               clip_rect_height);
+    glm::mat4 model = glm::mat4(1);
+    model = glm::translate(model, glm::vec3(0, map_total_height / clip_rect_height,
+                                            0)); // Put model in left-top corner
+    model =
+        glm::translate(model, glm::vec3(callback_data.map_render_pos.x / clip_rect_width,
+                                        callback_data.map_render_pos.y / clip_rect_height,
+                                        0));        // Put model in given position
+    model = glm::scale(model, glm::vec3(1, -1, 1)); // Flip model from its Y axis
+    model = glm::scale(model, glm::vec3(map_total_width / clip_rect_width,
+                                        map_total_height / clip_rect_height, 1));
+
     if (!map.layers.empty()) {
         glUseProgram(tile_shader.get()->handle);
         glActiveTexture(GL_TEXTURE0);
@@ -226,8 +224,7 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
 
             glBindVertexArray(layer->get_mesh().get()->vao);
             glBindTexture(GL_TEXTURE_2D, layer->tileset.get()->texture.get()->handle);
-            glViewport(0.f, 0.f, map_view_texture.w, map_view_texture.h);
-            glm::mat4 model = glm::mat4(1);
+
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
             glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
 
@@ -239,18 +236,15 @@ static void draw_map_to_fb(assets::Map const& map, bool show_grid) {
         // Draw mesh grid
         glUseProgram(grid_shader.get()->handle);
         glBindVertexArray(quad_mesh.get()->vao);
-        glUniform4f(3, .9f, .9f, .9f, .4f);
+        glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         glUniform2ui(4, current_map.get()->width, current_map.get()->height);
-        glViewport(0.f, 0.f, map_view_texture.w, map_view_texture.h);
-        glm::mat4 model = glm::mat4(1);
+
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
 
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
     }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
@@ -323,15 +317,13 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
 
 static void draw_selection_on_map(assets::Map& map,
                                   bool is_tileset_appropiate_for_layer,
-                                  ImVec2 base_cursor_pos,
+                                  ImVec2 map_render_pos,
                                   ImVec2 relative_mouse_pos,
-                                  math::IVec2D mouse_tile_pos) {
+                                  math::IVec2D mouse_tile_pos, ImVec2 content_start_pos) {
     auto selection = tileset_manager::get_selection();
     if (auto selection_tileset = selection.tileset.get()) {
-        ImGui::SetCursorScreenPos(base_cursor_pos);
-
-        ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + base_cursor_pos.x,
-                                             relative_mouse_pos.y + base_cursor_pos.y);
+        ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + map_render_pos.x + content_start_pos.x,
+                                             relative_mouse_pos.y + map_render_pos.y + content_start_pos.y);
         ImVec2 map_selection_size =
             ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
                        tileset_manager::get_tile_size() * get_map_zoom(),
@@ -342,18 +334,19 @@ static void draw_selection_on_map(assets::Map& map,
                                (float)selection.selection_start.y / (float)tileset_size.y};
         ImVec2 uv_max = ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
                                (float)(selection.selection_end.y + 1) / (float)tileset_size.y};
+        ImVec2 clip_rect_min = {map_render_pos.x + content_start_pos.x, map_render_pos.y + content_start_pos.y};
 
         ImGui::GetWindowDrawList()->PushClipRect(
-            base_cursor_pos,
-            {base_cursor_pos.x + map.width * tileset_manager::get_tile_size() * get_map_zoom(),
-             base_cursor_pos.y + map.height * tileset_manager::get_tile_size() * get_map_zoom()},
+            clip_rect_min,
+            {clip_rect_min.x + map.width * tileset_manager::get_tile_size() * get_map_zoom(),
+             clip_rect_min.y + map.height * tileset_manager::get_tile_size() * get_map_zoom()},
             true);
         ImGui::GetWindowDrawList()->AddImage(
             reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
             selection_render_pos,
             {selection_render_pos.x + map_selection_size.x,
              selection_render_pos.y + map_selection_size.y},
-            uv_min, uv_max, ImGui::GetColorU32({0.4f, 0.4f, 0.4f, 0.4f}));
+            uv_min, uv_max, ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
         ImGui::GetWindowDrawList()->PopClipRect();
 
         ImGui::SetCursorScreenPos(selection_render_pos);
@@ -369,23 +362,17 @@ static void draw_selection_on_map(assets::Map& map,
 }
 
 void init() {
-    glGenFramebuffers(1, &map_view_framebuffer);
-
     tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
     proj_mat = glm::ortho(0.0f, 1.0f, 1.0f, (float)0.0f);
-    update_grid_view_texture();
 }
 
 Handle<assets::Map> get_current_map() { return current_map; }
 
 void render() {
-    static bool show_grid = true;
     auto map = current_map.get();
-    if (map)
-        draw_map_to_fb(*map, show_grid);
 
     if (ImGui::Begin(ICON_MD_TERRAIN " Map View", nullptr,
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar |
@@ -397,33 +384,6 @@ void render() {
                 ImGui::EndMenuBar();
             }
 
-            // Draw the map
-            bool is_tileset_appropiate_for_layer;
-            if (auto layer = current_layer_selected.get())
-                is_tileset_appropiate_for_layer =
-                    tileset_manager::get_selection().tileset == layer->tileset;
-            else
-                is_tileset_appropiate_for_layer = true;
-
-            float c = is_tileset_appropiate_for_layer ? 1.f : 0.4f;
-
-            math::IVec2D base_cursor_pos{
-                static_cast<int>(ImGui::GetCursorScreenPos().x + map_scroll.x * get_map_zoom() +
-                                 ImGui::GetWindowWidth() / 2.f),
-                static_cast<int>(ImGui::GetCursorScreenPos().y + map_scroll.y * get_map_zoom() +
-                                 ImGui::GetWindowHeight() / 2.f)};
-            ImGui::GetWindowDrawList()->AddImage(
-                reinterpret_cast<ImTextureID>(map_view_texture.handle),
-                {static_cast<float>(base_cursor_pos.x), static_cast<float>(base_cursor_pos.y)},
-                ImVec2{static_cast<float>(base_cursor_pos.x) +
-                           (float)map_view_texture.w * get_map_zoom(),
-                       static_cast<float>(base_cursor_pos.y) +
-                           (float)map_view_texture.h * get_map_zoom()},
-                {0, 0}, {1, 1}, ImGui::GetColorU32({c, c, c, 1.f}));
-
-            ImVec2 mouse_pos = ImGui::GetIO().MousePos;
-            ImVec2 relative_mouse_pos =
-                ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
             if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
                 if (ImGui::GetIO().MouseWheel > 0 && current_zoom_level < zoom_levels.size() - 1)
                     current_zoom_level += 1;
@@ -431,25 +391,58 @@ void render() {
                     current_zoom_level -= 1;
             }
 
+            math::IVec2D map_render_pos{
+                static_cast<int>(map_scroll.x * get_map_zoom() +
+                                 ImGui::GetWindowWidth() / 2.f),
+                static_cast<int>(map_scroll.y * get_map_zoom() +
+                                 ImGui::GetWindowHeight() / 2.f)};
+
+            ImVec2 abs_content_start_pos = {
+                ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
+                ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
+            {
+                // Draw the map
+                static DrawMapCallbackData data;
+                data = {ImVec2{static_cast<float>(map_render_pos.x),
+                               static_cast<float>(map_render_pos.y)}, abs_content_start_pos};
+                ImGui::GetWindowDrawList()->AddCallback(&draw_map_callback,
+                                                        static_cast<void*>(&data));
+                ImGui::GetWindowDrawList()->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+            }
+
+            ImVec2 mouse_pos = ImGui::GetMousePos();
+            ImVec2 relative_mouse_pos =
+                ImVec2(mouse_pos.x - (map_render_pos.x + abs_content_start_pos.x),
+                       mouse_pos.y - (map_render_pos.y + abs_content_start_pos.y));
+
             // Snap the relative mouse position
-            relative_mouse_pos.x =
-                static_cast<int>(relative_mouse_pos.x) -
-                static_cast<int>(fmod(relative_mouse_pos.x,
-                                      (tileset_manager::get_tile_size() * get_map_zoom())));
-            relative_mouse_pos.y =
-                static_cast<int>(relative_mouse_pos.y) -
-                static_cast<int>(fmod(relative_mouse_pos.y,
-                                      (tileset_manager::get_tile_size() * get_map_zoom())));
+            ImVec2 snapped_relative_mouse_pos{
+                static_cast<float>(
+                    static_cast<int>(relative_mouse_pos.x) -
+                    static_cast<int>(std::fmod(relative_mouse_pos.x,
+                                          (tileset_manager::get_tile_size() * get_map_zoom())))),
+
+                static_cast<float>(
+                    static_cast<int>(relative_mouse_pos.y) -
+                    static_cast<int>(std::fmod(relative_mouse_pos.y,
+                                          (tileset_manager::get_tile_size() * get_map_zoom()))))};
             math::IVec2D mouse_tile_pos = {
-                static_cast<i32>(relative_mouse_pos.x /
+                static_cast<i32>(snapped_relative_mouse_pos.x /
                                  (tileset_manager::get_tile_size() * get_map_zoom())),
-                static_cast<i32>(relative_mouse_pos.y /
+                static_cast<i32>(snapped_relative_mouse_pos.y /
                                  (tileset_manager::get_tile_size() * get_map_zoom()))};
 
-            /*draw_selection_on_map(
+            bool is_tileset_appropiate_for_layer;
+            if (auto layer = current_layer_selected.get())
+                is_tileset_appropiate_for_layer =
+                    tileset_manager::get_selection().tileset == layer->tileset;
+            else
+                is_tileset_appropiate_for_layer = true;
+
+            draw_selection_on_map(
                 *map, is_tileset_appropiate_for_layer,
-                {static_cast<float>(base_cursor_pos.x), static_cast<float>(base_cursor_pos.y)},
-                relative_mouse_pos, mouse_tile_pos);*/
+                {static_cast<float>(map_render_pos.x), static_cast<float>(map_render_pos.y)},
+                snapped_relative_mouse_pos, mouse_tile_pos, abs_content_start_pos);
 
             static bool show_text_comment_creation_window = false;
             static math::IVec2D comment_creation_pos;
@@ -489,9 +482,9 @@ void render() {
             for (auto& comment : map->comments) {
                 ImVec2 comment_square_render_pos_min = {
                     comment.pos.x * tileset_manager::get_tile_size() * get_map_zoom() +
-                        base_cursor_pos.x,
+                        map_render_pos.x + abs_content_start_pos.x,
                     comment.pos.y * tileset_manager::get_tile_size() * get_map_zoom() +
-                        base_cursor_pos.y};
+                        map_render_pos.y + abs_content_start_pos.y};
                 ImVec2 comment_square_render_pos_max = {
                     comment_square_render_pos_min.x +
                         tileset_manager::get_tile_size() * get_map_zoom(),
@@ -517,13 +510,13 @@ void render() {
                 ImVec2 text_pos{
                     ImGui::GetWindowPos().x + ImGui::GetWindowWidth() / 2.f - text_size.x / 2.f,
                     ImGui::GetWindowPos().y + ImGui::GetWindowHeight() / 2.f - text_size.y / 2.f};
+                // Draw black rect on top to darken the already drawn stuff.
+                ImGui::GetWindowDrawList()->AddRectFilled({0,0}, {ImGui::GetWindowPos().x + ImGui::GetWindowSize().x, ImGui::GetWindowPos().y + ImGui::GetWindowSize().y}, ImGui::GetColorU32({0,0,0,.4f}));
                 ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
                                                     text.data());
             }
 
-            ImVec2 rel_mouse_px_pos =
-                ImVec2(mouse_pos.x - base_cursor_pos.x, mouse_pos.y - base_cursor_pos.y);
-            draw_pos_info_bar(mouse_tile_pos, rel_mouse_px_pos);
+            draw_pos_info_bar(mouse_tile_pos, relative_mouse_pos);
         } else
             ImGui::TextDisabled("No map loaded to view.");
     }
@@ -605,7 +598,6 @@ void render() {
                         tileset_manager::set_selection_tileset(
                             current_layer_selected.get()->tileset);
                     }
-                    update_grid_view_texture();
                 }
             }
     }

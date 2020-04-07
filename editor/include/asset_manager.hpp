@@ -3,6 +3,7 @@
 
 #include "assets/asset.hpp"
 
+#include <cmath>
 #include <cassert>
 #include <unordered_map>
 #include "util/intdef.hpp"
@@ -13,7 +14,7 @@ namespace detail {
 
 template<typename AssetT> struct AssetContainer {
     std::unordered_map<std::size_t, AssetT> map;
-    u64 last_id;
+    u64 next_id_to_use;
 
     static AssetContainer& get_instance() {
         static AssetContainer<AssetT> instance;
@@ -105,7 +106,7 @@ namespace arpiyi_editor::asset_manager {
 
 template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& load_params) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
-    u64 id_to_use = container.last_id++;
+    u64 id_to_use = container.next_id_to_use++;
     AssetT& asset = container.map.emplace(id_to_use, AssetT{}).first->second;
     assets::raw_load(asset, load_params);
     return Handle<AssetT>(id_to_use);
@@ -121,13 +122,16 @@ Handle<AssetT> load(assets::LoadParams<AssetT> const& load_params, u64 id_to_use
 
 template<typename AssetT> Handle<AssetT> put(AssetT const& asset) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
-    u64 id_to_use = container.last_id++;
+    u64 id_to_use = container.next_id_to_use++;
     container.map.emplace(id_to_use, std::move(asset));
     return Handle<AssetT>(id_to_use);
 }
 
-template<typename AssetT> Handle<AssetT> put(AssetT const& asset, u64 id_to_use) {
+template<typename AssetT, bool update_next_id_to_use = true> Handle<AssetT> put(AssetT const& asset, u64 id_to_use) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
+    if constexpr(update_next_id_to_use) {
+        container.next_id_to_use = std::max(id_to_use+1, container.next_id_to_use);
+    }
     container.map.emplace(id_to_use, std::move(asset));
     return Handle<AssetT>(id_to_use);
 }

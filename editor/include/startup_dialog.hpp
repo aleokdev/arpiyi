@@ -4,7 +4,7 @@
 namespace arpiyi_editor::startup_dialog {
 
 void init();
-void render();
+void render(bool* show_demo_window);
 
 }
 

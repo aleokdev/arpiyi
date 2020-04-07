@@ -72,9 +72,6 @@ static void debug_callback(GLenum const source, GLenum const type, GLuint, GLenu
     };
 
     std::cout << "[" << stringify_severity(severity) << ":" << stringify_type(type) << " in " << stringify_source(source) << "]: " << message << std::endl;
-
-    //if(severity == GL_DEBUG_SEVERITY_MEDIUM || severity == GL_DEBUG_SEVERITY_HIGH)
-    //    assert(false);
 }
 
 bool init() {
