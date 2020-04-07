@@ -21,12 +21,18 @@
 
 using namespace arpiyi_editor;
 
+static bool show_demo_window = false;
+
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (mods & GLFW_MOD_CONTROL && key == GLFW_KEY_I) {
+        show_demo_window = true;
+    }
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }
 
 int main() {
-    if(!window_manager::init()) return -1;
+    if (!window_manager::init())
+        return -1;
     tileset_manager::init();
     map_manager::init();
     editor::style::init();
@@ -53,8 +59,10 @@ int main() {
         editor::renderer::render();
         tileset_manager::render();
         map_manager::render();
-        startup_dialog::render();
-        // ImGui::ShowDemoWindow(nullptr);
+        startup_dialog::render(&show_demo_window);
+        if (show_demo_window) {
+            ImGui::ShowDemoWindow(&show_demo_window);
+        }
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -90,8 +90,7 @@ void init() {
     }
 }
 
-void render() {
-    static bool show_imgui_demo = false;
+void render(bool* show_demo_window) {
     ImGui::SetNextWindowSize({500, 200}, ImGuiCond_Appearing);
     if (ImGui::BeginPopupModal("Startup", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
         ImGui::TextUnformatted("Welcome to Arpiyi Editor v." ARPIYI_EDITOR_VERSION);
@@ -135,7 +134,12 @@ void render() {
             ImGui::EndTooltip();
         }
         if (ImGui::Button(ICON_MD_WIDGETS " Open ImGui Demo")) {
-            show_imgui_demo = true;
+            *show_demo_window = true;
+        }
+        if(ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::TextUnformatted("You can also press Ctrl+I later on to open it");
+            ImGui::EndTooltip();
         }
         ImGui::EndGroup();
         ImGui::EndPopup();
@@ -144,9 +148,6 @@ void render() {
     if (first_time) {
         ImGui::OpenPopup("Startup");
         first_time = false;
-    }
-    if (show_imgui_demo) {
-        ImGui::ShowDemoWindow(&show_imgui_demo);
     }
 }
 
