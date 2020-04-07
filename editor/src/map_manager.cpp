@@ -446,10 +446,10 @@ void render() {
                 static_cast<i32>(relative_mouse_pos.y /
                                  (tileset_manager::get_tile_size() * get_map_zoom()))};
 
-            /*draw_selection_on_map(
+            draw_selection_on_map(
                 *map, is_tileset_appropiate_for_layer,
                 {static_cast<float>(base_cursor_pos.x), static_cast<float>(base_cursor_pos.y)},
-                relative_mouse_pos, mouse_tile_pos);*/
+                relative_mouse_pos, mouse_tile_pos);
 
             static bool show_text_comment_creation_window = false;
             static math::IVec2D comment_creation_pos;
