@@ -1,5 +1,9 @@
 #include "assets/map.hpp"
 
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/document.h>
+
 namespace arpiyi_editor::assets {
 
 Mesh Map::Layer::generate_layer_split_quad() {
@@ -90,6 +94,153 @@ void Map::Layer::regenerate_mesh() {
     if (tileset.get()) {
         mesh.unload();
         mesh = asset_manager::put(generate_layer_split_quad());
+    }
+}
+
+namespace map_file_definitions {
+
+constexpr std::string_view name_json_key = "name";
+constexpr std::string_view width_json_key = "width";
+constexpr std::string_view height_json_key = "height";
+constexpr std::string_view layers_json_key = "layers";
+constexpr std::string_view comments_json_key = "comments";
+
+namespace layer_file_definitions {
+constexpr std::string_view name_json_key = "name";
+constexpr std::string_view data_json_key = "data";
+constexpr std::string_view tileset_id_json_key = "tileset";
+} // namespace layer_file_definitions
+
+namespace comment_file_definitions {
+constexpr std::string_view position_json_key = "pos";
+constexpr std::string_view text_json_key = "text";
+} // namespace comment_file_definitions
+
+} // namespace map_file_definitions
+
+template<> void raw_save<Map>(Map const& map, SaveParams<Map> const& params) {
+    rapidjson::StringBuffer s;
+    rapidjson::Writer<rapidjson::StringBuffer> w(s);
+
+    using namespace map_file_definitions;
+
+    w.StartObject();
+    w.Key(name_json_key.data());
+    w.String(map.name.c_str());
+    w.Key(width_json_key.data());
+    w.Int64(map.width);
+    w.Key(height_json_key.data());
+    w.Int64(map.height);
+    w.Key(layers_json_key.data());
+    w.StartArray();
+    for (const auto& _l : map.layers) {
+        auto& layer = *_l.get();
+        namespace lfd = layer_file_definitions;
+        w.StartObject();
+        w.Key(lfd::name_json_key.data());
+        w.String(layer.name.data());
+        w.Key(lfd::tileset_id_json_key.data());
+        w.Uint64(layer.tileset.get_id());
+        w.Key(lfd::data_json_key.data());
+        w.StartArray();
+        for (int y = 0; y < map.height; ++y) {
+            for (int x = 0; x < map.width; ++x) { w.Uint(layer.get_tile({x, y}).id); }
+        }
+        w.EndArray();
+        w.EndObject();
+    }
+    w.EndArray();
+    w.Key(comments_json_key.data());
+    w.StartArray();
+    for (const auto& comment : map.comments) {
+        namespace cfd = comment_file_definitions;
+        w.StartObject();
+        w.Key(cfd::text_json_key.data());
+        w.String(comment.text.c_str());
+        w.Key(cfd::position_json_key.data());
+        w.StartObject();
+        {
+            w.Key("x");
+            w.Int(comment.pos.x);
+            w.Key("y");
+            w.Int(comment.pos.y);
+        }
+        w.EndObject();
+        w.EndObject();
+    }
+    w.EndArray();
+    w.EndObject();
+
+    {
+        std::ofstream map_file(params.save_path);
+        map_file << s.GetString();
+    }
+}
+
+template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
+    std::ifstream f(params.path);
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    rapidjson::Document doc;
+    doc.Parse(buffer.str().data());
+
+    map.width = -1;
+    map.height = -1;
+
+    using namespace map_file_definitions;
+
+    for (auto const& obj : doc.GetObject()) {
+        if (obj.name == name_json_key.data()) {
+            map.name = obj.value.GetString();
+        } else if (obj.name == width_json_key.data()) {
+            map.width = obj.value.GetInt64();
+        } else if (obj.name == height_json_key.data()) {
+            map.height = obj.value.GetInt64();
+        } else if (obj.name == layers_json_key.data()) {
+            for (auto const& layer_object : obj.value.GetArray()) {
+                namespace lfd = layer_file_definitions;
+                if (map.width == -1 || map.height == -1) {
+                    assert("Map layer data loaded before width/height");
+                }
+                auto& layer = *map.layers
+                    .emplace_back(asset_manager::put(
+                        assets::Map::Layer(map.width, map.height, -1)))
+                    .get();
+
+                for (auto const& layer_val : layer_object.GetObject()) {
+                    if (layer_val.name == lfd::name_json_key.data()) {
+                        layer.name = layer_val.value.GetString();
+                    } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
+                        layer.tileset = layer_val.value.GetUint64();
+                        layer.regenerate_mesh();
+                    } else if (layer_val.name == lfd::data_json_key.data()) {
+                        u64 i = 0;
+                        for (auto const& layer_tile : layer_val.value.GetArray()) {
+                            layer.set_tile(
+                                {static_cast<i32>(i % map.width), static_cast<i32>(i / map.width)},
+                                {layer_tile.GetUint()});
+                            ++i;
+                        }
+                    }
+                }
+            }
+        } else if (obj.name == comments_json_key.data()) {
+            for (auto const& comment_object : obj.value.GetArray()) {
+                namespace cfd = comment_file_definitions;
+
+                auto& comment = map.comments.emplace_back();
+
+                for (auto const& comment_val : comment_object.GetObject()) {
+                    if (comment_val.name == cfd::text_json_key.data()) {
+                        comment.text = comment_val.value.GetString();
+                    } else if (comment_val.name == cfd::position_json_key.data()) {
+                        comment.pos.x = comment_val.value.GetObject()["x"].GetInt();
+                        comment.pos.y = comment_val.value.GetObject()["y"].GetInt();
+                    }
+                }
+            }
+        }
     }
 }
 

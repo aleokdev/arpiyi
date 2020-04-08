@@ -517,12 +517,12 @@ void render() {
                 switch (auto_type) {
                     case (assets::Tileset::AutoType::none):
                         tileset.texture =
-                            asset_manager::load<assets::Texture>({path_selected, false});
+                            asset_manager::load<assets::Texture>({path_selected});
                         break;
 
                     case (assets::Tileset::AutoType::rpgmaker_a2): {
                         auto raw_texture =
-                            asset_manager::load<assets::Texture>({path_selected, false});
+                            asset_manager::load<assets::Texture>({path_selected});
                         tileset.texture =
                             calculate_rpgmaker_a2_auto_tileset_texture(*raw_texture.get());
                         raw_texture.unload();

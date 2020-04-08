@@ -2,12 +2,19 @@
 #define ARPIYI_TILESET_HPP
 
 #include "asset_manager.hpp"
-#include "texture.hpp"
 #include "mesh.hpp"
-#include "util/math.hpp"
+#include "texture.hpp"
 #include "util/intdef.hpp"
+#include "util/math.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <string>
+
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
+namespace fs = std::filesystem;
 
 namespace arpiyi_editor::assets {
 
@@ -24,7 +31,8 @@ struct Tileset {
     Handle<assets::Texture> texture;
     std::string name;
 
-    /// Returns the size of this tileset in tiles, taking the tilesize from tileset_manager::get_tile_size().
+    /// Returns the size of this tileset in tiles, taking the tilesize from
+    /// tileset_manager::get_tile_size().
     [[nodiscard]] math::IVec2D get_size_in_tiles() const;
 
     /// Returns the size of this tileset in tiles, taking the tilesize as an argument.
@@ -40,10 +48,14 @@ struct Tileset {
     [[nodiscard]] u32 get_x_index_from_auto_id(u32 id) const;
 };
 
-template<> inline void raw_unload<Tileset>(Tileset& tileset) {
-    tileset.texture.unload();
-}
+template<> inline void raw_unload<Tileset>(Tileset& tileset) { tileset.texture.unload(); }
 
-}
+template<> struct SaveParams<Tileset> { fs::path save_path; };
+template<> struct LoadParams<Tileset> { fs::path path; };
+
+template<> void raw_save<Tileset>(Tileset const& tileset, SaveParams<Tileset> const& params);
+template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& params);
+
+} // namespace arpiyi_editor::assets
 
 #endif // ARPIYI_TILESET_HPP

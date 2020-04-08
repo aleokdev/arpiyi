@@ -149,6 +149,7 @@ static void show_add_map_window(bool* p_open) {
                 map.layers.emplace_back(
                     asset_manager::put(assets::Map::Layer(map.width, map.height, layer_tileset)));
                 map.layers[0].get()->name = layer_name;
+                current_layer_selected = map.layers[0];
             }
             current_map = asset_manager::put<assets::Map>(map);
             *p_open = false;
@@ -357,7 +358,7 @@ static void draw_selection_on_map(assets::Map& map,
         ImGui::InvisibleButton("##_map_img", {map_selection_size.x, map_selection_size.y});
         if (is_tileset_appropiate_for_layer) {
             if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                if (!map.layers.empty()) {
+                if (current_layer_selected.get()) {
                     place_tile_on_pos(map, mouse_tile_pos);
                 }
             }

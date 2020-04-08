@@ -24,7 +24,7 @@ struct Texture {
 enum TextureFilter { point, linear };
 template<> struct LoadParams<Texture> {
     fs::path path;
-    bool flip = true;
+    bool flip = false;
     TextureFilter filter = TextureFilter::point;
 };
 
@@ -60,15 +60,7 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
 
 template<> struct SaveParams<Texture> { fs::path path; };
 
-template<> inline void raw_save(Texture const& texture, SaveParams<Texture> const& params) {
-    constexpr u8 channel_width = 4;
-    void* data = malloc(texture.w * texture.h * channel_width);
-    glBindTexture(GL_TEXTURE_2D, texture.handle);
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    stbi_write_png(params.path.generic_string().c_str(), texture.w, texture.h, STBI_rgb_alpha, data,
-                   texture.w * channel_width);
-    free(data);
-}
+template<> void raw_save(Texture const& texture, SaveParams<Texture> const& params);
 
 template<> inline void raw_unload(Texture& texture) { glDeleteTextures(1, &texture.handle); }
 
