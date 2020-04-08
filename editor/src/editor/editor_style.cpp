@@ -73,6 +73,8 @@ void init() {
     iconf.MergeMode = true;
     static const ImWchar icon_ranges[] = { ICON_MIN_MD, ICON_MAX_MD, 0 };
     icon_font = io.Fonts->AddFontFromFileTTF("data/" FONT_ICON_FILE_NAME_MD, 14.0f, &iconf, icon_ranges);
+
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
 }
 
 }

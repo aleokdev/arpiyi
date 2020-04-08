@@ -16,6 +16,7 @@
 #include "plugin_manager.hpp"
 #include "map_manager.hpp"
 #include "startup_dialog.hpp"
+#include "sprite_manager.hpp"
 
 #include <sol/sol.hpp>
 
@@ -58,6 +59,7 @@ int main() {
 
         editor::renderer::render();
         tileset_manager::render();
+        sprite_manager::render();
         map_manager::render();
         startup_dialog::render(&show_demo_window);
         if (show_demo_window) {
