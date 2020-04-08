@@ -190,11 +190,13 @@ struct DrawMapCallbackData {
 static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cmd) {
     auto fb_size = window_manager::get_framebuf_size();
     const auto callback_data = *static_cast<DrawMapCallbackData*>(cmd->UserCallbackData);
-    glScissor(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w, cmd->ClipRect.z - callback_data.abs_content_min_rect.x,
+    glScissor(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w,
+              cmd->ClipRect.z - callback_data.abs_content_min_rect.x,
               cmd->ClipRect.w - callback_data.abs_content_min_rect.y);
 
     const auto& map = *current_map.get();
-    // Calculate model matrix: This is the same for the grid and all layers, so we'll calculate it first.
+    // Calculate model matrix: This is the same for the grid and all layers, so we'll calculate it
+    // first.
     float map_total_width = map.width * tileset_manager::get_tile_size() * get_map_zoom();
     float map_total_height = map.height * tileset_manager::get_tile_size() * get_map_zoom();
 
@@ -205,10 +207,9 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
     glm::mat4 model = glm::mat4(1);
     model = glm::translate(model, glm::vec3(0, map_total_height / clip_rect_height,
                                             0)); // Put model in left-top corner
-    model =
-        glm::translate(model, glm::vec3(callback_data.map_render_pos.x / clip_rect_width,
-                                        callback_data.map_render_pos.y / clip_rect_height,
-                                        0));        // Put model in given position
+    model = glm::translate(model, glm::vec3(callback_data.map_render_pos.x / clip_rect_width,
+                                            callback_data.map_render_pos.y / clip_rect_height,
+                                            0));    // Put model in given position
     model = glm::scale(model, glm::vec3(1, -1, 1)); // Flip model from its Y axis
     model = glm::scale(model, glm::vec3(map_total_width / clip_rect_width,
                                         map_total_height / clip_rect_height, 1));
@@ -319,11 +320,13 @@ static void draw_selection_on_map(assets::Map& map,
                                   bool is_tileset_appropiate_for_layer,
                                   ImVec2 map_render_pos,
                                   ImVec2 relative_mouse_pos,
-                                  math::IVec2D mouse_tile_pos, ImVec2 content_start_pos) {
+                                  math::IVec2D mouse_tile_pos,
+                                  ImVec2 content_start_pos) {
     auto selection = tileset_manager::get_selection();
     if (auto selection_tileset = selection.tileset.get()) {
-        ImVec2 selection_render_pos = ImVec2(relative_mouse_pos.x + map_render_pos.x + content_start_pos.x,
-                                             relative_mouse_pos.y + map_render_pos.y + content_start_pos.y);
+        ImVec2 selection_render_pos =
+            ImVec2(relative_mouse_pos.x + map_render_pos.x + content_start_pos.x,
+                   relative_mouse_pos.y + map_render_pos.y + content_start_pos.y);
         ImVec2 map_selection_size =
             ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
                        tileset_manager::get_tile_size() * get_map_zoom(),
@@ -334,7 +337,8 @@ static void draw_selection_on_map(assets::Map& map,
                                (float)selection.selection_start.y / (float)tileset_size.y};
         ImVec2 uv_max = ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
                                (float)(selection.selection_end.y + 1) / (float)tileset_size.y};
-        ImVec2 clip_rect_min = {map_render_pos.x + content_start_pos.x, map_render_pos.y + content_start_pos.y};
+        ImVec2 clip_rect_min = {map_render_pos.x + content_start_pos.x,
+                                map_render_pos.y + content_start_pos.y};
 
         ImGui::GetWindowDrawList()->PushClipRect(
             clip_rect_min,
@@ -392,10 +396,8 @@ void render() {
             }
 
             math::IVec2D map_render_pos{
-                static_cast<int>(map_scroll.x * get_map_zoom() +
-                                 ImGui::GetWindowWidth() / 2.f),
-                static_cast<int>(map_scroll.y * get_map_zoom() +
-                                 ImGui::GetWindowHeight() / 2.f)};
+                static_cast<int>(map_scroll.x * get_map_zoom() + ImGui::GetWindowWidth() / 2.f),
+                static_cast<int>(map_scroll.y * get_map_zoom() + ImGui::GetWindowHeight() / 2.f)};
 
             ImVec2 abs_content_start_pos = {
                 ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
@@ -404,7 +406,8 @@ void render() {
                 // Draw the map
                 static DrawMapCallbackData data;
                 data = {ImVec2{static_cast<float>(map_render_pos.x),
-                               static_cast<float>(map_render_pos.y)}, abs_content_start_pos};
+                               static_cast<float>(map_render_pos.y)},
+                        abs_content_start_pos};
                 ImGui::GetWindowDrawList()->AddCallback(&draw_map_callback,
                                                         static_cast<void*>(&data));
                 ImGui::GetWindowDrawList()->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
@@ -417,15 +420,15 @@ void render() {
 
             // Snap the relative mouse position
             ImVec2 snapped_relative_mouse_pos{
-                static_cast<float>(
-                    static_cast<int>(relative_mouse_pos.x) -
-                    static_cast<int>(std::fmod(relative_mouse_pos.x,
-                                          (tileset_manager::get_tile_size() * get_map_zoom())))),
+                static_cast<float>(static_cast<int>(relative_mouse_pos.x) -
+                                   static_cast<int>(std::fmod(
+                                       relative_mouse_pos.x,
+                                       (tileset_manager::get_tile_size() * get_map_zoom())))),
 
-                static_cast<float>(
-                    static_cast<int>(relative_mouse_pos.y) -
-                    static_cast<int>(std::fmod(relative_mouse_pos.y,
-                                          (tileset_manager::get_tile_size() * get_map_zoom()))))};
+                static_cast<float>(static_cast<int>(relative_mouse_pos.y) -
+                                   static_cast<int>(std::fmod(
+                                       relative_mouse_pos.y,
+                                       (tileset_manager::get_tile_size() * get_map_zoom()))))};
             math::IVec2D mouse_tile_pos = {
                 static_cast<i32>(snapped_relative_mouse_pos.x /
                                  (tileset_manager::get_tile_size() * get_map_zoom())),
@@ -511,7 +514,11 @@ void render() {
                     ImGui::GetWindowPos().x + ImGui::GetWindowWidth() / 2.f - text_size.x / 2.f,
                     ImGui::GetWindowPos().y + ImGui::GetWindowHeight() / 2.f - text_size.y / 2.f};
                 // Draw black rect on top to darken the already drawn stuff.
-                ImGui::GetWindowDrawList()->AddRectFilled({0,0}, {ImGui::GetWindowPos().x + ImGui::GetWindowSize().x, ImGui::GetWindowPos().y + ImGui::GetWindowSize().y}, ImGui::GetColorU32({0,0,0,.4f}));
+                ImGui::GetWindowDrawList()->AddRectFilled(
+                    {0, 0},
+                    {ImGui::GetWindowPos().x + ImGui::GetWindowSize().x,
+                     ImGui::GetWindowPos().y + ImGui::GetWindowSize().y},
+                    ImGui::GetColorU32({0, 0, 0, .4f}));
                 ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
                                                     text.data());
             }
