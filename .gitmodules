@@ -19,3 +19,6 @@
 [submodule "lib/rapidjson"]
 	path = lib/rapidjson
 	url = https://github.com/Tencent/rapidjson/
+[submodule "lib/glad"]
+	path = lib/glad
+	url = https://github.com/alexdevteam/glad
