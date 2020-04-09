@@ -1,10 +1,10 @@
 #include "editor/editor_renderer.hpp"
+#include "serializing_manager.hpp"
 #include <imgui.h>
 
 #include <iostream>
 #include <map>
 #include <noc_file_dialog.h>
-#include <serializer.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -83,15 +83,7 @@ void render() {
             }
         }
         if(ImGui::MenuItem("Save")) {
-            if (const char* c_path =
-                    noc_file_dialog_open(NOC_FILE_DIALOG_DIR, nullptr, nullptr, nullptr)) {
-                fs::path base_dir(c_path);
-                if (!fs::is_directory(base_dir)) {
-                    base_dir = base_dir.parent_path();
-                }
-
-                serializer::save_project(base_dir);
-            }
+            serializing_manager::start_save();
         }
         ImGui::EndMenuBar();
     }

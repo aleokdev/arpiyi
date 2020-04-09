@@ -1,11 +1,10 @@
 #include "startup_dialog.hpp"
-#include <imgui.h>
-
-#include "serializer.hpp"
+#include "serializing_manager.hpp"
 
 #include "util/icons_material_design.hpp"
 #include "project_info.hpp"
 
+#include <imgui.h>
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -104,7 +103,7 @@ void render(bool* show_demo_window) {
                     recent_project.path = recent_project.path.parent_path();
                 }
 
-                serializer::load_project(recent_project.path);
+                serializing_manager::start_load(recent_project.path);
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -124,7 +123,7 @@ void render(bool* show_demo_window) {
                 }
                 add_path_to_config_file_recent_projects(base_dir);
 
-                serializer::load_project(base_dir);
+                serializing_manager::start_load(base_dir);
                 ImGui::CloseCurrentPopup();
             }
         }

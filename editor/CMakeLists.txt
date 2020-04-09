@@ -19,7 +19,10 @@ add_executable(arpiyi-editor src/main.cpp
         src/assets/map.cpp
         src/assets/tileset.cpp
         src/startup_dialog.cpp
-        src/serializer.cpp src/sprite_manager.cpp src/assets/texture.cpp src/script_manager.cpp)
+        src/sprite_manager.cpp
+        src/assets/texture.cpp
+        src/script_manager.cpp
+        src/serializing_manager.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)

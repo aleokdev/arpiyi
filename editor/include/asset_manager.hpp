@@ -20,6 +20,8 @@ template<typename AssetT> struct AssetContainer {
         static AssetContainer<AssetT> instance;
         return instance;
     }
+
+    using AssetType = AssetT;
 };
 
 } // namespace detail
