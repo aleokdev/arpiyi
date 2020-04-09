@@ -16,6 +16,8 @@ struct Sprite {
     glm::vec2 uv_min;
     glm::vec2 uv_max;
     std::string name;
+    /// Where this sprite originates from. Goes from {0,0} (Upper left) to {1,1} (Lower right).
+    glm::vec2 pivot;
 
     [[nodiscard]] math::IVec2D get_size_in_pixels() const {
         const auto tex = *texture.get();

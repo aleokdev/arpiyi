@@ -31,6 +31,11 @@ ImVec2 map_scroll{0, 0};
 std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 int current_zoom_level = 2;
 static bool show_grid = true;
+enum class EditMode {
+    tile,
+    comment,
+    entity
+} edit_mode = EditMode::tile;
 
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
@@ -386,6 +391,24 @@ void render() {
             if (ImGui::BeginMenuBar()) {
                 ImGui::Checkbox("Grid", &show_grid);
 
+                const auto draw_edit_mode = [](EditMode mode, const char* icon, const char* tooltip) {
+                  if(edit_mode != mode)
+                      ImGui::PushStyleColor(ImGuiCol_Text, {0.6f, 0.6f, 0.6f, 1.f});
+                  if(ImGui::MenuItem(icon, nullptr)) {
+                      edit_mode = mode;
+                      ImGui::PopStyleColor();
+                  }
+                  if(edit_mode != mode)
+                      ImGui::PopStyleColor();
+                  if(ImGui::IsItemHovered()) {
+                      ImGui::SetTooltip("%s", tooltip);
+                  }
+                };
+
+                draw_edit_mode(EditMode::tile, ICON_MD_TERRAIN, "Terrain editing tool.\nUse tiles to change the appearance of your map.");
+                draw_edit_mode(EditMode::comment, ICON_MD_COMMENT, "Comment editing tool.\nUse text comments to annotate things on your map.\nThese won't have an impact on the actual game.");
+                draw_edit_mode(EditMode::entity, ICON_MD_VIDEOGAME_ASSET, "Entity editing tool.\nUse entities to give life to your maps.");
+
                 ImGui::EndMenuBar();
             }
 
@@ -443,10 +466,12 @@ void render() {
             else
                 is_tileset_appropiate_for_layer = true;
 
-            draw_selection_on_map(
-                *map, is_tileset_appropiate_for_layer,
-                {static_cast<float>(map_render_pos.x), static_cast<float>(map_render_pos.y)},
-                snapped_relative_mouse_pos, mouse_tile_pos, abs_content_start_pos);
+            if(edit_mode == EditMode::tile) {
+                draw_selection_on_map(
+                    *map, is_tileset_appropiate_for_layer,
+                    {static_cast<float>(map_render_pos.x), static_cast<float>(map_render_pos.y)},
+                    snapped_relative_mouse_pos, mouse_tile_pos, abs_content_start_pos);
+            }
 
             static bool show_text_comment_creation_window = false;
             static math::IVec2D comment_creation_pos;
@@ -458,14 +483,16 @@ void render() {
                     map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
                                         map_scroll.y + io.MouseDelta.y / get_map_zoom()};
                 }
-                if (ImGui::BeginPopupContextWindow("##_map_ctx")) {
-                    if (ImGui::IsWindowAppearing())
-                        comment_creation_pos = mouse_tile_pos;
+                if(edit_mode == EditMode::comment) {
+                    if (ImGui::BeginPopupContextWindow("##_map_ctx")) {
+                        if (ImGui::IsWindowAppearing())
+                            comment_creation_pos = mouse_tile_pos;
 
-                    if (ImGui::Selectable("Create text comment")) {
-                        show_text_comment_creation_window = true;
+                        if (ImGui::Selectable("Create text comment")) {
+                            show_text_comment_creation_window = true;
+                        }
+                        ImGui::EndPopup();
                     }
-                    ImGui::EndPopup();
                 }
             }
 
@@ -531,55 +558,67 @@ void render() {
     ImGui::End();
 
     static bool show_add_layer = false;
-    if (ImGui::Begin(ICON_MD_LAYERS " Map Layers", nullptr, ImGuiWindowFlags_MenuBar)) {
-        if (ImGui::BeginMenuBar()) {
-            if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
-                show_add_layer = true;
+    switch(edit_mode) {
+        case EditMode::entity: {
+            if(ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr, ImGuiWindowFlags_MenuBar)) {
+
             }
-            ImGui::EndMenuBar();
-        }
+            ImGui::End();
+        } break;
 
-        if (map) {
-            if (map->layers.empty())
-                ImGui::TextDisabled("No layers in current map");
-            else {
-                Handle<assets::Map::Layer> layer_to_delete = -1;
-                for (auto& l : map->layers) {
-                    auto& layer = *l.get();
-                    ImGui::TextDisabled("%zu", l.get_id());
-                    ImGui::SameLine();
-                    if (ImGui::TextDisabled("%s", layer.visible ? ICON_MD_VISIBILITY
-                                                                : ICON_MD_VISIBILITY_OFF),
-                        ImGui::IsItemClicked()) {
-                        layer.visible = !layer.visible;
+        case EditMode::tile: {
+            if (ImGui::Begin(ICON_MD_LAYERS " Map Layers###m_edit_panel", nullptr, ImGuiWindowFlags_MenuBar)) {
+                if (ImGui::BeginMenuBar()) {
+                    if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
+                        show_add_layer = true;
                     }
-                    ImGui::SameLine();
-                    if (l == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
-                                                    : ImGui::TextDisabled("%s", layer.name.c_str()),
-                        ImGui::IsItemClicked()) {
-                        current_layer_selected = l;
-                        tileset_manager::set_selection_tileset(layer.tileset);
-                    }
-
-                    if (ImGui::BeginPopupContextItem("Layer Context Menu")) {
-                        if (ImGui::Selectable("Delete"))
-                            layer_to_delete = l;
-                        ImGui::EndPopup();
-                    }
+                    ImGui::EndMenuBar();
                 }
 
-                if (layer_to_delete.get_id() != Handle<assets::Map::Layer>::noid) {
-                    layer_to_delete.unload();
-                    map->layers.erase(
-                        std::remove(map->layers.begin(), map->layers.end(), layer_to_delete),
-                        map->layers.end());
+                if (map) {
+                    if (map->layers.empty())
+                        ImGui::TextDisabled("No layers in current map");
+                    else {
+                        Handle<assets::Map::Layer> layer_to_delete = -1;
+                        for (auto& l : map->layers) {
+                            auto& layer = *l.get();
+                            ImGui::TextDisabled("%zu", l.get_id());
+                            ImGui::SameLine();
+                            if (ImGui::TextDisabled("%s", layer.visible ? ICON_MD_VISIBILITY
+                                                                        : ICON_MD_VISIBILITY_OFF),
+                                ImGui::IsItemClicked()) {
+                                layer.visible = !layer.visible;
+                            }
+                            ImGui::SameLine();
+                            if (l == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
+                                                            : ImGui::TextDisabled("%s", layer.name.c_str()),
+                                ImGui::IsItemClicked()) {
+                                current_layer_selected = l;
+                                tileset_manager::set_selection_tileset(layer.tileset);
+                            }
+
+                            if (ImGui::BeginPopupContextItem("Layer Context Menu")) {
+                                if (ImGui::Selectable("Delete"))
+                                    layer_to_delete = l;
+                                ImGui::EndPopup();
+                            }
+                        }
+
+                        if (layer_to_delete.get_id() != Handle<assets::Map::Layer>::noid) {
+                            layer_to_delete.unload();
+                            map->layers.erase(
+                                std::remove(map->layers.begin(), map->layers.end(), layer_to_delete),
+                                map->layers.end());
+                        }
+                    }
+                } else {
+                    ImGui::TextDisabled("No map selected");
                 }
             }
-        } else {
-            ImGui::TextDisabled("No map selected");
-        }
+            ImGui::End();
+        } break;
     }
-    ImGui::End();
+
 
     if (show_add_layer) {
         show_add_layer_window(&show_add_layer);
