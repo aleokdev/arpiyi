@@ -17,6 +17,7 @@
 #include "map_manager.hpp"
 #include "startup_dialog.hpp"
 #include "sprite_manager.hpp"
+#include "script_manager.hpp"
 
 #include <sol/sol.hpp>
 
@@ -38,7 +39,8 @@ int main() {
     map_manager::init();
     editor::style::init();
     editor::lua_wrapper::init();
-    // plugin_manager::init();
+    plugin_manager::init();
+    script_editor::init();
     // plugin_manager::load_plugins("data/plugins");
     startup_dialog::init();
 
@@ -61,6 +63,7 @@ int main() {
         tileset_manager::render();
         sprite_manager::render();
         map_manager::render();
+        script_editor::render();
         startup_dialog::render(&show_demo_window);
         if (show_demo_window) {
             ImGui::ShowDemoWindow(&show_demo_window);
