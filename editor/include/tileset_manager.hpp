@@ -17,7 +17,7 @@ struct TilesetSelection {
 
 void init();
 
-void render();
+void render(bool* p_show);
 
 u32 get_tile_size();
 

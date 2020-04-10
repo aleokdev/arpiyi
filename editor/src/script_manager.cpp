@@ -1,5 +1,6 @@
 #include "script_manager.hpp"
 #include "util/icons_material_design.hpp"
+#include "window_list_menu.hpp"
 
 #include <TextEditor.h>
 #include <sol/sol.hpp>
@@ -19,10 +20,11 @@ void init() {
     ImFontConfig conf;
     conf.RasterizerMultiply = 1.3f;
     code_font = ImGui::GetIO().Fonts->AddFontFromFileTTF("data/monaco.ttf", 21.0f, &conf);
+    window_list_menu::add_entry({"Lua Editor", &render});
 }
 
-void render() {
-    if(ImGui::Begin(ICON_MD_MEMORY " Lua Editor")) {
+void render(bool* p_show) {
+    if(ImGui::Begin(ICON_MD_MEMORY " Lua Editor", p_show)) {
         ImGui::PushFont(code_font);
         editor.Render("editor");
         if(editor.IsTextChanged()) {

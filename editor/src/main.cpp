@@ -19,6 +19,7 @@
 #include "sprite_manager.hpp"
 #include "script_manager.hpp"
 #include "serializing_manager.hpp"
+#include "window_list_menu.hpp"
 
 #include <sol/sol.hpp>
 
@@ -42,6 +43,7 @@ int main() {
     editor::lua_wrapper::init();
     plugin_manager::init();
     script_editor::init();
+    sprite_manager::init();
     // plugin_manager::load_plugins("data/plugins");
     startup_dialog::init();
 
@@ -61,10 +63,7 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         editor::renderer::render();
-        tileset_manager::render();
-        sprite_manager::render();
-        map_manager::render();
-        script_editor::render();
+        window_list_menu::render_entries();
         startup_dialog::render(&show_demo_window);
         serializing_manager::render();
         if (show_demo_window) {

@@ -4,7 +4,7 @@
 namespace arpiyi_editor::script_editor {
 
 void init();
-void render();
+void render(bool* p_show);
 
 }
 

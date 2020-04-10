@@ -1,5 +1,6 @@
 #include "tileset_manager.hpp"
 #include "window_manager.hpp"
+#include "window_list_menu.hpp"
 
 #include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
@@ -286,42 +287,10 @@ void init() {
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
     proj_mat = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f);
+    window_list_menu::add_entry({"Tileset view", &render});
 }
 
-/* // TODO: Move tile size slider elsewhere
-    if (ImGui::BeginMenuBar()) {
-        auto img = ts->texture.get();
-        if (ImGui::BeginMenu("Edit", img)) {
-            static bool two_power = true;
-            static int tile_size_slider = ts->tile_size;
-            static int last_tile_size = tile_size_slider;
-            if (ImGui::SliderInt("Tile size", &tile_size_slider, 8, 256)) {
-                if (two_power) {
-                    tile_size_slider--;
-                    tile_size_slider |= tile_size_slider >> 1;
-                    tile_size_slider |= tile_size_slider >> 2;
-                    tile_size_slider |= tile_size_slider >> 4;
-                    tile_size_slider |= tile_size_slider >> 8;
-                    tile_size_slider |= tile_size_slider >> 16;
-                    tile_size_slider++;
-                }
-            }
-            if (last_tile_size != tile_size_slider) {
-                current_tileset.tile_size = tile_size_slider;
-                // Re-split the tileset if tilesize changed
-                ImGui::SameLine();
-                update_tileset_quads();
-            }
-
-            ImGui::SameLine();
-            ImGui::Checkbox("Power of two", &two_power);
-            ImGui::EndMenu();
-        }
-            ImGui::EndMenuBar();
-        }
-        */
-
-void render() {
+void render(bool* p_show) {
     if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr,
                      ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         if (auto ts = selection.tileset.get()) {

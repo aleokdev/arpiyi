@@ -3,7 +3,8 @@
 
 namespace arpiyi_editor::sprite_manager {
 
-void render();
+void init();
+void render(bool* p_show);
 
 }
 

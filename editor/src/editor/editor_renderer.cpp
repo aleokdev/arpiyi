@@ -1,5 +1,6 @@
 #include "editor/editor_renderer.hpp"
 #include "serializing_manager.hpp"
+#include "window_list_menu.hpp"
 #include <imgui.h>
 
 #include <iostream>
@@ -84,6 +85,10 @@ void render() {
         }
         if(ImGui::MenuItem("Save")) {
             do_save_project = true;
+        }
+        if(ImGui::BeginMenu("Windows")) {
+            window_list_menu::show_menu_items();
+            ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
     }

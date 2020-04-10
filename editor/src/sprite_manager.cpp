@@ -13,9 +13,13 @@
 
 namespace arpiyi_editor::sprite_manager {
 
-void render() {
+void init() {
+
+}
+
+void render(bool* p_show) {
     static bool show_add_sprite_from_tileset_window = false;
-    if (ImGui::Begin(ICON_MD_WALLPAPER " Sprite List", nullptr, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(ICON_MD_WALLPAPER " Sprite List", p_show, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("Add")) {
                 if (ImGui::MenuItem("From tileset...")) {

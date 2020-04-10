@@ -9,6 +9,7 @@
 #include "assets/texture.hpp"
 #include "editor/editor_style.hpp"
 #include "tileset_manager.hpp"
+#include "window_list_menu.hpp"
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
 #include "window_manager.hpp"
@@ -377,14 +378,15 @@ void init() {
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
     proj_mat = glm::ortho(0.0f, 1.0f, 1.0f, (float)0.0f);
+    window_list_menu::add_entry({"Map View", &render});
 }
 
 Handle<assets::Map> get_current_map() { return current_map; }
 
-void render() {
+void render(bool* p_show) {
     auto map = current_map.get();
 
-    if (ImGui::Begin(ICON_MD_TERRAIN " Map View", nullptr,
+    if (ImGui::Begin(ICON_MD_TERRAIN " Map View", p_show,
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar |
                          ImGuiWindowFlags_NoScrollWithMouse)) {
         if (map) {
