@@ -22,7 +22,8 @@ add_executable(arpiyi-editor src/main.cpp
         src/sprite_manager.cpp
         src/assets/texture.cpp
         src/script_manager.cpp
-        src/serializing_manager.cpp include/window_list_menu.hpp src/window_list_menu.cpp)
+        src/serializing_manager.cpp
+        src/window_list_menu.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
