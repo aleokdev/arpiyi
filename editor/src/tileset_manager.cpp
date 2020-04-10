@@ -446,7 +446,7 @@ void render(bool* p_show) {
     ImGui::End();
 
     if (show_new_tileset) {
-        if (ImGui::Begin(ICON_MD_LIBRARY_ADD " New Tileset")) {
+        if (ImGui::Begin(ICON_MD_LIBRARY_ADD " New Tileset", &show_new_tileset)) {
             static char path_selected[4096] = "\0";
             ImGui::InputTextWithHint("Path", "Enter path...", path_selected, 4096);
             ImGui::SameLine();
@@ -494,6 +494,9 @@ void render(bool* p_show) {
                 }
             }
 
+            if(ImGui::Button("Cancel"))
+                show_new_tileset = false;
+            ImGui::SameLine();
             const bool valid = fs::is_regular_file(path_selected) &&
                                (can_modify_tile_size || (tile_size > 0 && tile_size < 1024));
             if (!valid) {
