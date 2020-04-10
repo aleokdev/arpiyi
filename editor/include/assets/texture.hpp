@@ -58,9 +58,7 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
     texture.h = h;
 }
 
-template<> struct SaveParams<Texture> { fs::path path; };
-
-template<> void raw_save(Texture const& texture, SaveParams<Texture> const& params);
+template<> RawSaveData raw_get_save_data<Texture>(Texture const& texture);
 
 template<> inline void raw_unload(Texture& texture) { glDeleteTextures(1, &texture.handle); }
 

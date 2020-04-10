@@ -42,3 +42,13 @@ Linux requires the Lua 5.3 package for linking the executable. For Windows users
 is already included in the `lib/` folder, so you don't need to do anything special.
 
 If any compiler errors arise while building, please open a Github issue for them.
+
+### Contributing
+For now, the best way to contribute is by testing, building and reporting issues.
+
+If you'd like contribute by programming, here's a list of files that you should never touch
+because of their extremely bad design and practices: (AKA TODO: clean those up)
+- serializing_manager.cpp (Since there's no coroutines available, saving while displaying save
+progress is much harder than it seems. I had to resort to custom callbacks, which aren't very pretty.)
+- editor/editor_renderer.cpp (This file is probably going to be removed at some point. It contains some lua wrappers +
+the main docking space of the application + the menu bar of it (The save button).)

@@ -50,10 +50,9 @@ struct Tileset {
 
 template<> inline void raw_unload<Tileset>(Tileset& tileset) { tileset.texture.unload(); }
 
-template<> struct SaveParams<Tileset> { fs::path save_path; };
 template<> struct LoadParams<Tileset> { fs::path path; };
 
-template<> void raw_save<Tileset>(Tileset const& tileset, SaveParams<Tileset> const& params);
+template<> RawSaveData raw_get_save_data<Tileset>(Tileset const& tileset);
 template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& params);
 
 } // namespace arpiyi_editor::assets

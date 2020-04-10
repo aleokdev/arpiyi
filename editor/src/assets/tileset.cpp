@@ -105,7 +105,7 @@ constexpr std::string_view texture_id_json_key = "texture_id";
 
 } // namespace tileset_file_definitions
 
-template<> void raw_save<Tileset>(Tileset const& tileset, SaveParams<Tileset> const& params) {
+template<> RawSaveData raw_get_save_data<Tileset>(Tileset const& tileset) {
     rapidjson::StringBuffer s;
     rapidjson::Writer<rapidjson::StringBuffer> w(s);
 
@@ -124,8 +124,9 @@ template<> void raw_save<Tileset>(Tileset const& tileset, SaveParams<Tileset> co
     }
     w.EndObject();
     {
-        std::ofstream tileset_file(params.save_path);
-        tileset_file << s.GetString();
+        RawSaveData data;
+        data.bytestream.write(s.GetString(), s.GetLength());
+        return data;
     }
 }
 

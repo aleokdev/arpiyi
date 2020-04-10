@@ -49,7 +49,7 @@ bool has_window(std::size_t id) {
 }
 
 void render() {
-
+    bool do_save_project = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 
     // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
@@ -83,7 +83,7 @@ void render() {
             }
         }
         if(ImGui::MenuItem("Save")) {
-            serializing_manager::start_save();
+            do_save_project = true;
         }
         ImGui::EndMenuBar();
     }
@@ -98,6 +98,9 @@ void render() {
     toolbars_to_remove.clear();
 
     ImGui::End();
+
+    if(do_save_project)
+        serializing_manager::start_save();
 }
 
 } // namespace arpiyi_editor::editor::renderer

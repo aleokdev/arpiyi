@@ -90,6 +90,7 @@ void init() {
 }
 
 void render(bool* show_demo_window) {
+    static fs::path dir_to_load;
     ImGui::SetNextWindowSize({500, 200}, ImGuiCond_Appearing);
     if (ImGui::BeginPopupModal("Startup", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
         ImGui::TextUnformatted("Welcome to Arpiyi Editor v." ARPIYI_EDITOR_VERSION);
@@ -102,8 +103,7 @@ void render(bool* show_demo_window) {
                 if (!fs::is_directory(recent_project.path)) {
                     recent_project.path = recent_project.path.parent_path();
                 }
-
-                serializing_manager::start_load(recent_project.path);
+                dir_to_load = recent_project.path;
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -121,9 +121,8 @@ void render(bool* show_demo_window) {
                 if (!fs::is_directory(base_dir)) {
                     base_dir = base_dir.parent_path();
                 }
+                dir_to_load = base_dir;
                 add_path_to_config_file_recent_projects(base_dir);
-
-                serializing_manager::start_load(base_dir);
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -147,6 +146,11 @@ void render(bool* show_demo_window) {
     if (first_time) {
         ImGui::OpenPopup("Startup");
         first_time = false;
+    }
+
+    if(!dir_to_load.empty()) {
+        serializing_manager::start_load(dir_to_load);
+        dir_to_load = "";
     }
 }
 

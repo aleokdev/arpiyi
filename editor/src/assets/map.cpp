@@ -1,8 +1,8 @@
 #include "assets/map.hpp"
 
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
 #include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace arpiyi_editor::assets {
 
@@ -118,7 +118,7 @@ constexpr std::string_view text_json_key = "text";
 
 } // namespace map_file_definitions
 
-template<> void raw_save<Map>(Map const& map, SaveParams<Map> const& params) {
+template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
     rapidjson::StringBuffer s;
     rapidjson::Writer<rapidjson::StringBuffer> w(s);
 
@@ -171,10 +171,10 @@ template<> void raw_save<Map>(Map const& map, SaveParams<Map> const& params) {
     w.EndArray();
     w.EndObject();
 
-    {
-        std::ofstream map_file(params.save_path);
-        map_file << s.GetString();
-    }
+    RawSaveData data;
+    data.bytestream.write(s.GetString(), s.GetLength());
+
+    return data;
 }
 
 template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
@@ -204,9 +204,9 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                     assert("Map layer data loaded before width/height");
                 }
                 auto& layer = *map.layers
-                    .emplace_back(asset_manager::put(
-                        assets::Map::Layer(map.width, map.height, -1)))
-                    .get();
+                                   .emplace_back(asset_manager::put(
+                                       assets::Map::Layer(map.width, map.height, -1)))
+                                   .get();
 
                 for (auto const& layer_val : layer_object.GetObject()) {
                     if (layer_val.name == lfd::name_json_key.data()) {

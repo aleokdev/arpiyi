@@ -3,10 +3,11 @@
 
 #include "assets/asset.hpp"
 
-#include <cmath>
-#include <cassert>
-#include <unordered_map>
 #include "util/intdef.hpp"
+#include <cassert>
+#include <cmath>
+#include <fstream>
+#include <unordered_map>
 
 namespace arpiyi_editor {
 
@@ -36,9 +37,7 @@ public:
             assert("Tried to access null Expected value");
         return val;
     }
-    T& operator*() {
-        return *operator->();
-    }
+    T& operator*() { return *operator->(); }
 
     operator bool() { return has_value; }
 
@@ -74,8 +73,10 @@ public:
             return &asset_it->second;
     }
 
-    void save(assets::SaveParams<AssetT> const& params) const {
-        assets::raw_save(*get().operator->(), params);
+    void save(fs::path path) const {
+        assets::RawSaveData data = assets::raw_get_save_data(*get().operator->());
+        std::fstream f(path);
+        f << data.bytestream.rdbuf();
     }
 
     void unload() noexcept {
@@ -92,9 +93,7 @@ public:
         }
     }
 
-    [[nodiscard]] bool operator==(Handle const& h) const noexcept {
-        return id == h.id;
-    }
+    [[nodiscard]] bool operator==(Handle const& h) const noexcept { return id == h.id; }
 
     [[nodiscard]] u64 get_id() const noexcept { return id; }
 
@@ -102,7 +101,7 @@ private:
     u64 id;
 };
 
-}
+} // namespace arpiyi_editor
 
 namespace arpiyi_editor::asset_manager {
 
@@ -129,10 +128,11 @@ template<typename AssetT> Handle<AssetT> put(AssetT const& asset) {
     return Handle<AssetT>(id_to_use);
 }
 
-template<typename AssetT, bool update_next_id_to_use = true> Handle<AssetT> put(AssetT const& asset, u64 id_to_use) {
+template<typename AssetT, bool update_next_id_to_use = true>
+Handle<AssetT> put(AssetT const& asset, u64 id_to_use) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
-    if constexpr(update_next_id_to_use) {
-        container.next_id_to_use = std::max(id_to_use+1, container.next_id_to_use);
+    if constexpr (update_next_id_to_use) {
+        container.next_id_to_use = std::max(id_to_use + 1, container.next_id_to_use);
     }
     container.map.emplace(id_to_use, std::move(asset));
     return Handle<AssetT>(id_to_use);

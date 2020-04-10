@@ -69,10 +69,9 @@ struct Map {
 
 template<> inline void raw_unload<Map::Layer>(Map::Layer& layer) { layer.tileset.unload(); }
 
-template<> struct SaveParams<Map> { fs::path save_path; };
 template<> struct LoadParams<Map> { fs::path path; };
 
-template<> void raw_save<Map>(Map const&, SaveParams<Map> const&);
+template<> RawSaveData raw_get_save_data<Map>(Map const&);
 template<> void raw_load<Map>(Map&, LoadParams<Map> const&);
 
 } // namespace arpiyi_editor::assets
