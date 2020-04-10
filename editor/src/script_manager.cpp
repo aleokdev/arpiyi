@@ -35,7 +35,7 @@ void render() {
                 std::string_view lineno_view = partial_lineno_view.substr(0, partial_lineno_view.rfind(':'));
                 int lineno;
                 std::from_chars(lineno_view.data(), lineno_view.data() + lineno_view.size(), lineno);
-                editor.SetErrorMarkers({{lineno-1, err.what()}});
+                editor.SetErrorMarkers({{std::min(lineno, editor.GetTotalLines()), err.what()}});
             }
             else
                 editor.SetErrorMarkers({});

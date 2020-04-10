@@ -322,7 +322,8 @@ void init() {
         */
 
 void render() {
-    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
+    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr,
+                     ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         if (auto ts = selection.tileset.get()) {
             if (auto img = ts->texture.get()) {
                 const ImVec2 tileset_render_pos = {ImGui::GetCursorScreenPos().x,
@@ -406,7 +407,7 @@ void render() {
 
                 ImGui::SetNextWindowBgAlpha(tooltip_alpha);
                 // Draw preview of current tile being hovered
-                if(tooltip_alpha > 0.01f) {
+                if (tooltip_alpha > 0.01f) {
                     ImGui::BeginTooltip();
                     {
                         const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / tile_size),
@@ -422,12 +423,12 @@ void render() {
                         ImGui::SameLine();
                         static std::size_t tile_id;
                         if (update_tooltip_info)
-                            tile_id =
-                                tile_hovering.x + tile_hovering.y * ts->get_size_in_tiles(tile_size).x;
+                            tile_id = tile_hovering.x +
+                                      tile_hovering.y * ts->get_size_in_tiles(tile_size).x;
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
                         ImGui::Text("ID %zu", tile_id);
-                        ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x, uv_min.y,
-                                    uv_max.y);
+                        ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x,
+                                    uv_min.y, uv_max.y);
                         ImGui::PopStyleColor(1);
                     }
                     ImGui::EndTooltip();
@@ -505,24 +506,45 @@ void render() {
                 ImGui::EndCombo();
             }
 
-            const bool valid = fs::is_regular_file(path_selected);
+            static int input_tile_size = 48;
+            bool can_modify_tile_size =
+                detail::AssetContainer<assets::Tileset>::get_instance().map.empty();
+            if (can_modify_tile_size) {
+                ImGui::InputInt("Tile size", &input_tile_size);
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::PushTextWrapPos(240.f);
+                    ImGui::TextUnformatted(
+                        "The size in pixels of each tile in the tileset.\nIMPORTANT: This option "
+                        "is only available when there are no other tilesets loaded in, so think "
+                        "the size carefully before setting it. For reference, RPGMaker VX/VX Ace "
+                        "uses 32x32 tiles, RPGMaker MV uses 48x48 tiles, and most pixel art uses "
+                        "16x16 or 32x32.");
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
+            }
+
+            const bool valid = fs::is_regular_file(path_selected) &&
+                               (can_modify_tile_size || (tile_size > 0 && tile_size < 1024));
             if (!valid) {
                 ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
             }
             if (ImGui::Button("OK")) {
+                if (can_modify_tile_size)
+                    tile_size = static_cast<std::size_t>(input_tile_size);
+
                 assets::Tileset tileset;
                 tileset.name = fs::path(path_selected).filename().generic_string();
                 tileset.auto_type = auto_type;
                 switch (auto_type) {
                     case (assets::Tileset::AutoType::none):
-                        tileset.texture =
-                            asset_manager::load<assets::Texture>({path_selected});
+                        tileset.texture = asset_manager::load<assets::Texture>({path_selected});
                         break;
 
                     case (assets::Tileset::AutoType::rpgmaker_a2): {
-                        auto raw_texture =
-                            asset_manager::load<assets::Texture>({path_selected});
+                        auto raw_texture = asset_manager::load<assets::Texture>({path_selected});
                         tileset.texture =
                             calculate_rpgmaker_a2_auto_tileset_texture(*raw_texture.get());
                         raw_texture.unload();
@@ -559,8 +581,8 @@ std::vector<Handle<assets::Tileset>> get_tilesets() {
 TilesetSelection const& get_selection() { return selection; }
 void set_selection_tileset(Handle<assets::Tileset> tileset) {
     selection.tileset = tileset;
-    selection.selection_start = {0,0};
-    selection.selection_end = {0,0};
+    selection.selection_start = {0, 0};
+    selection.selection_end = {0, 0};
 
     update_grid_texture();
 }
