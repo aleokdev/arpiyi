@@ -14,12 +14,12 @@ namespace arpiyi_editor::script_editor {
 
 static TextEditor editor;
 static ImFont* code_font;
-static sol::state lua_code_checker;
+static sol::state lua_linter;
 static Handle<assets::Script> selected_script;
 
 static void check_for_errors_in_editor_script() {
     const std::string editor_text = editor.GetText();
-    sol::load_result result = lua_code_checker.load(editor_text, "script");
+    sol::load_result result = lua_linter.load(editor_text, "script");
     if (!result.valid()) {
         sol::error err = result;
         constexpr std::string_view ignored_error_start = "[string \"script\"]:";
