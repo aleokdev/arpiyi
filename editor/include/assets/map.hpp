@@ -10,6 +10,7 @@
 #include "mesh.hpp"
 #include "texture.hpp"
 #include "tileset.hpp"
+#include "entity.hpp"
 #include "util/intdef.hpp"
 #include "util/math.hpp"
 
@@ -62,6 +63,7 @@ struct Map {
 
     std::vector<Handle<Layer>> layers;
     std::vector<Comment> comments;
+    std::vector<Handle<Entity>> entities;
     std::string name;
 
     i64 width, height;

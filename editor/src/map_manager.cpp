@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 
+#include "assets/entity.hpp"
 #include "assets/shader.hpp"
 #include "assets/texture.hpp"
 #include "editor/editor_style.hpp"
@@ -94,20 +95,20 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
     if (ImGui::Begin(ICON_MD_SETTINGS " Edit Map Layer", p_open)) {
         static char name[32];
         static Handle<assets::Tileset> tileset;
-        if(ImGui::IsWindowAppearing()) {
+        if (ImGui::IsWindowAppearing()) {
             assert(layer.name.size() < 32);
             strcpy(name, layer.name.c_str());
             tileset = layer.tileset;
         }
 
         const auto& show_info_tip = [](const char* c) {
-          ImGui::SameLine();
-          ImGui::TextDisabled("(?)");
-          if (ImGui::IsItemHovered()) {
-              ImGui::BeginTooltip();
-              ImGui::TextUnformatted(c);
-              ImGui::EndTooltip();
-          }
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::TextUnformatted(c);
+                ImGui::EndTooltip();
+            }
         };
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
@@ -463,15 +464,83 @@ static void draw_selection_on_map(assets::Map& map,
              selection_render_pos.y + map_selection_size.y},
             uv_min, uv_max, ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
         ImGui::GetWindowDrawList()->PopClipRect();
+    }
+}
 
-        ImGui::SetCursorScreenPos(selection_render_pos);
-        ImGui::InvisibleButton("##_map_img", {map_selection_size.x, map_selection_size.y});
-        if (is_tileset_appropiate_for_layer) {
-            if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                if (current_layer_selected.get()) {
-                    place_tile_on_pos(map, mouse_tile_pos, !ImGui::GetIO().KeyShift);
-                }
+/// @returns One of the entities below the cursor (if any)
+static Handle<assets::Entity>
+draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_content_start_pos) {
+    Handle<assets::Entity> entity_hovering;
+    for (const auto& e : map.entities) {
+        assert(e.get());
+        const auto& entity = *e.get();
+        const math::IVec2D entity_sprite_size =
+            entity.sprite.get() ? entity.sprite.get()->get_size_in_pixels()
+                                : math::IVec2D{static_cast<i32>(tileset_manager::get_tile_size()),
+                                               static_cast<i32>(tileset_manager::get_tile_size())};
+
+        const glm::vec2 tile_entity_square_render_pos_min = entity.get_left_corner_pos();
+        ImVec2 entity_square_render_pos_min{
+            tile_entity_square_render_pos_min.x *
+                    static_cast<float>(tileset_manager::get_tile_size()) * get_map_zoom() +
+                map_render_pos.x + abs_content_start_pos.x,
+            tile_entity_square_render_pos_min.y *
+                    static_cast<float>(tileset_manager::get_tile_size()) * get_map_zoom() +
+                map_render_pos.y + abs_content_start_pos.y};
+        ImVec2 entity_square_render_pos_max{
+            entity_square_render_pos_min.x + entity_sprite_size.x * get_map_zoom(),
+            entity_square_render_pos_min.y + entity_sprite_size.y * get_map_zoom(),
+        };
+
+        ImGui::GetWindowDrawList()->AddRect(
+            entity_square_render_pos_min, entity_square_render_pos_max,
+            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}), 0, ImDrawCornerFlags_All, 5.f);
+        if (auto s = entity.sprite.get()) {
+            ImGui::GetWindowDrawList()->AddImage(
+                reinterpret_cast<ImTextureID>(s->texture.get()->handle),
+                entity_square_render_pos_min, entity_square_render_pos_max,
+                ImVec2{s->uv_min.x, s->uv_min.y}, ImVec2{s->uv_max.x, s->uv_max.y});
+        }
+        if (ImGui::IsMouseHoveringRect(entity_square_render_pos_min,
+                                       entity_square_render_pos_max)) {
+            entity_hovering = e;
+            ImGui::BeginTooltip();
+            ImGui::Text("%s at {%.2f, %.2f}", entity.name.c_str(), entity.pos.x, entity.pos.y);
+            ImGui::Separator();
+            ImGui::TextDisabled("Scripts:");
+            ImGui::BeginChild("##ent_scripts");
+            for (const auto& script : entity.scripts) {
+                assert(script.get());
+                ImGui::TextUnformatted(script.get()->name.c_str());
             }
+            ImGui::EndChild();
+            ImGui::EndTooltip();
+        }
+    }
+    return entity_hovering;
+}
+
+static void
+draw_comments(assets::Map const& map, math::IVec2D map_render_pos, ImVec2 abs_content_start_pos) {
+    for (const auto& comment : map.comments) {
+        ImVec2 comment_square_render_pos_min = {
+            comment.pos.x * tileset_manager::get_tile_size() * get_map_zoom() + map_render_pos.x +
+                abs_content_start_pos.x,
+            comment.pos.y * tileset_manager::get_tile_size() * get_map_zoom() + map_render_pos.y +
+                abs_content_start_pos.y};
+        ImVec2 comment_square_render_pos_max = {
+            comment_square_render_pos_min.x + tileset_manager::get_tile_size() * get_map_zoom(),
+            comment_square_render_pos_min.y + tileset_manager::get_tile_size() * get_map_zoom()};
+        ImGui::GetWindowDrawList()->AddRect(
+            comment_square_render_pos_min, comment_square_render_pos_max,
+            ImGui::GetColorU32({0.9f, 0.8f, 0.05f, 0.6f}), 0, ImDrawCornerFlags_All, 5.f);
+        if (ImGui::IsMouseHoveringRect(comment_square_render_pos_min,
+                                       comment_square_render_pos_max)) {
+            ImGui::BeginTooltip();
+            ImGui::TextDisabled("Text comment at {%i, %i}", comment.pos.x, comment.pos.y);
+            ImGui::Separator();
+            ImGui::TextUnformatted(comment.text.c_str());
+            ImGui::EndTooltip();
         }
     }
 }
@@ -585,6 +654,13 @@ void render(bool* p_show) {
                     snapped_relative_mouse_pos, mouse_tile_pos, abs_content_start_pos);
             }
 
+            static Handle<assets::Entity> entity_hovering;
+            if (!entity_hovering.get()) {
+                entity_hovering = draw_entities(*map, map_render_pos, abs_content_start_pos);
+            } else {
+                draw_entities(*map, map_render_pos, abs_content_start_pos);
+            }
+
             static bool show_text_comment_creation_window = false;
             static math::IVec2D comment_creation_pos;
             if (is_tileset_appropiate_for_layer) {
@@ -595,16 +671,86 @@ void render(bool* p_show) {
                     map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
                                         map_scroll.y + io.MouseDelta.y / get_map_zoom()};
                 }
-                if (edit_mode == EditMode::comment) {
-                    if (ImGui::BeginPopupContextWindow("##_map_ctx")) {
-                        if (ImGui::IsWindowAppearing())
-                            comment_creation_pos = mouse_tile_pos;
+                switch (edit_mode) {
+                    case EditMode::comment: {
+                        if (ImGui::BeginPopupContextWindow("##_map_ctx")) {
+                            if (ImGui::IsWindowAppearing())
+                                comment_creation_pos = mouse_tile_pos;
 
-                        if (ImGui::Selectable("Create text comment")) {
-                            show_text_comment_creation_window = true;
+                            if (ImGui::Selectable("Create text comment")) {
+                                show_text_comment_creation_window = true;
+                            }
+                            ImGui::EndPopup();
                         }
-                        ImGui::EndPopup();
-                    }
+                    } break;
+
+                    case EditMode::entity: {
+                        ImGuiIO& io = ImGui::GetIO();
+                        if (!entity_hovering.get() &&
+                            io.MouseDoubleClicked[ImGuiMouseButton_Left]) {
+                            if (auto layer = current_layer_selected.get()) {
+                                if (layer->is_pos_valid(mouse_tile_pos)) {
+                                    assets::Entity entity;
+                                    entity.name = "Entity";
+                                    if (io.KeyCtrl) {
+                                        entity.pos =
+                                            glm::vec2{static_cast<float>(mouse_tile_pos.x),
+                                                      static_cast<float>(mouse_tile_pos.y)};
+                                    } else {
+                                        entity.pos =
+                                            glm::vec2{relative_mouse_pos.x /
+                                                          (static_cast<float>(
+                                                               tileset_manager::get_tile_size()) *
+                                                           get_map_zoom()),
+                                                      relative_mouse_pos.y /
+                                                          (static_cast<float>(
+                                                               tileset_manager::get_tile_size()) *
+                                                           get_map_zoom())};
+                                    }
+                                    map->entities.emplace_back(asset_manager::put(entity));
+                                }
+                            }
+                        } else if (auto entity = entity_hovering.get()) {
+                            if (io.MouseDown[ImGuiMouseButton_Left]) {
+                                if (io.KeyCtrl) {
+                                    entity->pos.x = static_cast<float>(mouse_tile_pos.x);
+                                    entity->pos.y = static_cast<float>(mouse_tile_pos.y);
+                                } else {
+                                    entity->pos.x =
+                                        (io.MousePos.x - map_render_pos.x -
+                                         abs_content_start_pos.x) /
+                                        static_cast<float>(tileset_manager::get_tile_size() *
+                                                           get_map_zoom());
+                                    entity->pos.y =
+                                        (io.MousePos.y - map_render_pos.y -
+                                         abs_content_start_pos.y) /
+                                        static_cast<float>(tileset_manager::get_tile_size() *
+                                                           get_map_zoom());
+                                }
+                            } else {
+                                entity_hovering = nullptr;
+                            }
+                        }
+                    } break;
+
+                    case EditMode::tile:
+                        ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
+                                                 map_render_pos.y + abs_content_start_pos.y};
+                        ImVec2 map_render_max = {
+                            map_render_min.x +
+                                map->width * tileset_manager::get_tile_size() * get_map_zoom(),
+                            map_render_min.y +
+                                map->height * tileset_manager::get_tile_size() * get_map_zoom()};
+                        if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max) &&
+                            ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                            if (auto layer = current_layer_selected.get()) {
+                                if (layer->is_pos_valid(mouse_tile_pos)) {
+                                    place_tile_on_pos(*map, mouse_tile_pos,
+                                                      !ImGui::GetIO().KeyShift);
+                                }
+                            }
+                        }
+                        break;
                 }
             }
 
@@ -622,29 +768,7 @@ void render(bool* p_show) {
                 ImGui::End();
             }
 
-            for (auto& comment : map->comments) {
-                ImVec2 comment_square_render_pos_min = {
-                    comment.pos.x * tileset_manager::get_tile_size() * get_map_zoom() +
-                        map_render_pos.x + abs_content_start_pos.x,
-                    comment.pos.y * tileset_manager::get_tile_size() * get_map_zoom() +
-                        map_render_pos.y + abs_content_start_pos.y};
-                ImVec2 comment_square_render_pos_max = {
-                    comment_square_render_pos_min.x +
-                        tileset_manager::get_tile_size() * get_map_zoom(),
-                    comment_square_render_pos_min.y +
-                        tileset_manager::get_tile_size() * get_map_zoom()};
-                ImGui::GetWindowDrawList()->AddRect(
-                    comment_square_render_pos_min, comment_square_render_pos_max,
-                    ImGui::GetColorU32({0.9f, 0.8f, 0.05f, 0.6f}), 0, ImDrawCornerFlags_All, 5.f);
-                if (ImGui::IsMouseHoveringRect(comment_square_render_pos_min,
-                                               comment_square_render_pos_max)) {
-                    ImGui::BeginTooltip();
-                    ImGui::TextDisabled("Text comment at {%i, %i}", comment.pos.x, comment.pos.y);
-                    ImGui::Separator();
-                    ImGui::TextUnformatted(comment.text.c_str());
-                    ImGui::EndTooltip();
-                }
-            }
+            draw_comments(*map, map_render_pos, abs_content_start_pos);
 
             if (!is_tileset_appropiate_for_layer) {
                 constexpr std::string_view text =
@@ -674,7 +798,16 @@ void render(bool* p_show) {
     switch (edit_mode) {
         case EditMode::entity: {
             if (ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr,
-                             ImGuiWindowFlags_MenuBar)) {}
+                             ImGuiWindowFlags_MenuBar)) {
+                if (map) {
+                    for (const auto& e : map->entities) {
+                        auto& entity = *e.get();
+                        ImGui::TextDisabled("%zu", e.get_id());
+                        ImGui::SameLine();
+                        ImGui::TextUnformatted(entity.name.c_str());
+                    }
+                }
+            }
             ImGui::End();
         } break;
 
@@ -715,7 +848,7 @@ void render(bool* p_show) {
                                 char buf[32];
                                 sprintf(buf, "del_%zu", l.get_id());
                                 if (ImGui::BeginPopupContextItem(buf)) {
-                                    if(ImGui::Selectable("Edit...")) {
+                                    if (ImGui::Selectable("Edit...")) {
                                         layer_being_edited = l;
                                     }
                                     if (ImGui::Selectable("Delete"))
@@ -738,12 +871,14 @@ void render(bool* p_show) {
             }
             ImGui::End();
         } break;
+
+        default: break;
     }
 
     if (show_add_layer) {
         show_add_layer_window(&show_add_layer);
     }
-    if(layer_being_edited.get()) {
+    if (layer_being_edited.get()) {
         bool p_open = true;
         show_edit_layer_window(&p_open, layer_being_edited);
         if (!p_open)
@@ -773,8 +908,8 @@ void render(bool* p_show) {
                             current_layer_selected.get()->tileset);
                     }
                 }
-                if(ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
-                    if(ImGui::Selectable("Edit...")) {
+                if (ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
+                    if (ImGui::Selectable("Edit...")) {
                         map_being_edited = _id;
                     }
                     ImGui::EndPopup();
@@ -792,7 +927,7 @@ void render(bool* p_show) {
         if (!p_open)
             map_being_edited = nullptr;
     }
-}
+} // namespace arpiyi_editor::map_manager
 
 std::vector<Handle<assets::Map>> get_maps() {
     std::vector<Handle<assets::Map>> maps;
