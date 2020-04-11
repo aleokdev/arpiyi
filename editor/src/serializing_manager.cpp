@@ -261,7 +261,7 @@ void render() {
             break;
         case DialogType::saving:
             per_step_callback<DialogType::saving>();
-            load(last_project_path, per_step_callback<DialogType::saving>);
+            save(last_project_path, per_step_callback<DialogType::saving>);
             dialog_to_render = DialogType::none;
             break;
         default: break;
