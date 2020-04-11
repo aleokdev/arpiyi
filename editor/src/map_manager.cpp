@@ -9,9 +9,9 @@
 #include "assets/texture.hpp"
 #include "editor/editor_style.hpp"
 #include "tileset_manager.hpp"
-#include "window_list_menu.hpp"
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
+#include "window_list_menu.hpp"
 #include "window_manager.hpp"
 
 #include <glad/glad.h>
@@ -32,11 +32,7 @@ ImVec2 map_scroll{0, 0};
 std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 int current_zoom_level = 2;
 static bool show_grid = true;
-enum class EditMode {
-    tile,
-    comment,
-    entity
-} edit_mode = EditMode::tile;
+enum class EditMode { tile, comment, entity } edit_mode = EditMode::tile;
 
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
@@ -393,23 +389,29 @@ void render(bool* p_show) {
             if (ImGui::BeginMenuBar()) {
                 ImGui::Checkbox("Grid", &show_grid);
 
-                const auto draw_edit_mode = [](EditMode mode, const char* icon, const char* tooltip) {
-                  if(edit_mode != mode)
-                      ImGui::PushStyleColor(ImGuiCol_Text, {0.6f, 0.6f, 0.6f, 1.f});
-                  if(ImGui::MenuItem(icon, nullptr)) {
-                      edit_mode = mode;
-                      ImGui::PopStyleColor();
-                  }
-                  if(edit_mode != mode)
-                      ImGui::PopStyleColor();
-                  if(ImGui::IsItemHovered()) {
-                      ImGui::SetTooltip("%s", tooltip);
-                  }
+                const auto draw_edit_mode = [](EditMode mode, const char* icon,
+                                               const char* tooltip) {
+                    if (edit_mode != mode)
+                        ImGui::PushStyleColor(ImGuiCol_Text, {0.6f, 0.6f, 0.6f, 1.f});
+                    if (ImGui::MenuItem(icon, nullptr)) {
+                        edit_mode = mode;
+                        ImGui::PopStyleColor();
+                    }
+                    if (edit_mode != mode)
+                        ImGui::PopStyleColor();
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("%s", tooltip);
+                    }
                 };
 
-                draw_edit_mode(EditMode::tile, ICON_MD_TERRAIN, "Terrain editing tool.\nUse tiles to change the appearance of your map.");
-                draw_edit_mode(EditMode::comment, ICON_MD_COMMENT, "Comment editing tool.\nUse text comments to annotate things on your map.\nThese won't have an impact on the actual game.");
-                draw_edit_mode(EditMode::entity, ICON_MD_VIDEOGAME_ASSET, "Entity editing tool.\nUse entities to give life to your maps.");
+                draw_edit_mode(
+                    EditMode::tile, ICON_MD_TERRAIN,
+                    "Terrain editing tool.\nUse tiles to change the appearance of your map.");
+                draw_edit_mode(EditMode::comment, ICON_MD_COMMENT,
+                               "Comment editing tool.\nUse text comments to annotate things on "
+                               "your map.\nThese won't have an impact on the actual game.");
+                draw_edit_mode(EditMode::entity, ICON_MD_VIDEOGAME_ASSET,
+                               "Entity editing tool.\nUse entities to give life to your maps.");
 
                 ImGui::EndMenuBar();
             }
@@ -468,7 +470,7 @@ void render(bool* p_show) {
             else
                 is_tileset_appropiate_for_layer = true;
 
-            if(edit_mode == EditMode::tile) {
+            if (edit_mode == EditMode::tile) {
                 draw_selection_on_map(
                     *map, is_tileset_appropiate_for_layer,
                     {static_cast<float>(map_render_pos.x), static_cast<float>(map_render_pos.y)},
@@ -485,7 +487,7 @@ void render(bool* p_show) {
                     map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
                                         map_scroll.y + io.MouseDelta.y / get_map_zoom()};
                 }
-                if(edit_mode == EditMode::comment) {
+                if (edit_mode == EditMode::comment) {
                     if (ImGui::BeginPopupContextWindow("##_map_ctx")) {
                         if (ImGui::IsWindowAppearing())
                             comment_creation_pos = mouse_tile_pos;
@@ -560,16 +562,16 @@ void render(bool* p_show) {
     ImGui::End();
 
     static bool show_add_layer = false;
-    switch(edit_mode) {
+    switch (edit_mode) {
         case EditMode::entity: {
-            if(ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr, ImGuiWindowFlags_MenuBar)) {
-
-            }
+            if (ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr,
+                             ImGuiWindowFlags_MenuBar)) {}
             ImGui::End();
         } break;
 
         case EditMode::tile: {
-            if (ImGui::Begin(ICON_MD_LAYERS " Map Layers###m_edit_panel", nullptr, ImGuiWindowFlags_MenuBar)) {
+            if (ImGui::Begin(ICON_MD_LAYERS " Map Layers###m_edit_panel", nullptr,
+                             ImGuiWindowFlags_MenuBar)) {
                 if (ImGui::BeginMenuBar()) {
                     if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
                         show_add_layer = true;
@@ -592,25 +594,30 @@ void render(bool* p_show) {
                                 layer.visible = !layer.visible;
                             }
                             ImGui::SameLine();
-                            if (l == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
-                                                            : ImGui::TextDisabled("%s", layer.name.c_str()),
+                            if (l == current_layer_selected
+                                    ? ImGui::TextUnformatted(layer.name.c_str())
+                                    : ImGui::TextDisabled("%s", layer.name.c_str()),
                                 ImGui::IsItemClicked()) {
                                 current_layer_selected = l;
                                 tileset_manager::set_selection_tileset(layer.tileset);
                             }
 
-                            if (ImGui::BeginPopupContextItem("Layer Context Menu")) {
-                                if (ImGui::Selectable("Delete"))
-                                    layer_to_delete = l;
-                                ImGui::EndPopup();
+                            {
+                                char buf[32];
+                                sprintf(buf, "del_%zu", l.get_id());
+                                if (ImGui::BeginPopupContextItem(buf)) {
+                                    if (ImGui::Selectable("Delete"))
+                                        layer_to_delete = l;
+                                    ImGui::EndPopup();
+                                }
                             }
                         }
 
                         if (layer_to_delete.get_id() != Handle<assets::Map::Layer>::noid) {
+                            map->layers.erase(std::remove(map->layers.begin(), map->layers.end(),
+                                                          layer_to_delete),
+                                              map->layers.end());
                             layer_to_delete.unload();
-                            map->layers.erase(
-                                std::remove(map->layers.begin(), map->layers.end(), layer_to_delete),
-                                map->layers.end());
                         }
                     }
                 } else {
@@ -620,7 +627,6 @@ void render(bool* p_show) {
             ImGui::End();
         } break;
     }
-
 
     if (show_add_layer) {
         show_add_layer_window(&show_add_layer);

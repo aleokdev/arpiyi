@@ -67,7 +67,7 @@ struct Map {
     i64 width, height;
 };
 
-template<> inline void raw_unload<Map::Layer>(Map::Layer& layer) { layer.tileset.unload(); }
+template<> inline void raw_unload<Map::Layer>(Map::Layer& layer) { }
 
 template<> struct LoadParams<Map> { fs::path path; };
 
