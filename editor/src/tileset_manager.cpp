@@ -424,7 +424,10 @@ void render(bool* p_show) {
             for (auto& [_id, _t] : detail::AssetContainer<assets::Tileset>::get_instance().map) {
                 ImGui::TextDisabled("%zu", _id);
                 ImGui::SameLine();
-                if (ImGui::Selectable(_t.name.c_str(), _id == selection.tileset.get_id())) {
+                std::string selectable_strid = _t.name;
+                selectable_strid += "##";
+                selectable_strid += std::to_string(_id);
+                if (ImGui::Selectable(selectable_strid.c_str(), _id == selection.tileset.get_id())) {
                     selection.tileset = Handle<assets::Tileset>(_id);
                     update_grid_texture();
                 }
