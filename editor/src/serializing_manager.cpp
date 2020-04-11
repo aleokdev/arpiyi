@@ -9,6 +9,7 @@
 #include "serializing_manager.hpp"
 #include "tileset_manager.hpp"
 #include "assets/map.hpp"
+#include "assets/script.hpp"
 #include "project_info.hpp"
 
 #include <algorithm>
@@ -50,6 +51,10 @@ template<> struct AssetDirName<assets::Texture> {
 
 template<> struct AssetDirName<assets::Tileset> {
     constexpr static std::string_view value = "tilesets";
+};
+
+template<> struct AssetDirName<assets::Script> {
+    constexpr static std::string_view value = "scripts";
 };
 /* clang-format on */
 
@@ -93,10 +98,9 @@ static ProjectFileData load_project_file(fs::path base_dir) {
     using namespace detail::project_file_definitions;
 
     for (auto const& obj : doc.GetObject()) {
-        if(obj.name == tile_size_json_key.data()) {
+        if (obj.name == tile_size_json_key.data()) {
             file_data.tile_size = obj.value.GetUint();
-        }
-        else if (obj.name == editor_version_json_key.data()) {
+        } else if (obj.name == editor_version_json_key.data()) {
             file_data.editor_version = obj.value.GetString();
         }
     }
@@ -167,6 +171,7 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
     save_assets(AssetContainer<assets::Texture>::get_instance());
     save_assets(AssetContainer<assets::Tileset>::get_instance());
     save_assets(AssetContainer<assets::Map>::get_instance());
+    save_assets(AssetContainer<assets::Script>::get_instance());
 
     task_progress = 1.f;
 }
@@ -180,10 +185,13 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
 
     const auto load_assets = [&project_load_path, &cur_type_loading, &per_step](auto container) {
         using AssetT = typename decltype(container)::AssetType;
-        // Read meta document
         namespace mfd = detail::meta_file_definitions;
         std::string meta_filename = mfd::AssetDirName<AssetT>::value.data();
         meta_filename += ".json";
+        if (!fs::exists(project_load_path / detail::project_file_definitions::metadata_path /
+                        meta_filename))
+            return;
+        // Read meta document
         std::ifstream f(project_load_path / detail::project_file_definitions::metadata_path /
                         meta_filename);
         std::stringstream buffer;
@@ -216,6 +224,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
     load_assets(AssetContainer<assets::Texture>::get_instance());
     load_assets(AssetContainer<assets::Tileset>::get_instance());
     load_assets(AssetContainer<assets::Map>::get_instance());
+    load_assets(AssetContainer<assets::Script>::get_instance());
 
     task_progress = 1.f;
 }

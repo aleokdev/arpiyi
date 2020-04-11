@@ -52,6 +52,10 @@ public:
 
     Handle() noexcept : id(noid) {}
     Handle(u64 id) noexcept : id(id) {}
+    Handle& operator=(std::nullptr_t) {
+        id = noid;
+        return *this;
+    }
     Expected<AssetT> get() noexcept {
         if (id == noid)
             return nullptr;
