@@ -121,8 +121,7 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
             const fs::path asset_path = project_save_path / detail::get_asset_save_path<AssetT>(id);
             fs::create_directories(asset_path.parent_path());
             assets::RawSaveData data = assets::raw_get_save_data(asset);
-            fs::create_directories(asset_path.parent_path());
-            std::fstream f(asset_path);
+            std::ofstream f(asset_path);
             f << data.bytestream.rdbuf();
 
             task_progress =
