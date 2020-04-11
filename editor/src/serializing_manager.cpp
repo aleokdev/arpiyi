@@ -7,6 +7,7 @@
 #include <examples/imgui_impl_opengl3.h>
 
 #include "serializing_manager.hpp"
+#include "tileset_manager.hpp"
 #include "assets/map.hpp"
 #include "project_info.hpp"
 
@@ -28,6 +29,7 @@ constexpr std::string_view default_maps_path = "maps";
 /// Path for storing files containing asset IDs and their location.
 constexpr std::string_view metadata_path = "meta";
 
+constexpr std::string_view tile_size_json_key = "tile_size";
 constexpr std::string_view editor_version_json_key = "editor_version";
 
 } // namespace detail::project_file_definitions
@@ -60,6 +62,8 @@ static void save_project_file(fs::path base_dir) {
 
     w.StartObject();
     {
+        w.Key(tile_size_json_key.data());
+        w.Uint(tileset_manager::get_tile_size());
         w.Key(editor_version_json_key.data());
         w.String(ARPIYI_EDITOR_VERSION);
     }
@@ -72,6 +76,7 @@ static void save_project_file(fs::path base_dir) {
 }
 
 struct ProjectFileData {
+    u32 tile_size = 48;
     std::string editor_version;
 };
 
@@ -88,7 +93,10 @@ static ProjectFileData load_project_file(fs::path base_dir) {
     using namespace detail::project_file_definitions;
 
     for (auto const& obj : doc.GetObject()) {
-        if (obj.name == editor_version_json_key.data()) {
+        if(obj.name == tile_size_json_key.data()) {
+            file_data.tile_size = obj.value.GetUint();
+        }
+        else if (obj.name == editor_version_json_key.data()) {
             file_data.editor_version = obj.value.GetString();
         }
     }
@@ -262,6 +270,8 @@ void start_load(fs::path project_path) {
         // TODO: Do something if editor versions don't match
     }
     last_project_path = project_path;
+    tileset_manager::set_tile_size(data.tile_size);
+
     dialog_to_render = DialogType::loading;
 }
 

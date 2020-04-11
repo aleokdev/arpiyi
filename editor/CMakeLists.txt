@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(ARPIYI_EDITOR_VERSION 0.1.0)
+set(ARPIYI_EDITOR_VERSION 0.1.1)
 
 add_executable(arpiyi-editor src/main.cpp
         src/editor/editor_lua_wrapper.cpp

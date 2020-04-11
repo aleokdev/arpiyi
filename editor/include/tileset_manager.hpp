@@ -19,6 +19,7 @@ void init();
 
 void render(bool* p_show);
 
+void set_tile_size(u32);
 u32 get_tile_size();
 
 std::vector<Handle<assets::Tileset>> get_tilesets();
