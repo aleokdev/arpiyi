@@ -1,6 +1,6 @@
 #include "tileset_manager.hpp"
-#include "window_manager.hpp"
 #include "window_list_menu.hpp"
+#include "window_manager.hpp"
 
 #include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
@@ -447,8 +447,14 @@ void render(bool* p_show) {
 
     if (show_new_tileset) {
         if (ImGui::Begin(ICON_MD_LIBRARY_ADD " New Tileset", &show_new_tileset)) {
+            static Handle<assets::Texture> preview_texture;
             static char path_selected[4096] = "\0";
-            ImGui::InputTextWithHint("Path", "Enter path...", path_selected, 4096);
+            if (ImGui::InputTextWithHint("Path", "Enter path...", path_selected, 4096,
+                                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+                preview_texture.unload();
+                if (fs::is_regular_file(path_selected))
+                    preview_texture = asset_manager::load<assets::Texture>({path_selected});
+            }
             ImGui::SameLine();
             if (ImGui::Button("Explore...")) {
                 const char* compatible_file_formats =
@@ -458,8 +464,11 @@ void render(bool* p_show) {
                     NOC_FILE_DIALOG_OPEN, compatible_file_formats, nullptr, nullptr);
                 if (noc_path_selected && fs::is_regular_file(noc_path_selected)) {
                     strcpy(path_selected, noc_path_selected);
+                    preview_texture.unload();
+                    preview_texture = asset_manager::load<assets::Texture>({path_selected});
                 }
             }
+            bool valid = preview_texture.get();
 
             static auto auto_type = assets::Tileset::AutoType::none;
             static const char* auto_type_bindings[] = {"Normal", "RPGMaker A2 Tileset"};
@@ -475,7 +484,7 @@ void render(bool* p_show) {
                 ImGui::EndCombo();
             }
 
-            static int input_tile_size = 48;
+            static int input_tile_size = tile_size;
             bool can_modify_tile_size =
                 detail::AssetContainer<assets::Tileset>::get_instance().map.empty();
             if (can_modify_tile_size) {
@@ -492,13 +501,46 @@ void render(bool* p_show) {
                     ImGui::PopTextWrapPos();
                     ImGui::EndTooltip();
                 }
+                valid &= tile_size > 0 && tile_size < 1024;
             }
 
-            if(ImGui::Button("Cancel"))
+            auto tex = preview_texture.get();
+            if (tex) {
+                if (tex->w % input_tile_size != 0 || tex->h % input_tile_size != 0) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
+                    ImGui::TextWrapped(
+                        ICON_MD_ERROR
+                        " This doesn't look like a tileset of %ix%i-sized tiles. Double check your "
+                        "tileset and tile size.\nTilesets must have width and height that are "
+                        "dividable by the tile size leaving no remainder.",
+                        input_tile_size, input_tile_size);
+                    ImGui::PopStyleColor();
+                    valid = false;
+                }
+                if (auto_type == assets::Tileset::AutoType::rpgmaker_a2) {
+                    if (tex->w % (2 * input_tile_size) != 0 ||
+                        tex->h % (3 * input_tile_size) != 0) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
+                        ImGui::TextWrapped(
+                            ICON_MD_ERROR
+                            " This image doesn't look like a proper RPGMaker A2 tileset.\nRPGMaker "
+                            "A2 tilesets must have a width that is multiple of 2 * tilesize and a "
+                            "height that is multiple of 3 * tilesize.");
+                        ImGui::PopStyleColor();
+                        valid = false;
+                    }
+                }
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
+                ImGui::TextWrapped(ICON_MD_ERROR
+                                   " Please input a valid path for the tileset image.");
+                ImGui::PopStyleColor();
+                valid = false;
+            }
+
+            if (ImGui::Button("Cancel"))
                 show_new_tileset = false;
             ImGui::SameLine();
-            const bool valid = fs::is_regular_file(path_selected) &&
-                               (can_modify_tile_size || (tile_size > 0 && tile_size < 1024));
             if (!valid) {
                 ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
@@ -512,14 +554,13 @@ void render(bool* p_show) {
                 tileset.auto_type = auto_type;
                 switch (auto_type) {
                     case (assets::Tileset::AutoType::none):
-                        tileset.texture = asset_manager::load<assets::Texture>({path_selected});
+                        tileset.texture = preview_texture;
                         break;
 
                     case (assets::Tileset::AutoType::rpgmaker_a2): {
-                        auto raw_texture = asset_manager::load<assets::Texture>({path_selected});
                         tileset.texture =
-                            calculate_rpgmaker_a2_auto_tileset_texture(*raw_texture.get());
-                        raw_texture.unload();
+                            calculate_rpgmaker_a2_auto_tileset_texture(*preview_texture.get());
+                        preview_texture.unload();
                         break;
                     }
 
