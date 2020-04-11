@@ -87,6 +87,67 @@ static void show_add_layer_window(bool* p_open) {
     ImGui::End();
 }
 
+static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) {
+    assert(_l.get());
+    auto& layer = *_l.get();
+
+    if (ImGui::Begin(ICON_MD_SETTINGS " Edit Map Layer", p_open)) {
+        static char name[32];
+        static Handle<assets::Tileset> tileset;
+        if(ImGui::IsWindowAppearing()) {
+            assert(layer.name.size() < 32);
+            strcpy(name, layer.name.c_str());
+            tileset = layer.tileset;
+        }
+
+        const auto& show_info_tip = [](const char* c) {
+          ImGui::SameLine();
+          ImGui::TextDisabled("(?)");
+          if (ImGui::IsItemHovered()) {
+              ImGui::BeginTooltip();
+              ImGui::TextUnformatted(c);
+              ImGui::EndTooltip();
+          }
+        };
+        ImGui::InputText("Internal Name", name, 32);
+        show_info_tip("The name given to the layer internally. This won't appear in the "
+                      "game unless you specify so. Can be changed later.");
+
+        auto t = tileset.get();
+        // TODO: Split tileset picker to its own function
+        if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
+            for (auto& ts : tileset_manager::get_tilesets()) {
+                std::string selectable_strid = std::to_string(ts.get_id()) + ts.get()->name;
+                if (ImGui::Selectable(selectable_strid.c_str(), ts == tileset))
+                    tileset = ts;
+
+                if (ts == tileset)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::Button("Cancel")) {
+            *p_open = false;
+        }
+        ImGui::SameLine();
+        if (!t) {
+            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+        }
+        if (ImGui::Button("OK")) {
+            layer.name = name;
+            layer.tileset = tileset;
+            *p_open = false;
+        }
+        if (!t) {
+            ImGui::PopItemFlag();
+            ImGui::PopStyleVar();
+        }
+    }
+    ImGui::End();
+}
+
 static void show_add_map_window(bool* p_open) {
     ImGui::SetNextWindowSize({390, 190}, ImGuiCond_Once);
     if (ImGui::Begin(ICON_MD_ADD_BOX " New Map", p_open,
@@ -96,6 +157,7 @@ static void show_add_map_window(bool* p_open) {
         static bool create_default_layer = true;
         static char layer_name[32] = "Base Layer";
         static Handle<assets::Tileset> layer_tileset = Handle<assets::Tileset>::noid;
+        bool valid = true;
         const auto& show_info_tip = [](const char* c) {
             ImGui::SameLine();
             ImGui::TextDisabled("(?)");
@@ -110,7 +172,8 @@ static void show_add_map_window(bool* p_open) {
                       "game unless you specify so. Can be changed later.");
 
         ImGui::InputInt2("Map Size", map_size);
-        show_info_tip("The map size (In tiles). Can be changed later.");
+        show_info_tip("The map size (In tiles).");
+        valid &= map_size[0] > 0 && map_size[1] > 0;
 
         ImGui::Checkbox("Create default layer", &create_default_layer);
         if (create_default_layer) {
@@ -121,7 +184,8 @@ static void show_add_map_window(bool* p_open) {
             auto t = layer_tileset.get();
             if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
                 for (auto& ts : tileset_manager::get_tilesets()) {
-                    if (ImGui::Selectable(ts.get()->name.c_str(), ts == layer_tileset))
+                    std::string selectable_strid = std::to_string(ts.get_id()) + ts.get()->name;
+                    if (ImGui::Selectable(selectable_strid.c_str(), ts == layer_tileset))
                         layer_tileset = ts;
 
                     if (ts == layer_tileset)
@@ -131,14 +195,14 @@ static void show_add_map_window(bool* p_open) {
             }
             ImGui::EndChild();
             ImGui::PopStyleVar();
+            valid &= layer_tileset.get();
         }
 
         if (ImGui::Button("Cancel")) {
             *p_open = false;
         }
         ImGui::SameLine();
-        bool allow_ok = !create_default_layer || layer_tileset.get();
-        if (!allow_ok) {
+        if (!valid) {
             ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
         }
@@ -156,9 +220,44 @@ static void show_add_map_window(bool* p_open) {
             current_map = asset_manager::put<assets::Map>(map);
             *p_open = false;
         }
-        if (!allow_ok) {
+        if (!valid) {
             ImGui::PopItemFlag();
             ImGui::PopStyleVar();
+        }
+    }
+    ImGui::End();
+}
+
+static void show_edit_map_window(bool* p_open, Handle<assets::Map> _m) {
+    assert(_m.get());
+    auto& map = *_m.get();
+    ImGui::SetNextWindowSize({390, 190}, ImGuiCond_Once);
+    if (ImGui::Begin(ICON_MD_SETTINGS " Edit Map", p_open,
+                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+        static char name[32];
+        if (ImGui::IsWindowAppearing()) {
+            strcpy(name, map.name.c_str());
+        }
+        const auto& show_info_tip = [](const char* c) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::TextUnformatted(c);
+                ImGui::EndTooltip();
+            }
+        };
+        ImGui::InputText("Internal Name", name, 32);
+        show_info_tip("The name given to the map internally. This won't appear in the "
+                      "game unless you specify so. Can be changed later.");
+
+        if (ImGui::Button("Cancel")) {
+            *p_open = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("OK")) {
+            map.name = name;
+            *p_open = false;
         }
     }
     ImGui::End();
@@ -571,6 +670,7 @@ void render(bool* p_show) {
     ImGui::End();
 
     static bool show_add_layer = false;
+    static Handle<assets::Map::Layer> layer_being_edited;
     switch (edit_mode) {
         case EditMode::entity: {
             if (ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr,
@@ -615,6 +715,9 @@ void render(bool* p_show) {
                                 char buf[32];
                                 sprintf(buf, "del_%zu", l.get_id());
                                 if (ImGui::BeginPopupContextItem(buf)) {
+                                    if(ImGui::Selectable("Edit...")) {
+                                        layer_being_edited = l;
+                                    }
                                     if (ImGui::Selectable("Delete"))
                                         layer_to_delete = l;
                                     ImGui::EndPopup();
@@ -640,8 +743,15 @@ void render(bool* p_show) {
     if (show_add_layer) {
         show_add_layer_window(&show_add_layer);
     }
+    if(layer_being_edited.get()) {
+        bool p_open = true;
+        show_edit_layer_window(&p_open, layer_being_edited);
+        if (!p_open)
+            layer_being_edited = nullptr;
+    }
 
     static bool show_add_map = false;
+    static Handle<assets::Map> map_being_edited;
     if (ImGui::Begin(ICON_MD_VIEW_LIST " Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
@@ -663,12 +773,24 @@ void render(bool* p_show) {
                             current_layer_selected.get()->tileset);
                     }
                 }
+                if(ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
+                    if(ImGui::Selectable("Edit...")) {
+                        map_being_edited = _id;
+                    }
+                    ImGui::EndPopup();
+                }
             }
     }
     ImGui::End();
 
     if (show_add_map) {
         show_add_map_window(&show_add_map);
+    }
+    if (map_being_edited.get()) {
+        bool p_open = true;
+        show_edit_map_window(&p_open, map_being_edited);
+        if (!p_open)
+            map_being_edited = nullptr;
     }
 }
 
