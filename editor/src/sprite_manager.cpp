@@ -1,5 +1,6 @@
 #include "sprite_manager.hpp"
 #include "tileset_manager.hpp"
+#include "window_list_menu.hpp"
 
 #include "assets/sprite.hpp"
 
@@ -14,7 +15,7 @@
 namespace arpiyi_editor::sprite_manager {
 
 void init() {
-
+    window_list_menu::add_entry({"Sprite List", &render});
 }
 
 void render(bool* p_show) {

@@ -264,6 +264,140 @@ static void show_edit_map_window(bool* p_open, Handle<assets::Map> _m) {
     ImGui::End();
 }
 
+static void show_map_entity_list() {
+    if (ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr,
+                     ImGuiWindowFlags_MenuBar)) {
+        if (auto map = current_map.get()) {
+            for (const auto& e : map->entities) {
+                auto& entity = *e.get();
+                ImGui::TextDisabled("%zu", e.get_id());
+                ImGui::SameLine();
+                ImGui::TextUnformatted(entity.name.c_str());
+            }
+        }
+    }
+    ImGui::End();
+}
+
+static void show_map_layer_list() {
+    static bool show_add_layer = false;
+    static Handle<assets::Map::Layer> layer_being_edited;
+
+    auto map = current_map.get();
+    if (ImGui::Begin(ICON_MD_LAYERS " Map Layers###m_edit_panel", nullptr,
+                     ImGuiWindowFlags_MenuBar)) {
+        if (ImGui::BeginMenuBar()) {
+            if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
+                show_add_layer = true;
+            }
+            ImGui::EndMenuBar();
+        }
+
+        if (map) {
+            if (map->layers.empty())
+                ImGui::TextDisabled("No layers in current map");
+            else {
+                Handle<assets::Map::Layer> layer_to_delete = -1;
+                for (auto& l : map->layers) {
+                    auto& layer = *l.get();
+                    ImGui::TextDisabled("%zu", l.get_id());
+                    ImGui::SameLine();
+                    if (ImGui::TextDisabled("%s", layer.visible ? ICON_MD_VISIBILITY
+                                                                : ICON_MD_VISIBILITY_OFF),
+                        ImGui::IsItemClicked()) {
+                        layer.visible = !layer.visible;
+                    }
+                    ImGui::SameLine();
+                    if (l == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
+                                                    : ImGui::TextDisabled("%s", layer.name.c_str()),
+                        ImGui::IsItemClicked()) {
+                        current_layer_selected = l;
+                        tileset_manager::set_selection_tileset(layer.tileset);
+                    }
+
+                    {
+                        char buf[32];
+                        sprintf(buf, "del_%zu", l.get_id());
+                        if (ImGui::BeginPopupContextItem(buf)) {
+                            if (ImGui::Selectable("Edit...")) {
+                                layer_being_edited = l;
+                            }
+                            if (ImGui::Selectable("Delete"))
+                                layer_to_delete = l;
+                            ImGui::EndPopup();
+                        }
+                    }
+                }
+
+                if (layer_to_delete.get_id() != Handle<assets::Map::Layer>::noid) {
+                    map->layers.erase(
+                        std::remove(map->layers.begin(), map->layers.end(), layer_to_delete),
+                        map->layers.end());
+                    layer_to_delete.unload();
+                }
+            }
+        } else {
+            ImGui::TextDisabled("No map selected");
+        }
+    }
+    ImGui::End();
+
+    if (show_add_layer) {
+        show_add_layer_window(&show_add_layer);
+    }
+    if (layer_being_edited.get()) {
+        bool p_open = true;
+        show_edit_layer_window(&p_open, layer_being_edited);
+        if (!p_open)
+            layer_being_edited = nullptr;
+    }
+}
+
+static void show_map_list() {
+    static bool show_add_map = false;
+    static Handle<assets::Map> map_being_edited;
+    if (ImGui::Begin(ICON_MD_VIEW_LIST " Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
+        if (ImGui::BeginMenuBar()) {
+            if (ImGui::MenuItem("New...")) {
+                show_add_map = true;
+            }
+            ImGui::EndMenuBar();
+        }
+        if (detail::AssetContainer<assets::Map>::get_instance().map.empty())
+            ImGui::TextDisabled("No maps");
+        else
+            for (auto& [_id, _m] : detail::AssetContainer<assets::Map>::get_instance().map) {
+                ImGui::TextDisabled("%zu", _id);
+                ImGui::SameLine();
+                if (ImGui::Selectable(_m.name.c_str(), _id == current_map.get_id())) {
+                    current_map = Handle<assets::Map>(_id);
+                    if (!current_map.get()->layers.empty()) {
+                        current_layer_selected = current_map.get()->layers[0];
+                        tileset_manager::set_selection_tileset(
+                            current_layer_selected.get()->tileset);
+                    }
+                }
+                if (ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
+                    if (ImGui::Selectable("Edit...")) {
+                        map_being_edited = _id;
+                    }
+                    ImGui::EndPopup();
+                }
+            }
+    }
+    ImGui::End();
+
+    if (show_add_map) {
+        show_add_map_window(&show_add_map);
+    }
+    if (map_being_edited.get()) {
+        bool p_open = true;
+        show_edit_map_window(&p_open, map_being_edited);
+        if (!p_open)
+            map_being_edited = nullptr;
+    }
+}
+
 static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) {
     ImVec2 info_rect_start{ImGui::GetWindowPos().x, ImGui::GetWindowPos().y +
                                                         ImGui::GetWindowSize().y -
@@ -554,8 +688,6 @@ void init() {
     window_list_menu::add_entry({"Map View", &render});
 }
 
-Handle<assets::Map> get_current_map() { return current_map; }
-
 void render(bool* p_show) {
     auto map = current_map.get();
 
@@ -793,141 +925,18 @@ void render(bool* p_show) {
     }
     ImGui::End();
 
-    static bool show_add_layer = false;
-    static Handle<assets::Map::Layer> layer_being_edited;
     switch (edit_mode) {
-        case EditMode::entity: {
-            if (ImGui::Begin(ICON_MD_VIDEOGAME_ASSET " Map Entities###m_edit_panel", nullptr,
-                             ImGuiWindowFlags_MenuBar)) {
-                if (map) {
-                    for (const auto& e : map->entities) {
-                        auto& entity = *e.get();
-                        ImGui::TextDisabled("%zu", e.get_id());
-                        ImGui::SameLine();
-                        ImGui::TextUnformatted(entity.name.c_str());
-                    }
-                }
-            }
-            ImGui::End();
-        } break;
+        case EditMode::entity: show_map_entity_list(); break;
 
-        case EditMode::tile: {
-            if (ImGui::Begin(ICON_MD_LAYERS " Map Layers###m_edit_panel", nullptr,
-                             ImGuiWindowFlags_MenuBar)) {
-                if (ImGui::BeginMenuBar()) {
-                    if (ImGui::MenuItem("New...", nullptr, nullptr, map)) {
-                        show_add_layer = true;
-                    }
-                    ImGui::EndMenuBar();
-                }
-
-                if (map) {
-                    if (map->layers.empty())
-                        ImGui::TextDisabled("No layers in current map");
-                    else {
-                        Handle<assets::Map::Layer> layer_to_delete = -1;
-                        for (auto& l : map->layers) {
-                            auto& layer = *l.get();
-                            ImGui::TextDisabled("%zu", l.get_id());
-                            ImGui::SameLine();
-                            if (ImGui::TextDisabled("%s", layer.visible ? ICON_MD_VISIBILITY
-                                                                        : ICON_MD_VISIBILITY_OFF),
-                                ImGui::IsItemClicked()) {
-                                layer.visible = !layer.visible;
-                            }
-                            ImGui::SameLine();
-                            if (l == current_layer_selected
-                                    ? ImGui::TextUnformatted(layer.name.c_str())
-                                    : ImGui::TextDisabled("%s", layer.name.c_str()),
-                                ImGui::IsItemClicked()) {
-                                current_layer_selected = l;
-                                tileset_manager::set_selection_tileset(layer.tileset);
-                            }
-
-                            {
-                                char buf[32];
-                                sprintf(buf, "del_%zu", l.get_id());
-                                if (ImGui::BeginPopupContextItem(buf)) {
-                                    if (ImGui::Selectable("Edit...")) {
-                                        layer_being_edited = l;
-                                    }
-                                    if (ImGui::Selectable("Delete"))
-                                        layer_to_delete = l;
-                                    ImGui::EndPopup();
-                                }
-                            }
-                        }
-
-                        if (layer_to_delete.get_id() != Handle<assets::Map::Layer>::noid) {
-                            map->layers.erase(std::remove(map->layers.begin(), map->layers.end(),
-                                                          layer_to_delete),
-                                              map->layers.end());
-                            layer_to_delete.unload();
-                        }
-                    }
-                } else {
-                    ImGui::TextDisabled("No map selected");
-                }
-            }
-            ImGui::End();
-        } break;
+        case EditMode::tile: show_map_layer_list(); break;
 
         default: break;
     }
 
-    if (show_add_layer) {
-        show_add_layer_window(&show_add_layer);
-    }
-    if (layer_being_edited.get()) {
-        bool p_open = true;
-        show_edit_layer_window(&p_open, layer_being_edited);
-        if (!p_open)
-            layer_being_edited = nullptr;
-    }
-
-    static bool show_add_map = false;
-    static Handle<assets::Map> map_being_edited;
-    if (ImGui::Begin(ICON_MD_VIEW_LIST " Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
-        if (ImGui::BeginMenuBar()) {
-            if (ImGui::MenuItem("New...")) {
-                show_add_map = true;
-            }
-            ImGui::EndMenuBar();
-        }
-        if (detail::AssetContainer<assets::Map>::get_instance().map.empty())
-            ImGui::TextDisabled("No maps");
-        else
-            for (auto& [_id, _m] : detail::AssetContainer<assets::Map>::get_instance().map) {
-                ImGui::TextDisabled("%zu", _id);
-                ImGui::SameLine();
-                if (ImGui::Selectable(_m.name.c_str(), _id == current_map.get_id())) {
-                    current_map = Handle<assets::Map>(_id);
-                    if (!current_map.get()->layers.empty()) {
-                        current_layer_selected = current_map.get()->layers[0];
-                        tileset_manager::set_selection_tileset(
-                            current_layer_selected.get()->tileset);
-                    }
-                }
-                if (ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
-                    if (ImGui::Selectable("Edit...")) {
-                        map_being_edited = _id;
-                    }
-                    ImGui::EndPopup();
-                }
-            }
-    }
-    ImGui::End();
-
-    if (show_add_map) {
-        show_add_map_window(&show_add_map);
-    }
-    if (map_being_edited.get()) {
-        bool p_open = true;
-        show_edit_map_window(&p_open, map_being_edited);
-        if (!p_open)
-            map_being_edited = nullptr;
-    }
+    show_map_list();
 } // namespace arpiyi_editor::map_manager
+
+Handle<assets::Map> get_current_map() { return current_map; }
 
 std::vector<Handle<assets::Map>> get_maps() {
     std::vector<Handle<assets::Map>> maps;
