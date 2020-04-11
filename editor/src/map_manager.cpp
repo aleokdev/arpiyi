@@ -251,7 +251,7 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
     }
 }
 
-static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
+static void place_tile_on_pos(assets::Map& map, math::IVec2D pos, bool update_neighbours = true) {
     if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
         return;
 
@@ -276,7 +276,7 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
         case (assets::Tileset::AutoType::rpgmaker_a2): {
             auto& layer = *current_layer_selected.get();
             const auto& tileset = *selection.tileset.get();
-            const auto update_auto_id = [&layer, &tileset, &selection](math::IVec2D pos) {
+            const auto update_auto_id = [&layer, &tileset](math::IVec2D pos) {
                 u8 surroundings = 0xFF;
                 u8 bit = 0;
                 const assets::Map::Tile self_tile = layer.get_tile(pos);
@@ -304,14 +304,19 @@ static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
             // Set the tile below the cursor and don't worry about the surroundings; we'll update
             // them later
             layer.set_tile(pos, {tileset.get_id_auto(selection.selection_start.x, 0)});
-            // Update autoID of tile placed and all others near it
-            for (int iy = -1; iy <= 1; ++iy) {
-                for (int ix = -1; ix <= 1; ++ix) {
-                    const math::IVec2D ipos = {pos.x + ix, pos.y + iy};
-                    if (!layer.is_pos_valid(ipos))
-                        continue;
-                    update_auto_id(ipos);
+            if(update_neighbours) {
+                // Update autoID of tile placed and all others near it
+                for (int iy = -1; iy <= 1; ++iy) {
+                    for (int ix = -1; ix <= 1; ++ix) {
+                        const math::IVec2D ipos = {pos.x + ix, pos.y + iy};
+                        if (!layer.is_pos_valid(ipos))
+                            continue;
+                        update_auto_id(ipos);
+                    }
                 }
+            } else {
+                // Only update the autoID of the tile placed
+                update_auto_id({pos.x, pos.y});
             }
         } break;
 
@@ -361,7 +366,7 @@ static void draw_selection_on_map(assets::Map& map,
         if (is_tileset_appropiate_for_layer) {
             if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                 if (current_layer_selected.get()) {
-                    place_tile_on_pos(map, mouse_tile_pos);
+                    place_tile_on_pos(map, mouse_tile_pos, !ImGui::GetIO().KeyShift);
                 }
             }
         }

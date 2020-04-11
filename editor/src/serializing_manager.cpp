@@ -30,7 +30,7 @@ constexpr std::string_view metadata_path = "meta";
 
 constexpr std::string_view editor_version_json_key = "editor_version";
 
-} // namespace project_file_definitions
+} // namespace detail::project_file_definitions
 
 namespace detail::meta_file_definitions {
 
@@ -110,13 +110,18 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
     using namespace ::arpiyi_editor::detail;
 
     const auto save_assets = [&project_save_path, &cur_type_loading, &per_step](auto container) {
-      using AssetT = typename decltype(container)::AssetType;
+        rapidjson::StringBuffer s;
+        rapidjson::Writer<rapidjson::StringBuffer> meta(s);
+        namespace pfd = detail::project_file_definitions;
+        namespace mfd = detail::meta_file_definitions;
+
+        using AssetT = typename decltype(container)::AssetType;
         std::size_t i = 0;
+        meta.StartArray();
         for (auto const& [id, asset] : container.map) {
             task_status = ("Saving " +
-                            std::string(detail::meta_file_definitions::AssetDirName<
-                                        AssetT>::value) +
-                            "/" + std::to_string(id) + ".asset...");
+                           std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) +
+                           "/" + std::to_string(id) + ".asset...");
 
             const fs::path asset_path = project_save_path / detail::get_asset_save_path<AssetT>(id);
             fs::create_directories(asset_path.parent_path());
@@ -124,12 +129,29 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
             std::ofstream f(asset_path);
             f << data.bytestream.rdbuf();
 
+            // Add metadata object
+            meta.StartObject();
+            meta.Key(mfd::id_json_key.data());
+            meta.Uint64(id);
+            meta.Key(mfd::path_json_key.data());
+            meta.String(fs::relative(asset_path, project_save_path).c_str());
+            meta.EndObject();
+
             task_progress =
                 static_cast<float>(cur_type_loading) / static_cast<float>(assets_to_save) +
                 1.f / static_cast<float>(assets_to_save) *
                     (static_cast<float>(i) / container.map.size());
             per_step();
             ++i;
+        }
+        meta.EndArray();
+
+        {
+            std::string meta_filename = mfd::AssetDirName<AssetT>::value.data();
+            meta_filename += ".json";
+            fs::create_directories(project_save_path / pfd::metadata_path);
+            std::ofstream meta_file(project_save_path / pfd::metadata_path / meta_filename);
+            meta_file << s.GetString();
         }
         ++cur_type_loading;
     };
@@ -167,10 +189,9 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
             const auto id = asset_meta.GetObject()[mfd::id_json_key.data()].GetUint64();
             const fs::path path =
                 project_load_path / asset_meta.GetObject()[mfd::path_json_key.data()].GetString();
-            task_status = (
-                "Loading " +
-                std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) + "/" +
-                std::to_string(id) + ".asset...");
+            task_status = ("Loading " +
+                           std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) +
+                           "/" + std::to_string(id) + ".asset...");
             AssetT asset;
             assets::raw_load(asset, {path});
             asset_manager::put(asset, id);
@@ -191,11 +212,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
     task_progress = 1.f;
 }
 
-enum class DialogType {
-    none,
-    saving,
-    loading
-};
+enum class DialogType { none, saving, loading };
 template<DialogType dialog_type> void per_step_callback() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -208,8 +225,8 @@ template<DialogType dialog_type> void per_step_callback() {
 
     ImGui::OpenPopup(dialog_type == DialogType::saving ? "Saving..." : "Loading...");
     ImGui::SetNextWindowSize(ImVec2{300, 0}, ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal(dialog_type == DialogType::saving ? "Saving..." : "Loading...", nullptr,
-                               ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+    if (ImGui::BeginPopupModal(dialog_type == DialogType::saving ? "Saving..." : "Loading...",
+                               nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
         ImGui::TextUnformatted(task_status.c_str());
         ImGui::ProgressBar(task_progress);
         ImGui::EndPopup();
@@ -252,7 +269,7 @@ void start_load(fs::path project_path) {
 // destroys layout in some specific conditions), so load/save is not called
 // directly on start_x, but rather on render().
 void render() {
-    switch(dialog_to_render) {
+    switch (dialog_to_render) {
         case DialogType::loading:
             per_step_callback<DialogType::loading>();
             load(last_project_path, per_step_callback<DialogType::loading>);
