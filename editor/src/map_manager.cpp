@@ -501,7 +501,7 @@ void render(bool* p_show) {
                                                const char* tooltip) {
                     if (edit_mode != mode)
                         ImGui::PushStyleColor(ImGuiCol_Text, {0.6f, 0.6f, 0.6f, 1.f});
-                    if (ImGui::MenuItem(icon, nullptr)) {
+                    if (ImGui::MenuItem(icon, nullptr) && edit_mode != mode) {
                         edit_mode = mode;
                         ImGui::PopStyleColor();
                     }
