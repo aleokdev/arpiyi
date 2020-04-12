@@ -9,7 +9,7 @@
 	url = https://github.com/ThePhD/sol2.git
 [submodule "lib/stb"]
 	path = lib/stb
-	url = https://github.com/nothings/stb/
+	url = https://github.com/alexdevteam/stb.git
 [submodule "lib/noc"]
 	path = lib/noc
 	url = https://github.com/guillaumechereau/noc.git
