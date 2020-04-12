@@ -23,7 +23,7 @@ add_executable(arpiyi-editor src/main.cpp
         src/assets/texture.cpp
         src/script_manager.cpp
         src/serializing_manager.cpp
-        src/window_list_menu.cpp src/assets/script.cpp)
+        src/window_list_menu.cpp src/assets/script.cpp src/util/tileset_picker.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)

@@ -14,6 +14,7 @@
 #include "util/icons_material_design.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
+#include "util/tileset_picker.hpp"
 
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -37,40 +38,32 @@ enum class EditMode { tile, comment, entity } edit_mode = EditMode::tile;
 
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
+static void show_info_tip(const char* c) {
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted(c);
+        ImGui::EndTooltip();
+    }
+}
+
 static void show_add_layer_window(bool* p_open) {
     if (ImGui::Begin(ICON_MD_ADD_BOX " New Map Layer", p_open)) {
         static char name[32];
         static Handle<assets::Tileset> tileset;
-        const auto& show_info_tip = [](const char* c) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("(?)");
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::TextUnformatted(c);
-                ImGui::EndTooltip();
-            }
-        };
+        bool valid = tileset.get();
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
 
-        auto t = tileset.get();
-        if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
-            for (auto& ts : tileset_manager::get_tilesets()) {
-                if (ImGui::Selectable(ts.get()->name.c_str(), ts == tileset))
-                    tileset = ts;
-
-                if (ts == tileset)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
+        widgets::tileset_picker::show(tileset);
 
         if (ImGui::Button("Cancel")) {
             *p_open = false;
         }
         ImGui::SameLine();
-        if (!t) {
+        if (!valid) {
             ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
         }
@@ -80,7 +73,7 @@ static void show_add_layer_window(bool* p_open) {
             current_map.get()->layers.emplace_back(asset_manager::put(layer));
             *p_open = false;
         }
-        if (!t) {
+        if (!valid) {
             ImGui::PopItemFlag();
             ImGui::PopStyleVar();
         }
@@ -95,44 +88,24 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
     if (ImGui::Begin(ICON_MD_SETTINGS " Edit Map Layer", p_open)) {
         static char name[32];
         static Handle<assets::Tileset> tileset;
+        bool valid = tileset.get();
         if (ImGui::IsWindowAppearing()) {
             assert(layer.name.size() < 32);
             strcpy(name, layer.name.c_str());
             tileset = layer.tileset;
         }
 
-        const auto& show_info_tip = [](const char* c) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("(?)");
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::TextUnformatted(c);
-                ImGui::EndTooltip();
-            }
-        };
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
 
-        auto t = tileset.get();
-        // TODO: Split tileset picker to its own function
-        if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
-            for (auto& ts : tileset_manager::get_tilesets()) {
-                std::string selectable_strid = std::to_string(ts.get_id()) + ts.get()->name;
-                if (ImGui::Selectable(selectable_strid.c_str(), ts == tileset))
-                    tileset = ts;
-
-                if (ts == tileset)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
+        widgets::tileset_picker::show(tileset);
 
         if (ImGui::Button("Cancel")) {
             *p_open = false;
         }
         ImGui::SameLine();
-        if (!t) {
+        if (!valid) {
             ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
         }
@@ -141,7 +114,7 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
             layer.tileset = tileset;
             *p_open = false;
         }
-        if (!t) {
+        if (!valid) {
             ImGui::PopItemFlag();
             ImGui::PopStyleVar();
         }
@@ -159,15 +132,7 @@ static void show_add_map_window(bool* p_open) {
         static char layer_name[32] = "Base Layer";
         static Handle<assets::Tileset> layer_tileset = Handle<assets::Tileset>::noid;
         bool valid = true;
-        const auto& show_info_tip = [](const char* c) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("(?)");
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::TextUnformatted(c);
-                ImGui::EndTooltip();
-            }
-        };
+
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the map internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
@@ -182,18 +147,7 @@ static void show_add_map_window(bool* p_open) {
             ImGui::BeginChild("Default layer options", {0, -ImGui::GetTextLineHeightWithSpacing()},
                               true, ImGuiWindowFlags_AlwaysAutoResize);
             ImGui::InputText("Name", layer_name, 32);
-            auto t = layer_tileset.get();
-            if (ImGui::BeginCombo("Tileset", t ? t->name.c_str() : "<Not selected>")) {
-                for (auto& ts : tileset_manager::get_tilesets()) {
-                    std::string selectable_strid = std::to_string(ts.get_id()) + ts.get()->name;
-                    if (ImGui::Selectable(selectable_strid.c_str(), ts == layer_tileset))
-                        layer_tileset = ts;
-
-                    if (ts == layer_tileset)
-                        ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
-            }
+            widgets::tileset_picker::show(layer_tileset);
             ImGui::EndChild();
             ImGui::PopStyleVar();
             valid &= layer_tileset.get();
@@ -239,15 +193,7 @@ static void show_edit_map_window(bool* p_open, Handle<assets::Map> _m) {
         if (ImGui::IsWindowAppearing()) {
             strcpy(name, map.name.c_str());
         }
-        const auto& show_info_tip = [](const char* c) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("(?)");
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::TextUnformatted(c);
-                ImGui::EndTooltip();
-            }
-        };
+
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the map internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
