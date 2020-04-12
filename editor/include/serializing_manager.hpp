@@ -35,7 +35,7 @@ template<typename AssetT> fs::path get_asset_save_path(u64 handle_id) {
 } // namespace detail
 
 void start_save();
-void start_load(fs::path project_path);
+void start_load(fs::path project_path, bool ignore_editor_version = false);
 
 void render();
 

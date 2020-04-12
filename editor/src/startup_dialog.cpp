@@ -1,13 +1,14 @@
 #include "startup_dialog.hpp"
+#include "serializing_exceptions.hpp"
 #include "serializing_manager.hpp"
 
-#include "util/icons_material_design.hpp"
 #include "project_info.hpp"
+#include "util/icons_material_design.hpp"
 
-#include <imgui.h>
 #include <array>
 #include <filesystem>
 #include <fstream>
+#include <imgui.h>
 #include <noc_file_dialog.h>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -71,7 +72,7 @@ static void add_path_to_config_file_recent_projects(fs::path const& path) {
 }
 
 void init() {
-    if(!fs::exists(arpiyi_config_file_path)) {
+    if (!fs::exists(arpiyi_config_file_path)) {
         create_config_file();
         return;
     }
@@ -84,27 +85,31 @@ void init() {
     doc.Parse(buffer.str().data());
 
     using namespace config_file_definitions;
-    for(auto& recent_project_path : doc.GetObject()[recent_projects_json_key.data()].GetArray()) {
-        recent_projects.emplace_back(RecentProjectData {std::string(recent_project_path.GetString())});
+    for (auto& recent_project_path : doc.GetObject()[recent_projects_json_key.data()].GetArray()) {
+        recent_projects.emplace_back(
+            RecentProjectData{std::string(recent_project_path.GetString())});
     }
 }
 
 void render(bool* show_demo_window) {
-    static fs::path dir_to_load;
+    static std::exception_ptr load_error;
     ImGui::SetNextWindowSize({500, 200}, ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Startup", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
+    if (ImGui::BeginPopupModal("Startup", nullptr,
+                               ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
         ImGui::TextUnformatted("Welcome to Arpiyi Editor v." ARPIYI_EDITOR_VERSION);
         ImGui::Separator();
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.f);
-        ImGui::BeginChild("recent_projects", {150,ImGui::GetContentRegionAvail().y}, true);
+        ImGui::BeginChild("recent_projects", {150, ImGui::GetContentRegionAvail().y}, true);
         ImGui::TextDisabled("Recent Projects");
-        for(auto& recent_project : recent_projects) {
-            if(ImGui::Button(recent_project.path.filename().generic_string().c_str())) {
+        for (auto& recent_project : recent_projects) {
+            if (ImGui::Button(recent_project.path.filename().generic_string().c_str())) {
                 if (!fs::is_directory(recent_project.path)) {
                     recent_project.path = recent_project.path.parent_path();
                 }
-                dir_to_load = recent_project.path;
-                ImGui::CloseCurrentPopup();
+                try {
+                    serializing_manager::start_load(recent_project.path);
+                    ImGui::CloseCurrentPopup();
+                } catch (...) { load_error = std::current_exception(); }
             }
         }
         ImGui::EndChild();
@@ -121,12 +126,14 @@ void render(bool* show_demo_window) {
                 if (!fs::is_directory(base_dir)) {
                     base_dir = base_dir.parent_path();
                 }
-                dir_to_load = base_dir;
                 add_path_to_config_file_recent_projects(base_dir);
-                ImGui::CloseCurrentPopup();
+                try {
+                    serializing_manager::start_load(base_dir);
+                    ImGui::CloseCurrentPopup();
+                } catch (...) { load_error = std::current_exception(); }
             }
         }
-        if(ImGui::IsItemHovered()) {
+        if (ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
             ImGui::TextUnformatted("Experimental, extremely buggy");
             ImGui::EndTooltip();
@@ -134,23 +141,69 @@ void render(bool* show_demo_window) {
         if (ImGui::Button(ICON_MD_WIDGETS " Open ImGui Demo")) {
             *show_demo_window = true;
         }
-        if(ImGui::IsItemHovered()) {
+        if (ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
             ImGui::TextUnformatted("You can also press Ctrl+I later on to open it");
             ImGui::EndTooltip();
         }
         ImGui::EndGroup();
+
+        bool close_startup_dialog = false;
+        ImGui::SetNextWindowSize({400, 250}, ImGuiCond_Once);
+        if (ImGui::BeginPopupModal("Warning!")) {
+            try {
+                if (load_error) {
+                    std::rethrow_exception(load_error);
+                }
+            } catch (exceptions::EditorVersionDiffers const& e) {
+                ImGui::TextWrapped(
+                    "Editor version differs from project version. Loading the project might cause "
+                    "unexpected crashes or bugs. Are you sure you want to continue?");
+                ImGui::Columns(2);
+                ImGui::TextDisabled("Project version");
+                ImGui::TextUnformatted(e.project_version.c_str());
+                ImGui::NextColumn();
+                ImGui::TextDisabled("Editor version");
+                ImGui::TextUnformatted(ARPIYI_EDITOR_VERSION);
+                ImGui::Columns(1);
+
+                if (ImGui::Button("Cancel loading")) {
+                    load_error = nullptr;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Load anyways")) {
+                    serializing_manager::start_load(e.project_being_loaded, true);
+
+                    load_error = nullptr;
+                    close_startup_dialog = true;
+                    ImGui::CloseCurrentPopup();
+                }
+            } catch (std::exception const& e) {
+                ImGui::TextUnformatted("Error when loading project:");
+                ImGui::TextUnformatted(e.what());
+
+                if (ImGui::Button("Cancel loading")) {
+                    load_error = nullptr;
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+        if (load_error) {
+            ImGui::OpenPopup("Warning!");
+        }
+        if (close_startup_dialog) {
+            ImGui::CloseCurrentPopup();
+        }
+
         ImGui::EndPopup();
     }
     static bool first_time = true;
     if (first_time) {
         ImGui::OpenPopup("Startup");
         first_time = false;
-    }
-
-    if(!dir_to_load.empty()) {
-        serializing_manager::start_load(dir_to_load);
-        dir_to_load = "";
     }
 }
 

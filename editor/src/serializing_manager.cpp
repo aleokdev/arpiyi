@@ -3,14 +3,16 @@
 #include <GLFW/glfw3.h>
 
 #include <imgui.h>
+// imgui.h must be included before the API implementations
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_opengl3.h>
 
-#include "serializing_manager.hpp"
-#include "tileset_manager.hpp"
 #include "assets/map.hpp"
 #include "assets/script.hpp"
 #include "project_info.hpp"
+#include "serializing_exceptions.hpp"
+#include "serializing_manager.hpp"
+#include "tileset_manager.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -147,7 +149,8 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
             meta.Key(mfd::id_json_key.data());
             meta.Uint64(id);
             meta.Key(mfd::path_json_key.data());
-            std::string const relative_path = fs::relative(asset_path, project_save_path).generic_string();
+            std::string const relative_path =
+                fs::relative(asset_path, project_save_path).generic_string();
             meta.String(relative_path.c_str());
             meta.EndObject();
 
@@ -275,10 +278,10 @@ void start_save() {
     dialog_to_render = DialogType::saving;
 }
 
-void start_load(fs::path project_path) {
+void start_load(fs::path project_path, bool ignore_editor_version) {
     ProjectFileData data = load_project_file(project_path);
-    if (data.editor_version != ARPIYI_EDITOR_VERSION) {
-        // TODO: Do something if editor versions don't match
+    if (!ignore_editor_version && data.editor_version != ARPIYI_EDITOR_VERSION) {
+        throw exceptions::EditorVersionDiffers(project_path, data.editor_version);
     }
     last_project_path = project_path;
     tileset_manager::set_tile_size(data.tile_size);
