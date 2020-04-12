@@ -15,7 +15,7 @@
 #include "util/icons_material_design.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
-#include "util/tileset_picker.hpp"
+#include "widgets/tileset_picker.hpp"
 
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -673,7 +673,7 @@ void render(bool* p_show) {
             }
 
             if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
-                if (ImGui::GetIO().MouseWheel > 0 && current_zoom_level < zoom_levels.size() - 1)
+                if (ImGui::GetIO().MouseWheel > 0 && current_zoom_level < static_cast<i32>(zoom_levels.size()) - 1)
                     current_zoom_level += 1;
                 else if (ImGui::GetIO().MouseWheel < 0 && current_zoom_level > 0)
                     current_zoom_level -= 1;
