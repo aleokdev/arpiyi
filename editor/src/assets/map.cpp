@@ -152,8 +152,10 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
     w.EndArray();
     w.Key(comments_json_key.data());
     w.StartArray();
-    for (const auto& comment : map.comments) {
+    for (const auto& c : map.comments) {
         namespace cfd = comment_file_definitions;
+        assert(c.get());
+        const auto& comment = *c.get();
         w.StartObject();
         w.Key(cfd::text_json_key.data());
         w.String(comment.text.c_str());
@@ -229,7 +231,7 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
             for (auto const& comment_object : obj.value.GetArray()) {
                 namespace cfd = comment_file_definitions;
 
-                auto& comment = map.comments.emplace_back();
+                assets::Map::Comment comment;
 
                 for (auto const& comment_val : comment_object.GetObject()) {
                     if (comment_val.name == cfd::text_json_key.data()) {
@@ -239,6 +241,8 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                         comment.pos.y = comment_val.value.GetObject()["y"].GetInt();
                     }
                 }
+
+                map.comments.emplace_back(asset_manager::put(comment));
             }
         }
     }

@@ -62,14 +62,15 @@ struct Map {
     };
 
     std::vector<Handle<Layer>> layers;
-    std::vector<Comment> comments;
+    std::vector<Handle<Comment>> comments;
     std::vector<Handle<Entity>> entities;
     std::string name;
 
     i64 width, height;
 };
 
-template<> inline void raw_unload<Map::Layer>(Map::Layer& layer) { }
+template<> inline void raw_unload<Map::Layer>(Map::Layer&) { }
+template<> inline void raw_unload<Map::Comment>(Map::Comment&) { }
 
 template<> struct LoadParams<Map> { fs::path path; };
 

@@ -1,27 +1,25 @@
 #include "map_manager.hpp"
 
 #include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <vector>
 #include <array>
+#include <cmath>
+#include <vector>
 
 #include "assets/entity.hpp"
 #include "assets/shader.hpp"
 #include "assets/texture.hpp"
-#include "editor/editor_style.hpp"
 #include "tileset_manager.hpp"
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
+#include "util/imgui_addons.hpp"
+#include "widgets/tileset_picker.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
-#include "widgets/tileset_picker.hpp"
 
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
-#include <imgui_internal.h>
 
 namespace arpiyi_editor::map_manager {
 
@@ -64,19 +62,11 @@ static void show_add_layer_window(bool* p_open) {
             *p_open = false;
         }
         ImGui::SameLine();
-        if (!valid) {
-            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-        }
-        if (ImGui::Button("OK")) {
+        if (ImGui::Button("OK", valid)) {
             assets::Map::Layer layer{current_map.get()->width, current_map.get()->height, tileset};
             layer.name = name;
             current_map.get()->layers.emplace_back(asset_manager::put(layer));
             *p_open = false;
-        }
-        if (!valid) {
-            ImGui::PopItemFlag();
-            ImGui::PopStyleVar();
         }
     }
     ImGui::End();
@@ -106,18 +96,10 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
             *p_open = false;
         }
         ImGui::SameLine();
-        if (!valid) {
-            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-        }
-        if (ImGui::Button("OK")) {
+        if (ImGui::Button("OK", valid)) {
             layer.name = name;
             layer.tileset = tileset;
             *p_open = false;
-        }
-        if (!valid) {
-            ImGui::PopItemFlag();
-            ImGui::PopStyleVar();
         }
     }
     ImGui::End();
@@ -158,11 +140,7 @@ static void show_add_map_window(bool* p_open) {
             *p_open = false;
         }
         ImGui::SameLine();
-        if (!valid) {
-            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-        }
-        if (ImGui::Button("OK")) {
+        if (ImGui::Button("OK", valid)) {
             assets::Map map;
             map.width = static_cast<decltype(map.width)>(map_size[0]);
             map.height = static_cast<decltype(map.height)>(map_size[1]);
@@ -175,10 +153,6 @@ static void show_add_map_window(bool* p_open) {
             }
             current_map = asset_manager::put<assets::Map>(map);
             *p_open = false;
-        }
-        if (!valid) {
-            ImGui::PopItemFlag();
-            ImGui::PopStyleVar();
         }
     }
     ImGui::End();
@@ -601,9 +575,13 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
     return entity_hovering;
 }
 
-static void
+/// @returns One of the comments below the cursor (if any)
+static Handle<assets::Map::Comment>
 draw_comments(assets::Map const& map, math::IVec2D map_render_pos, ImVec2 abs_content_start_pos) {
-    for (const auto& comment : map.comments) {
+    Handle<assets::Map::Comment> comment_hovering;
+    for (const auto& c : map.comments) {
+        assert(c.get());
+        const auto& comment = *c.get();
         ImVec2 comment_square_render_pos_min = {
             comment.pos.x * tileset_manager::get_tile_size() * get_map_zoom() + map_render_pos.x +
                 abs_content_start_pos.x,
@@ -617,12 +595,111 @@ draw_comments(assets::Map const& map, math::IVec2D map_render_pos, ImVec2 abs_co
             ImGui::GetColorU32({0.9f, 0.8f, 0.05f, 0.6f}), 0, ImDrawCornerFlags_All, 5.f);
         if (ImGui::IsMouseHoveringRect(comment_square_render_pos_min,
                                        comment_square_render_pos_max)) {
+            comment_hovering = c;
             ImGui::BeginTooltip();
             ImGui::TextDisabled("Text comment at {%i, %i}", comment.pos.x, comment.pos.y);
             ImGui::Separator();
             ImGui::TextUnformatted(comment.text.c_str());
             ImGui::EndTooltip();
         }
+    }
+
+    return comment_hovering;
+}
+
+static void process_map_input(assets::Map& map,
+                              math::IVec2D mouse_tile_pos,
+                              ImVec2 relative_mouse_pos,
+                              math::IVec2D map_render_pos,
+                              ImVec2 abs_content_start_pos,
+                              Handle<assets::Entity>& entity_hovering,
+                              Handle<assets::Map::Comment>& comment_hovering) {
+    // Process middle click input (Camera moving)
+    if (ImGui::IsWindowHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
+        ImGui::SetWindowFocus();
+        ImGuiIO& io = ImGui::GetIO();
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
+                            map_scroll.y + io.MouseDelta.y / get_map_zoom()};
+    }
+    switch (edit_mode) {
+        case EditMode::comment: {
+            ImGuiIO& io = ImGui::GetIO();
+            if (!comment_hovering.get() && io.MouseDoubleClicked[ImGuiMouseButton_Left]) {
+                if (auto layer = current_layer_selected.get()) {
+                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                        assets::Map::Comment comment;
+                        comment.pos = mouse_tile_pos;
+
+                        map.comments.emplace_back(asset_manager::put(comment));
+                    }
+                }
+            } else if (auto comment = comment_hovering.get()) {
+                if (io.MouseDown[ImGuiMouseButton_Left]) {
+                    comment->pos.x = static_cast<float>(mouse_tile_pos.x);
+                    comment->pos.y = static_cast<float>(mouse_tile_pos.y);
+                } else {
+                    comment_hovering = nullptr;
+                }
+            }
+        } break;
+
+        case EditMode::entity: {
+            ImGuiIO& io = ImGui::GetIO();
+            if (!entity_hovering.get() && io.MouseDoubleClicked[ImGuiMouseButton_Left]) {
+                if (auto layer = current_layer_selected.get()) {
+                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                        assets::Entity entity;
+                        entity.name = "Entity";
+                        if (io.KeyCtrl) {
+                            entity.pos = glm::vec2{static_cast<float>(mouse_tile_pos.x),
+                                                   static_cast<float>(mouse_tile_pos.y)};
+                        } else {
+                            entity.pos = glm::vec2{
+                                relative_mouse_pos.x /
+                                    (static_cast<float>(tileset_manager::get_tile_size()) *
+                                     get_map_zoom()),
+                                relative_mouse_pos.y /
+                                    (static_cast<float>(tileset_manager::get_tile_size()) *
+                                     get_map_zoom())};
+                        }
+                        map.entities.emplace_back(asset_manager::put(entity));
+                    }
+                }
+            } else if (auto entity = entity_hovering.get()) {
+                if (io.MouseDown[ImGuiMouseButton_Left]) {
+                    if (io.KeyCtrl) {
+                        entity->pos.x = static_cast<float>(mouse_tile_pos.x);
+                        entity->pos.y = static_cast<float>(mouse_tile_pos.y);
+                    } else {
+                        entity->pos.x =
+                            (io.MousePos.x - map_render_pos.x - abs_content_start_pos.x) /
+                            static_cast<float>(tileset_manager::get_tile_size() * get_map_zoom());
+                        entity->pos.y =
+                            (io.MousePos.y - map_render_pos.y - abs_content_start_pos.y) /
+                            static_cast<float>(tileset_manager::get_tile_size() * get_map_zoom());
+                    }
+                } else {
+                    entity_hovering = nullptr;
+                }
+            }
+        } break;
+
+        case EditMode::tile:
+            ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
+                                     map_render_pos.y + abs_content_start_pos.y};
+            ImVec2 map_render_max = {
+                map_render_min.x + map.width * tileset_manager::get_tile_size() * get_map_zoom(),
+                map_render_min.y + map.height * tileset_manager::get_tile_size() * get_map_zoom()};
+            if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max) &&
+                ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
+                if (auto layer = current_layer_selected.get()) {
+                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                        place_tile_on_pos(map, mouse_tile_pos, !ImGui::GetIO().KeyShift);
+                    }
+                }
+            }
+            break;
     }
 }
 
@@ -673,7 +750,8 @@ void render(bool* p_show) {
             }
 
             if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
-                if (ImGui::GetIO().MouseWheel > 0 && current_zoom_level < static_cast<i32>(zoom_levels.size()) - 1)
+                if (ImGui::GetIO().MouseWheel > 0 &&
+                    current_zoom_level < static_cast<i32>(zoom_levels.size()) - 1)
                     current_zoom_level += 1;
                 else if (ImGui::GetIO().MouseWheel < 0 && current_zoom_level > 0)
                     current_zoom_level -= 1;
@@ -740,114 +818,17 @@ void render(bool* p_show) {
                 draw_entities(*map, map_render_pos, abs_content_start_pos);
             }
 
-            static bool show_text_comment_creation_window = false;
-            static math::IVec2D comment_creation_pos;
+            static Handle<assets::Map::Comment> comment_hovering;
+            if (!comment_hovering.get()) {
+                comment_hovering = draw_comments(*map, map_render_pos, abs_content_start_pos);
+            } else {
+                draw_comments(*map, map_render_pos, abs_content_start_pos);
+            }
+
             if (is_tileset_appropiate_for_layer) {
-                if (ImGui::IsWindowHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
-                    ImGui::SetWindowFocus();
-                    ImGuiIO& io = ImGui::GetIO();
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                    map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
-                                        map_scroll.y + io.MouseDelta.y / get_map_zoom()};
-                }
-                switch (edit_mode) {
-                    case EditMode::comment: {
-                        if (ImGui::BeginPopupContextWindow("##_map_ctx")) {
-                            if (ImGui::IsWindowAppearing())
-                                comment_creation_pos = mouse_tile_pos;
-
-                            if (ImGui::Selectable("Create text comment")) {
-                                show_text_comment_creation_window = true;
-                            }
-                            ImGui::EndPopup();
-                        }
-                    } break;
-
-                    case EditMode::entity: {
-                        ImGuiIO& io = ImGui::GetIO();
-                        if (!entity_hovering.get() &&
-                            io.MouseDoubleClicked[ImGuiMouseButton_Left]) {
-                            if (auto layer = current_layer_selected.get()) {
-                                if (layer->is_pos_valid(mouse_tile_pos)) {
-                                    assets::Entity entity;
-                                    entity.name = "Entity";
-                                    if (io.KeyCtrl) {
-                                        entity.pos =
-                                            glm::vec2{static_cast<float>(mouse_tile_pos.x),
-                                                      static_cast<float>(mouse_tile_pos.y)};
-                                    } else {
-                                        entity.pos =
-                                            glm::vec2{relative_mouse_pos.x /
-                                                          (static_cast<float>(
-                                                               tileset_manager::get_tile_size()) *
-                                                           get_map_zoom()),
-                                                      relative_mouse_pos.y /
-                                                          (static_cast<float>(
-                                                               tileset_manager::get_tile_size()) *
-                                                           get_map_zoom())};
-                                    }
-                                    map->entities.emplace_back(asset_manager::put(entity));
-                                }
-                            }
-                        } else if (auto entity = entity_hovering.get()) {
-                            if (io.MouseDown[ImGuiMouseButton_Left]) {
-                                if (io.KeyCtrl) {
-                                    entity->pos.x = static_cast<float>(mouse_tile_pos.x);
-                                    entity->pos.y = static_cast<float>(mouse_tile_pos.y);
-                                } else {
-                                    entity->pos.x =
-                                        (io.MousePos.x - map_render_pos.x -
-                                         abs_content_start_pos.x) /
-                                        static_cast<float>(tileset_manager::get_tile_size() *
-                                                           get_map_zoom());
-                                    entity->pos.y =
-                                        (io.MousePos.y - map_render_pos.y -
-                                         abs_content_start_pos.y) /
-                                        static_cast<float>(tileset_manager::get_tile_size() *
-                                                           get_map_zoom());
-                                }
-                            } else {
-                                entity_hovering = nullptr;
-                            }
-                        }
-                    } break;
-
-                    case EditMode::tile:
-                        ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
-                                                 map_render_pos.y + abs_content_start_pos.y};
-                        ImVec2 map_render_max = {
-                            map_render_min.x +
-                                map->width * tileset_manager::get_tile_size() * get_map_zoom(),
-                            map_render_min.y +
-                                map->height * tileset_manager::get_tile_size() * get_map_zoom()};
-                        if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max) &&
-                            ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
-                            if (auto layer = current_layer_selected.get()) {
-                                if (layer->is_pos_valid(mouse_tile_pos)) {
-                                    place_tile_on_pos(*map, mouse_tile_pos,
-                                                      !ImGui::GetIO().KeyShift);
-                                }
-                            }
-                        }
-                        break;
-                }
+                process_map_input(*map, mouse_tile_pos, relative_mouse_pos, map_render_pos,
+                                  abs_content_start_pos, entity_hovering, comment_hovering);
             }
-
-            if (show_text_comment_creation_window) {
-                static char notes[1024];
-                ImGui::SetNextWindowSize({400, 200}, ImGuiCond_Once);
-                ImGui::Begin(ICON_MD_INSERT_COMMENT " Insert Text Comment",
-                             &show_text_comment_creation_window);
-                ImGui::InputTextMultiline("", notes, 1024);
-                if (ImGui::Button("OK")) {
-                    map->comments.emplace_back(
-                        assets::Map::Comment{std::string(notes), comment_creation_pos});
-                    show_text_comment_creation_window = false;
-                }
-                ImGui::End();
-            }
-
-            draw_comments(*map, map_render_pos, abs_content_start_pos);
 
             if (!is_tileset_appropiate_for_layer) {
                 constexpr std::string_view text =
