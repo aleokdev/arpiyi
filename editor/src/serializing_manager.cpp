@@ -1,7 +1,7 @@
-/* clang-format off */
 #include <glad/glad.h>
+// GLAD must be included before GLFW
 #include <GLFW/glfw3.h>
-/* clang-format on */
+
 #include <imgui.h>
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_opengl3.h>
@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <imgui.h>
 #include <noc_file_dialog.h>
 #include <window_manager.hpp>
@@ -146,7 +147,8 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
             meta.Key(mfd::id_json_key.data());
             meta.Uint64(id);
             meta.Key(mfd::path_json_key.data());
-            meta.String(fs::relative(asset_path, project_save_path).c_str());
+            std::string const relative_path = fs::relative(asset_path, project_save_path).generic_string();
+            meta.String(relative_path.c_str());
             meta.EndObject();
 
             task_progress =
