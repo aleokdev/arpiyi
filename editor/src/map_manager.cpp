@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <array>
 
 #include "assets/entity.hpp"
 #include "assets/shader.hpp"

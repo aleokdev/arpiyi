@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(ARPIYI_EDITOR_VERSION 0.1.1)
 
-add_executable(arpiyi-editor src/main.cpp
+add_executable(arpiyi-editor
+        src/main.cpp
         src/editor/editor_lua_wrapper.cpp
         src/editor/editor_renderer.cpp
         src/editor/editor_style.cpp
@@ -23,10 +25,12 @@ add_executable(arpiyi-editor src/main.cpp
         src/assets/texture.cpp
         src/script_manager.cpp
         src/serializing_manager.cpp
-        src/window_list_menu.cpp src/assets/script.cpp src/util/tileset_picker.cpp)
+        src/window_list_menu.cpp
+        src/assets/script.cpp
+        src/widgets/tileset_picker.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
-target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 # Use the package PkgConfig to detect GTK+ headers/library files
 if(APPLE)
@@ -39,10 +43,36 @@ elseif(UNIX)
     add_definitions(${GTK3_CFLAGS_OTHER})
     target_link_libraries(arpiyi-editor PRIVATE ${GTK3_LIBRARIES})
 endif()
+
 if(WIN32)
-# W3 maps to some ultra-high level warning level in clang-cl (so high it triggers -Wc++98-compat) so we turn it down a little bit
-target_compile_options(arpiyi-editor PRIVATE -W2 /diagnostics:caret)
+    target_compile_definitions(arpiyi-editor PRIVATE
+        _CRT_SECURE_NO_WARNINGS
+        _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING # caused by sol2/single/include/sol/sol.hpp:22511
+        # TODO: Proper handling of UNICODE on windows. NOC file dialog causes compiler errors when compiled with unicode.
+        # UNICODE
+        # _UNICODE
+    )
+
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if(NOT MSVC)
+            # clang
+            target_compile_options(arpiyi-editor
+                PRIVATE
+                -Wall -Wextra -pedantic
+                -Werror=return-type
+                -Wno-language-extension-token
+            )
+        else()
+            # clang-cl
+            # W3 maps to some ultra-high level warning level in clang-cl (so high it triggers -Wc++98-compat) so we turn it down a little bit
+            target_compile_options(arpiyi-editor PRIVATE -W2 /diagnostics:caret)
+        endif()
+    else()
+        # msvc
+        target_compile_options(arpiyi-editor PRIVATE -W3 /diagnostics:caret)
+    endif()
 elseif(UNIX)
-target_compile_options(arpiyi-editor PRIVATE -Wall)
+    target_compile_options(arpiyi-editor PRIVATE -Wall)
 endif()
+
 add_subdirectory(../lib build/)
