@@ -20,8 +20,7 @@
 #include "script_manager.hpp"
 #include "serializing_manager.hpp"
 #include "window_list_menu.hpp"
-
-#include <sol/sol.hpp>
+#include "widgets/inspector.hpp"
 
 using namespace arpiyi_editor;
 
@@ -45,6 +44,7 @@ int main() {
     script_editor::init();
     sprite_manager::init();
     // plugin_manager::load_plugins("data/plugins");
+    widgets::inspector::init();
     startup_dialog::init();
 
     glfwSetKeyCallback(window_manager::get_window(), key_callback);

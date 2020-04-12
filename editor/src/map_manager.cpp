@@ -13,6 +13,7 @@
 #include "util/icons_material_design.hpp"
 #include "util/imgui_addons.hpp"
 #include "widgets/tileset_picker.hpp"
+#include "widgets/inspector.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
 
@@ -635,6 +636,9 @@ static void process_map_input(assets::Map& map,
                     }
                 }
             } else if (auto comment = comment_hovering.get()) {
+                if(io.MouseClicked[ImGuiMouseButton_Left])
+                    widgets::inspector::set_inspected_asset(comment_hovering);
+
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
                     comment->pos.x = static_cast<float>(mouse_tile_pos.x);
                     comment->pos.y = static_cast<float>(mouse_tile_pos.y);
@@ -667,6 +671,9 @@ static void process_map_input(assets::Map& map,
                     }
                 }
             } else if (auto entity = entity_hovering.get()) {
+                if(io.MouseClicked[ImGuiMouseButton_Left])
+                    widgets::inspector::set_inspected_asset(entity_hovering);
+
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
                     if (io.KeyCtrl) {
                         entity->pos.x = static_cast<float>(mouse_tile_pos.x);

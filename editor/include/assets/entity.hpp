@@ -32,6 +32,8 @@ struct Entity {
             return {pos.x, pos.y};
         }
     }
+
+    static constexpr u64 name_length_limit = 32;
 };
 
 } // namespace arpiyi_editor::assets
