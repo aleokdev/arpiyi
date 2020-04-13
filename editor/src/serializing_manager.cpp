@@ -8,6 +8,7 @@
 #include <examples/imgui_impl_opengl3.h>
 
 #include "assets/map.hpp"
+#include "assets/entity.hpp"
 #include "assets/script.hpp"
 #include "project_info.hpp"
 #include "serializing_exceptions.hpp"
@@ -58,6 +59,10 @@ template<> struct AssetDirName<assets::Tileset> {
 
 template<> struct AssetDirName<assets::Script> {
     constexpr static std::string_view value = "scripts";
+};
+
+template<> struct AssetDirName<assets::Entity> {
+    constexpr static std::string_view value = "entities";
 };
 /* clang-format on */
 
@@ -177,6 +182,7 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
     save_assets(AssetContainer<assets::Tileset>::get_instance());
     save_assets(AssetContainer<assets::Map>::get_instance());
     save_assets(AssetContainer<assets::Script>::get_instance());
+    save_assets(AssetContainer<assets::Entity>::get_instance());
 
     task_progress = 1.f;
 }
@@ -230,6 +236,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
     load_assets(AssetContainer<assets::Tileset>::get_instance());
     load_assets(AssetContainer<assets::Map>::get_instance());
     load_assets(AssetContainer<assets::Script>::get_instance());
+    load_assets(AssetContainer<assets::Entity>::get_instance());
 
     task_progress = 1.f;
 }

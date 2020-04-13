@@ -15,6 +15,7 @@ add_executable(arpiyi-editor
         src/assets/tileset.cpp
         src/assets/texture.cpp
         src/assets/script.cpp
+        src/assets/entity.cpp
         src/widgets/tileset_picker.cpp
         src/widgets/inspector.cpp
         src/util/imgui_addons.cpp

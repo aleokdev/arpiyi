@@ -1,5 +1,8 @@
 #include "widgets/inspector.hpp"
 
+#include <algorithm>
+
+#include "script_manager.hpp"
 #include "util/icons_material_design.hpp"
 #include "window_list_menu.hpp"
 
@@ -18,6 +21,49 @@ void draw_entity_inspector(assets::Entity& entity) {
     strcpy(buf, entity.name.c_str());
     if (ImGui::InputText("Name", buf, 32))
         entity.name = buf;
+
+    ImGui::TextUnformatted("Scripts");
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.f);
+    ImGui::BeginChild(
+        "##_scripts",
+        {0, ImGui::GetTextLineHeightWithSpacing() * static_cast<float>(entity.scripts.size() + 2)},
+        true);
+    Handle<assets::Script> script_to_erase;
+    std::size_t i = 0;
+    for (const auto& s : entity.scripts) {
+        assert(s.get());
+        const auto& script = *s.get();
+
+        const auto text_cursor_pos = ImGui::GetCursorScreenPos();
+        if(ImGui::InvisibleButton(std::to_string(i).c_str(),
+                               {ImGui::GetContentRegionAvailWidth(), ImGui::GetTextLineHeight()})) {
+            script_to_erase = s;
+        }
+        ImGui::SetCursorScreenPos(text_cursor_pos);
+        if(ImGui::IsItemHovered()) {
+            ImGui::Text(ICON_MD_DELETE " %s", script.name.c_str());
+        } else {
+            ImGui::TextUnformatted(script.name.c_str());
+        }
+        ++i;
+    }
+
+    if(script_to_erase.get()) {
+        entity.scripts.erase(std::remove(entity.scripts.begin(), entity.scripts.end(), script_to_erase));
+    }
+
+    if (ImGui::BeginCombo(ICON_MD_ADD, "")) {
+        for (auto& [id, script] : detail::AssetContainer<assets::Script>::get_instance().map) {
+            std::string selectable_strid = std::to_string(id) + " " + script.name;
+            if (ImGui::Selectable(selectable_strid.c_str())) {
+                entity.scripts.emplace_back(Handle<assets::Script>(id));
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
 }
 
 void draw_comment_inspector(assets::Map::Comment& comment) {

@@ -1,9 +1,9 @@
 #include "assets/tileset.hpp"
 #include "tileset_manager.hpp"
 
-#include <set>
 #include <algorithm>
 #include <rapidjson/document.h>
+#include <set>
 
 #include "util/intdef.hpp"
 

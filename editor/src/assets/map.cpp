@@ -104,6 +104,7 @@ constexpr std::string_view width_json_key = "width";
 constexpr std::string_view height_json_key = "height";
 constexpr std::string_view layers_json_key = "layers";
 constexpr std::string_view comments_json_key = "comments";
+constexpr std::string_view entities_json_key = "entities";
 
 namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
@@ -171,6 +172,12 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
         w.EndObject();
     }
     w.EndArray();
+
+    w.Key(entities_json_key.data());
+    w.StartArray();
+    for (const auto& c : map.entities) { w.Uint64(c.get_id()); }
+    w.EndArray();
+
     w.EndObject();
 
     RawSaveData data;
@@ -244,8 +251,11 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
 
                 map.comments.emplace_back(asset_manager::put(comment));
             }
+        } else if (obj.name == entities_json_key.data()) {
+            for(const auto& entity_id : obj.value.GetArray()) {
+                map.entities.emplace_back(entity_id.GetUint64());
+            }
         }
     }
 }
-
 } // namespace arpiyi_editor::assets
