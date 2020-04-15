@@ -20,10 +20,10 @@ Arpiyi has:
 - Autotiling
   - Supports RPGMaker VX/VX Ace/MV A2 textures
   - Automatically creates a texture with all possible corner & side combinations from a simpler image
+- A Lua script editor
+  - With a built-in syntax error checker
 
 ### Planned features
-- Lua script editor
-  - With a built-in exception/warning system
 - Cutscene editor
 
 ### Requirements
