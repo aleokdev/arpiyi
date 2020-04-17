@@ -6,7 +6,7 @@
 
 #include <imgui.h>
 
-namespace arpiyi_editor::widgets {
+namespace arpiyi::widgets {
 
 namespace tileset_picker {
 void show(Handle<assets::Tileset>& tileset) {
@@ -58,4 +58,4 @@ bool show(Handle<assets::Sprite>& spr) {
 }
 } // namespace sprite_picker
 
-} // namespace arpiyi_editor::widgets
+} // namespace arpiyi::widgets

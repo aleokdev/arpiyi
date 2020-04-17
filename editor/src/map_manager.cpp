@@ -22,7 +22,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 
-namespace arpiyi_editor::map_manager {
+namespace arpiyi::map_manager {
 
 Handle<assets::Map> current_map;
 Handle<assets::Shader> tile_shader;
@@ -548,9 +548,9 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
             entity_square_render_pos_min.y + entity_sprite_size.y * get_map_zoom(),
         };
 
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            entity_square_render_pos_min, entity_square_render_pos_max,
-            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
+        ImGui::GetWindowDrawList()->AddRectFilled(entity_square_render_pos_min,
+                                                  entity_square_render_pos_max,
+                                                  ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
         if (auto s = entity.sprite.get()) {
             ImGui::GetWindowDrawList()->AddImage(
                 reinterpret_cast<ImTextureID>(s->texture.get()->handle),
@@ -636,7 +636,7 @@ static void process_map_input(assets::Map& map,
                     }
                 }
             } else if (auto comment = comment_hovering.get()) {
-                if(io.MouseClicked[ImGuiMouseButton_Left])
+                if (io.MouseClicked[ImGuiMouseButton_Left])
                     widgets::inspector::set_inspected_asset(comment_hovering);
 
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
@@ -671,7 +671,7 @@ static void process_map_input(assets::Map& map,
                     }
                 }
             } else if (auto entity = entity_hovering.get()) {
-                if(io.MouseClicked[ImGuiMouseButton_Left])
+                if (io.MouseClicked[ImGuiMouseButton_Left])
                     widgets::inspector::set_inspected_asset(entity_hovering);
 
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
@@ -881,4 +881,4 @@ std::vector<Handle<assets::Map>> get_maps() {
     return maps;
 }
 
-} // namespace arpiyi_editor::map_manager
+} // namespace arpiyi::map_manager

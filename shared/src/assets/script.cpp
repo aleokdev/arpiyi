@@ -5,7 +5,7 @@
 #include <fstream>
 #include <rapidjson/document.h>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view source_json_key = "source";

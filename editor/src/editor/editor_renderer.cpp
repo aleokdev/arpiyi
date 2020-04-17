@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace arpiyi_editor::editor::renderer {
+namespace arpiyi::editor::renderer {
 
 std::map<std::size_t, Toolbar> toolbars;
 std::unordered_set<std::size_t>
@@ -83,10 +83,10 @@ void render() {
                 toolbar.callback(toolbar);
             }
         }
-        if(ImGui::MenuItem("Save")) {
+        if (ImGui::MenuItem("Save")) {
             do_save_project = true;
         }
-        if(ImGui::BeginMenu("Windows")) {
+        if (ImGui::BeginMenu("Windows")) {
             window_list_menu::show_menu_items();
             ImGui::EndMenu();
         }
@@ -104,8 +104,8 @@ void render() {
 
     ImGui::End();
 
-    if(do_save_project)
+    if (do_save_project)
         serializing_manager::start_save();
 }
 
-} // namespace arpiyi_editor::editor::renderer
+} // namespace arpiyi::editor::renderer

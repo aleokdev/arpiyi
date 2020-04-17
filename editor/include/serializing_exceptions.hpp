@@ -7,7 +7,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::exceptions {
+namespace arpiyi::exceptions {
 
 class EditorVersionDiffers : public std::exception {
 public:
@@ -20,9 +20,7 @@ public:
     }
     ~EditorVersionDiffers() override = default;
 
-    [[nodiscard]] const char* what() const noexcept override {
-        return what_str.c_str();
-    }
+    [[nodiscard]] const char* what() const noexcept override { return what_str.c_str(); }
 
     fs::path project_being_loaded;
     std::string project_version;
@@ -31,6 +29,6 @@ private:
     std::string what_str;
 };
 
-} // namespace arpiyi_editor::exceptions
+} // namespace arpiyi::exceptions
 
 #endif // ARPIYI_SERIALIZING_EXCEPTIONS_HPP

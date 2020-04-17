@@ -13,7 +13,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Shader {
     void destroy() {

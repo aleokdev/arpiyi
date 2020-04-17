@@ -2,12 +2,12 @@
 #define ARPIYI_TILESET_MANAGER_HPP
 
 #include "asset_manager.hpp"
-#include "util/math.hpp"
 #include "assets/tileset.hpp"
+#include "util/math.hpp"
 
 #include <vector>
 
-namespace arpiyi_editor::tileset_manager {
+namespace arpiyi::tileset_manager {
 
 struct TilesetSelection {
     Handle<assets::Tileset> tileset;
@@ -27,6 +27,6 @@ std::vector<Handle<assets::Tileset>> get_tilesets();
 void set_selection_tileset(Handle<assets::Tileset>);
 TilesetSelection const& get_selection();
 
-}
+} // namespace arpiyi::tileset_manager
 
 #endif // ARPIYI_TILESET_MANAGER_HPP

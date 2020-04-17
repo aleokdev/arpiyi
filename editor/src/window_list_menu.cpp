@@ -1,6 +1,6 @@
 #include "window_list_menu.hpp"
 
-namespace arpiyi_editor::window_list_menu {
+namespace arpiyi::window_list_menu {
 std::vector<Entry> window_entries;
 
 void add_entry(Entry entry) { window_entries.emplace_back(entry); }
@@ -17,4 +17,4 @@ void render_entries() {
     }
 }
 
-} // namespace arpiyi_editor::window_list_menu
+} // namespace arpiyi::window_list_menu

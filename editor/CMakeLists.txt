@@ -10,12 +10,6 @@ add_executable(arpiyi-editor
         src/editor/editor_lua_wrapper.cpp
         src/editor/editor_renderer.cpp
         src/editor/editor_style.cpp
-        src/assets/mesh.cpp
-        src/assets/map.cpp
-        src/assets/tileset.cpp
-        src/assets/texture.cpp
-        src/assets/script.cpp
-        src/assets/entity.cpp
         src/widgets/pickers.cpp
         src/widgets/inspector.cpp
         src/util/imgui_addons.cpp
@@ -30,10 +24,12 @@ add_executable(arpiyi-editor
         src/sprite_manager.cpp
         src/script_manager.cpp
         src/serializing_manager.cpp
-        src/window_list_menu.cpp src/assets/sprite.cpp)
+        src/window_list_menu.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
+
+target_link_libraries(arpiyi-editor PRIVATE arpiyi-shared)
 
 # Use the package PkgConfig to detect GTK+ headers/library files
 if (APPLE)
@@ -77,5 +73,3 @@ if (WIN32)
 elseif (UNIX)
     target_compile_options(arpiyi-editor PRIVATE -Wall)
 endif ()
-
-add_subdirectory(../lib build/)

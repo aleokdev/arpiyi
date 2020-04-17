@@ -3,7 +3,7 @@
 
 struct ImFont;
 
-namespace arpiyi_editor::editor::style {
+namespace arpiyi::editor::style {
 
 void init();
 

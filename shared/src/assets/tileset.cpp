@@ -7,7 +7,7 @@
 
 #include "util/intdef.hpp"
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 math::IVec2D Tileset::get_size_in_tiles() const {
     const auto tile_size = tileset_manager::get_tile_size();

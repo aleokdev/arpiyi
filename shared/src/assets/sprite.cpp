@@ -7,7 +7,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 namespace sprite_file_definitions {
 

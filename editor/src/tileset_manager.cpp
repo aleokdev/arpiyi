@@ -17,7 +17,7 @@
 
 #include "assets/shader.hpp"
 
-namespace arpiyi_editor::tileset_manager {
+namespace arpiyi::tileset_manager {
 
 Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
@@ -427,7 +427,8 @@ void render(bool* p_show) {
                 std::string selectable_strid = _t.name;
                 selectable_strid += "##";
                 selectable_strid += std::to_string(_id);
-                if (ImGui::Selectable(selectable_strid.c_str(), _id == selection.tileset.get_id())) {
+                if (ImGui::Selectable(selectable_strid.c_str(),
+                                      _id == selection.tileset.get_id())) {
                     selection.tileset = Handle<assets::Tileset>(_id);
                     update_grid_texture();
                 }
@@ -604,4 +605,4 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
     update_grid_texture();
 }
 
-} // namespace arpiyi_editor::tileset_manager
+} // namespace arpiyi::tileset_manager

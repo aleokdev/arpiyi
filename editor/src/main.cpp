@@ -22,7 +22,7 @@
 #include "window_list_menu.hpp"
 #include "widgets/inspector.hpp"
 
-using namespace arpiyi_editor;
+using namespace arpiyi;
 
 static bool show_demo_window = false;
 

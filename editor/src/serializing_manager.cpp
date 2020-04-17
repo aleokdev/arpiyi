@@ -7,8 +7,8 @@
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_opengl3.h>
 
-#include "assets/map.hpp"
 #include "assets/entity.hpp"
+#include "assets/map.hpp"
 #include "assets/script.hpp"
 #include "assets/sprite.hpp"
 #include "project_info.hpp"
@@ -26,7 +26,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::serializing_manager {
+namespace arpiyi::serializing_manager {
 
 namespace detail::project_file_definitions {
 
@@ -322,4 +322,4 @@ void render() {
     }
 }
 
-} // namespace arpiyi_editor::serializing_manager
+} // namespace arpiyi::serializing_manager

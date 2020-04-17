@@ -10,7 +10,7 @@
 #include <charconv>
 #include <lua.hpp>
 
-namespace arpiyi_editor::script_editor {
+namespace arpiyi::script_editor {
 
 static TextEditor editor;
 static ImFont* code_font;
@@ -28,8 +28,7 @@ static void check_for_errors_in_editor_script() {
         std::string_view lineno_view =
             partial_lineno_view.substr(0, partial_lineno_view.rfind(':'));
         int lineno;
-        std::from_chars(lineno_view.data(), lineno_view.data() + lineno_view.size(),
-                        lineno);
+        std::from_chars(lineno_view.data(), lineno_view.data() + lineno_view.size(), lineno);
         editor.SetErrorMarkers({{std::min(lineno, editor.GetTotalLines()), err.what()}});
     } else
         editor.SetErrorMarkers({});
@@ -46,7 +45,7 @@ void init() {
 
 void render(bool* p_show) {
     if (ImGui::Begin(ICON_MD_MEMORY " Lua Editor", p_show)) {
-        if(auto script = selected_script.get()) {
+        if (auto script = selected_script.get()) {
             ImGui::PushFont(code_font);
             editor.Render("editor");
             ImGui::PopFont();
@@ -64,7 +63,10 @@ void render(bool* p_show) {
     if (ImGui::Begin(ICON_MD_MEMORY " Script List", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New")) {
-                asset_manager::put<assets::Script>({"Script " + std::to_string(detail::AssetContainer<assets::Script>::get_instance().next_id_to_use)});
+                asset_manager::put<assets::Script>(
+                    {"Script " +
+                     std::to_string(
+                         detail::AssetContainer<assets::Script>::get_instance().next_id_to_use)});
             }
             ImGui::EndMenuBar();
         }
@@ -96,13 +98,11 @@ void render(bool* p_show) {
     }
     ImGui::End();
 
-    if(show_new_script) {
+    if (show_new_script) {
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Once);
-        if(ImGui::Begin(ICON_MD_ADD " New Script", &show_new_script)) {
-
-        }
+        if (ImGui::Begin(ICON_MD_ADD " New Script", &show_new_script)) {}
         ImGui::End();
     }
 }
 
-} // namespace arpiyi_editor::script_editor
+} // namespace arpiyi::script_editor

@@ -9,7 +9,7 @@
 
 #include "util/math.hpp"
 
-namespace arpiyi_editor::window_manager {
+namespace arpiyi::window_manager {
 
 bool init();
 
@@ -17,6 +17,6 @@ GLFWwindow* get_window();
 glm::mat4 get_projection();
 math::IVec2D get_framebuf_size();
 
-}
+} // namespace arpiyi::window_manager
 
 #endif // ARPIYI_WINDOW_MANAGER_HPP

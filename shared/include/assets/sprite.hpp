@@ -11,7 +11,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Sprite {
     /// Texture of the sprite. Not owned by it
