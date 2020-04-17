@@ -31,16 +31,10 @@ struct Tileset {
     Handle<assets::Texture> texture;
     std::string name;
 
-    /// Returns the size of this tileset in tiles, taking the tilesize from
-    /// tileset_manager::get_tile_size().
+    /// Returns the size of this tileset in tiles, taking the tilesize as an argument.
     [[nodiscard]] math::IVec2D get_size_in_tiles() const;
 
-    /// Returns the size of this tileset in tiles, taking the tilesize as an argument.
-    [[nodiscard]] math::IVec2D get_size_in_tiles(u32 tile_size) const;
-
     [[nodiscard]] math::Rect2D get_uv(u32 id) const;
-
-    [[nodiscard]] math::Rect2D get_uv(u32 id, u32 tile_size) const;
 
     [[nodiscard]] u32 get_id(math::IVec2D pos) const;
     [[nodiscard]] u32 get_id_auto(u32 x_index, u32 surroundings) const;

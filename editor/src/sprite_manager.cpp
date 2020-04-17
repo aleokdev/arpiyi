@@ -1,4 +1,5 @@
 #include "sprite_manager.hpp"
+#include "global_tile_size.hpp"
 #include "tileset_manager.hpp"
 #include "window_list_menu.hpp"
 
@@ -60,8 +61,8 @@ void render(bool* p_show) {
                                                 (float)(y + 1) / (float)size_in_tiles.y};
                             ImGui::Image(
                                 reinterpret_cast<ImTextureID>(tileset.texture.get()->handle),
-                                ImVec2{static_cast<float>(tileset_manager::get_tile_size()),
-                                       static_cast<float>(tileset_manager::get_tile_size())},
+                                ImVec2{static_cast<float>(global_tile_size::get()),
+                                       static_cast<float>(global_tile_size::get())},
                                 uv_min, uv_max);
                             ImGui::EndTooltip();
                         }
@@ -128,14 +129,14 @@ void render(bool* p_show) {
                         ((mouse_pos.x - tileset_image_cursor_pos.x) -
                          static_cast<float>(
                              static_cast<i32>(mouse_pos.x - tileset_image_cursor_pos.x) %
-                             tileset_manager::get_tile_size())) /
-                        tileset_manager::get_tile_size();
+                             global_tile_size::get())) /
+                        global_tile_size::get();
                     tileset_tile_selection_start.y = tileset_tile_selection_end.y =
                         ((mouse_pos.y - tileset_image_cursor_pos.y) -
                          static_cast<float>(
                              static_cast<i32>(mouse_pos.y - tileset_image_cursor_pos.y) %
-                             tileset_manager::get_tile_size())) /
-                        tileset_manager::get_tile_size();
+                             global_tile_size::get())) /
+                        global_tile_size::get();
                 }
                 if (ImGui::IsItemHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                     const auto mouse_pos = ImGui::GetMousePos();
@@ -145,31 +146,30 @@ void render(bool* p_show) {
                             ((mouse_pos.x - tileset_image_cursor_pos.x) -
                              static_cast<float>(
                                  static_cast<i32>(mouse_pos.x - tileset_image_cursor_pos.x) %
-                                 tileset_manager::get_tile_size())) /
-                            tileset_manager::get_tile_size()));
+                                 global_tile_size::get())) /
+                            global_tile_size::get()));
                     tileset_tile_selection_end.y = std::max(
                         tileset_tile_selection_start.y,
                         static_cast<i32>(
                             ((mouse_pos.y - tileset_image_cursor_pos.y) -
                              static_cast<float>(
                                  static_cast<i32>(mouse_pos.y - tileset_image_cursor_pos.y) %
-                                 tileset_manager::get_tile_size())) /
-                            tileset_manager::get_tile_size()));
+                                 global_tile_size::get())) /
+                            global_tile_size::get()));
                 }
 
                 // Draw selection box
-                ImVec2 selection_pos_min{tileset_image_cursor_pos.x +
-                                             static_cast<float>(tileset_tile_selection_start.x *
-                                                                tileset_manager::get_tile_size()),
-                                         tileset_image_cursor_pos.y +
-                                             static_cast<float>(tileset_tile_selection_start.y *
-                                                                tileset_manager::get_tile_size())};
+                ImVec2 selection_pos_min{
+                    tileset_image_cursor_pos.x + static_cast<float>(tileset_tile_selection_start.x *
+                                                                    global_tile_size::get()),
+                    tileset_image_cursor_pos.y + static_cast<float>(tileset_tile_selection_start.y *
+                                                                    global_tile_size::get())};
                 ImVec2 selection_pos_max{tileset_image_cursor_pos.x +
                                              static_cast<float>((tileset_tile_selection_end.x + 1) *
-                                                                tileset_manager::get_tile_size()),
+                                                                global_tile_size::get()),
                                          tileset_image_cursor_pos.y +
                                              static_cast<float>((tileset_tile_selection_end.y + 1) *
-                                                                tileset_manager::get_tile_size())};
+                                                                global_tile_size::get())};
                 auto draw_list = ImGui::GetWindowDrawList();
                 draw_list->AddRect(selection_pos_min, selection_pos_max, 0xFFFFFFFF, 0,
                                    ImDrawCornerFlags_All, 4.f);

@@ -1,4 +1,5 @@
 #include "assets/map.hpp"
+#include "global_tile_size.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
