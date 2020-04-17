@@ -16,7 +16,7 @@ add_executable(arpiyi-editor
         src/assets/texture.cpp
         src/assets/script.cpp
         src/assets/entity.cpp
-        src/widgets/tileset_picker.cpp
+        src/widgets/pickers.cpp
         src/widgets/inspector.cpp
         src/util/imgui_addons.cpp
         src/plugin_manager.cpp
@@ -30,7 +30,7 @@ add_executable(arpiyi-editor
         src/sprite_manager.cpp
         src/script_manager.cpp
         src/serializing_manager.cpp
-        src/window_list_menu.cpp)
+        src/window_list_menu.cpp src/assets/sprite.cpp)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")

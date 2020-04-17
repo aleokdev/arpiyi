@@ -1,6 +1,7 @@
 #include "widgets/inspector.hpp"
 
 #include <algorithm>
+#include "widgets/pickers.hpp"
 
 #include "script_manager.hpp"
 #include "util/icons_material_design.hpp"
@@ -17,8 +18,27 @@ struct SelectedAsset {
 } static selection;
 
 void draw_entity_inspector(assets::Entity& entity) {
+    static bool show_sprite_selector = false;
+
     char buf[assets::Entity::name_length_limit];
     strcpy(buf, entity.name.c_str());
+
+    const ImVec2 img_size = {ImGui::GetContentRegionAvailWidth() / 4.f,
+                             ImGui::GetContentRegionAvailWidth() / 4.f};
+    if (auto s = entity.sprite.get()) {
+        if(ImGui::ImageButton(reinterpret_cast<ImTextureID>(s->texture.get()->handle), img_size,
+                     {s->uv_min.x, s->uv_min.y}, {s->uv_max.x, s->uv_max.y}, 1)) {
+            show_sprite_selector = true;
+        }
+    } else {
+        if(ImGui::ImageButton(nullptr, img_size,
+                     {}, {}, 1)) {
+            show_sprite_selector = true;
+        }
+    }
+    ImGui::SameLine();
+    ImGui::TextUnformatted("Sprite");
+
     if (ImGui::InputText("Name", buf, 32))
         entity.name = buf;
 
@@ -35,12 +55,12 @@ void draw_entity_inspector(assets::Entity& entity) {
         const auto& script = *s.get();
 
         const auto text_cursor_pos = ImGui::GetCursorScreenPos();
-        if(ImGui::InvisibleButton(std::to_string(i).c_str(),
-                               {ImGui::GetContentRegionAvailWidth(), ImGui::GetTextLineHeight()})) {
+        if (ImGui::InvisibleButton(std::to_string(i).c_str(), {ImGui::GetContentRegionAvailWidth(),
+                                                               ImGui::GetTextLineHeight()})) {
             script_to_erase = s;
         }
         ImGui::SetCursorScreenPos(text_cursor_pos);
-        if(ImGui::IsItemHovered()) {
+        if (ImGui::IsItemHovered()) {
             ImGui::Text(ICON_MD_DELETE " %s", script.name.c_str());
         } else {
             ImGui::TextUnformatted(script.name.c_str());
@@ -48,8 +68,9 @@ void draw_entity_inspector(assets::Entity& entity) {
         ++i;
     }
 
-    if(script_to_erase.get()) {
-        entity.scripts.erase(std::remove(entity.scripts.begin(), entity.scripts.end(), script_to_erase));
+    if (script_to_erase.get()) {
+        entity.scripts.erase(
+            std::remove(entity.scripts.begin(), entity.scripts.end(), script_to_erase));
     }
 
     if (ImGui::BeginCombo(ICON_MD_ADD, "")) {
@@ -64,6 +85,13 @@ void draw_entity_inspector(assets::Entity& entity) {
 
     ImGui::EndChild();
     ImGui::PopStyleVar();
+
+    if(show_sprite_selector) {
+        if(ImGui::Begin(ICON_MD_ADD "Sprite Selector", &show_sprite_selector)) {
+            show_sprite_selector = !widgets::sprite_picker::show(entity.sprite);
+        }
+        ImGui::End();
+    }
 }
 
 void draw_comment_inspector(assets::Map::Comment& comment) {

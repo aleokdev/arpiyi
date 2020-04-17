@@ -12,8 +12,8 @@
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
 #include "util/imgui_addons.hpp"
-#include "widgets/tileset_picker.hpp"
 #include "widgets/inspector.hpp"
+#include "widgets/pickers.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
 
@@ -548,9 +548,9 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
             entity_square_render_pos_min.y + entity_sprite_size.y * get_map_zoom(),
         };
 
-        ImGui::GetWindowDrawList()->AddRect(
+        ImGui::GetWindowDrawList()->AddRectFilled(
             entity_square_render_pos_min, entity_square_render_pos_max,
-            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}), 0, ImDrawCornerFlags_All, 5.f);
+            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
         if (auto s = entity.sprite.get()) {
             ImGui::GetWindowDrawList()->AddImage(
                 reinterpret_cast<ImTextureID>(s->texture.get()->handle),
