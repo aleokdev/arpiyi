@@ -1,11 +1,11 @@
-#ifndef ARPIYI_EDITOR_ASSET_HPP
-#define ARPIYI_EDITOR_ASSET_HPP
+#ifndef ARPIYI_ASSET_HPP
+#define ARPIYI_ASSET_HPP
 #include <sstream>
 #include <filesystem>
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 template<typename T> struct LoadParams;
 
 template<typename AssetT>

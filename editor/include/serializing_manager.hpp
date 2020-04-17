@@ -13,7 +13,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::serializing_manager {
+namespace arpiyi::serializing_manager {
 
 namespace detail {
 
@@ -39,6 +39,6 @@ void start_load(fs::path project_path, bool ignore_editor_version = false);
 
 void render();
 
-} // namespace arpiyi_editor::serializing_manager
+} // namespace arpiyi::serializing_manager
 
 #endif // ARPIYI_SERIALIZING_MANAGER_HPP

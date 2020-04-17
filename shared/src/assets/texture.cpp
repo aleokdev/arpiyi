@@ -4,7 +4,7 @@
 #include <rapidjson/writer.h>
 #include <stb_image_write.h>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 namespace texture_file_definitions {
 

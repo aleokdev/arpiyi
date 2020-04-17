@@ -16,13 +16,14 @@
 #include "widgets/pickers.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
+#include "global_tile_size.hpp"
 
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 
-namespace arpiyi_editor::map_manager {
+namespace arpiyi::map_manager {
 
 Handle<assets::Map> current_map;
 Handle<assets::Shader> tile_shader;
@@ -356,8 +357,8 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
     const auto& map = *current_map.get();
     // Calculate model matrix: This is the same for the grid and all layers, so we'll calculate it
     // first.
-    float map_total_width = map.width * tileset_manager::get_tile_size() * get_map_zoom();
-    float map_total_height = map.height * tileset_manager::get_tile_size() * get_map_zoom();
+    float map_total_width = map.width * global_tile_size::get() * get_map_zoom();
+    float map_total_height = map.height * global_tile_size::get() * get_map_zoom();
 
     float clip_rect_width = cmd->ClipRect.z - callback_data.abs_content_min_rect.x;
     float clip_rect_height = cmd->ClipRect.w - callback_data.abs_content_min_rect.y;
@@ -497,9 +498,9 @@ static void draw_selection_on_map(assets::Map& map,
                    relative_mouse_pos.y + map_render_pos.y + content_start_pos.y);
         ImVec2 map_selection_size =
             ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
-                       tileset_manager::get_tile_size() * get_map_zoom(),
+                       global_tile_size::get() * get_map_zoom(),
                    (float)(selection.selection_end.y + 1 - selection.selection_start.y) *
-                       tileset_manager::get_tile_size() * get_map_zoom()};
+                       global_tile_size::get() * get_map_zoom()};
         math::IVec2D tileset_size = selection_tileset->get_size_in_tiles();
         ImVec2 uv_min = ImVec2{(float)selection.selection_start.x / (float)tileset_size.x,
                                (float)selection.selection_start.y / (float)tileset_size.y};
@@ -510,8 +511,8 @@ static void draw_selection_on_map(assets::Map& map,
 
         ImGui::GetWindowDrawList()->PushClipRect(
             clip_rect_min,
-            {clip_rect_min.x + map.width * tileset_manager::get_tile_size() * get_map_zoom(),
-             clip_rect_min.y + map.height * tileset_manager::get_tile_size() * get_map_zoom()},
+            {clip_rect_min.x + map.width * global_tile_size::get() * get_map_zoom(),
+             clip_rect_min.y + map.height * global_tile_size::get() * get_map_zoom()},
             true);
         ImGui::GetWindowDrawList()->AddImage(
             reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
@@ -532,25 +533,25 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
         const auto& entity = *e.get();
         const math::IVec2D entity_sprite_size =
             entity.sprite.get() ? entity.sprite.get()->get_size_in_pixels()
-                                : math::IVec2D{static_cast<i32>(tileset_manager::get_tile_size()),
-                                               static_cast<i32>(tileset_manager::get_tile_size())};
+                                : math::IVec2D{static_cast<i32>(global_tile_size::get()),
+                                               static_cast<i32>(global_tile_size::get())};
 
         const glm::vec2 tile_entity_square_render_pos_min = entity.get_left_corner_pos();
         ImVec2 entity_square_render_pos_min{
             tile_entity_square_render_pos_min.x *
-                    static_cast<float>(tileset_manager::get_tile_size()) * get_map_zoom() +
+                    static_cast<float>(global_tile_size::get()) * get_map_zoom() +
                 map_render_pos.x + abs_content_start_pos.x,
             tile_entity_square_render_pos_min.y *
-                    static_cast<float>(tileset_manager::get_tile_size()) * get_map_zoom() +
+                    static_cast<float>(global_tile_size::get()) * get_map_zoom() +
                 map_render_pos.y + abs_content_start_pos.y};
         ImVec2 entity_square_render_pos_max{
             entity_square_render_pos_min.x + entity_sprite_size.x * get_map_zoom(),
             entity_square_render_pos_min.y + entity_sprite_size.y * get_map_zoom(),
         };
 
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            entity_square_render_pos_min, entity_square_render_pos_max,
-            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
+        ImGui::GetWindowDrawList()->AddRectFilled(entity_square_render_pos_min,
+                                                  entity_square_render_pos_max,
+                                                  ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
         if (auto s = entity.sprite.get()) {
             ImGui::GetWindowDrawList()->AddImage(
                 reinterpret_cast<ImTextureID>(s->texture.get()->handle),
@@ -584,13 +585,13 @@ draw_comments(assets::Map const& map, math::IVec2D map_render_pos, ImVec2 abs_co
         assert(c.get());
         const auto& comment = *c.get();
         ImVec2 comment_square_render_pos_min = {
-            comment.pos.x * tileset_manager::get_tile_size() * get_map_zoom() + map_render_pos.x +
+            comment.pos.x * global_tile_size::get() * get_map_zoom() + map_render_pos.x +
                 abs_content_start_pos.x,
-            comment.pos.y * tileset_manager::get_tile_size() * get_map_zoom() + map_render_pos.y +
+            comment.pos.y * global_tile_size::get() * get_map_zoom() + map_render_pos.y +
                 abs_content_start_pos.y};
         ImVec2 comment_square_render_pos_max = {
-            comment_square_render_pos_min.x + tileset_manager::get_tile_size() * get_map_zoom(),
-            comment_square_render_pos_min.y + tileset_manager::get_tile_size() * get_map_zoom()};
+            comment_square_render_pos_min.x + global_tile_size::get() * get_map_zoom(),
+            comment_square_render_pos_min.y + global_tile_size::get() * get_map_zoom()};
         ImGui::GetWindowDrawList()->AddRect(
             comment_square_render_pos_min, comment_square_render_pos_max,
             ImGui::GetColorU32({0.9f, 0.8f, 0.05f, 0.6f}), 0, ImDrawCornerFlags_All, 5.f);
@@ -636,7 +637,7 @@ static void process_map_input(assets::Map& map,
                     }
                 }
             } else if (auto comment = comment_hovering.get()) {
-                if(io.MouseClicked[ImGuiMouseButton_Left])
+                if (io.MouseClicked[ImGuiMouseButton_Left])
                     widgets::inspector::set_inspected_asset(comment_hovering);
 
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
@@ -661,17 +662,17 @@ static void process_map_input(assets::Map& map,
                         } else {
                             entity.pos = glm::vec2{
                                 relative_mouse_pos.x /
-                                    (static_cast<float>(tileset_manager::get_tile_size()) *
+                                    (static_cast<float>(global_tile_size::get()) *
                                      get_map_zoom()),
                                 relative_mouse_pos.y /
-                                    (static_cast<float>(tileset_manager::get_tile_size()) *
+                                    (static_cast<float>(global_tile_size::get()) *
                                      get_map_zoom())};
                         }
                         map.entities.emplace_back(asset_manager::put(entity));
                     }
                 }
             } else if (auto entity = entity_hovering.get()) {
-                if(io.MouseClicked[ImGuiMouseButton_Left])
+                if (io.MouseClicked[ImGuiMouseButton_Left])
                     widgets::inspector::set_inspected_asset(entity_hovering);
 
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
@@ -681,10 +682,10 @@ static void process_map_input(assets::Map& map,
                     } else {
                         entity->pos.x =
                             (io.MousePos.x - map_render_pos.x - abs_content_start_pos.x) /
-                            static_cast<float>(tileset_manager::get_tile_size() * get_map_zoom());
+                            static_cast<float>(global_tile_size::get() * get_map_zoom());
                         entity->pos.y =
                             (io.MousePos.y - map_render_pos.y - abs_content_start_pos.y) /
-                            static_cast<float>(tileset_manager::get_tile_size() * get_map_zoom());
+                            static_cast<float>(global_tile_size::get() * get_map_zoom());
                     }
                 } else {
                     entity_hovering = nullptr;
@@ -696,8 +697,8 @@ static void process_map_input(assets::Map& map,
             ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
                                      map_render_pos.y + abs_content_start_pos.y};
             ImVec2 map_render_max = {
-                map_render_min.x + map.width * tileset_manager::get_tile_size() * get_map_zoom(),
-                map_render_min.y + map.height * tileset_manager::get_tile_size() * get_map_zoom()};
+                map_render_min.x + map.width * global_tile_size::get() * get_map_zoom(),
+                map_render_min.y + map.height * global_tile_size::get() * get_map_zoom()};
             if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max) &&
                 ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                 if (auto layer = current_layer_selected.get()) {
@@ -792,17 +793,17 @@ void render(bool* p_show) {
                 static_cast<float>(static_cast<int>(relative_mouse_pos.x) -
                                    static_cast<int>(std::fmod(
                                        relative_mouse_pos.x,
-                                       (tileset_manager::get_tile_size() * get_map_zoom())))),
+                                       (global_tile_size::get() * get_map_zoom())))),
 
                 static_cast<float>(static_cast<int>(relative_mouse_pos.y) -
                                    static_cast<int>(std::fmod(
                                        relative_mouse_pos.y,
-                                       (tileset_manager::get_tile_size() * get_map_zoom()))))};
+                                       (global_tile_size::get() * get_map_zoom()))))};
             math::IVec2D mouse_tile_pos = {
                 static_cast<i32>(snapped_relative_mouse_pos.x /
-                                 (tileset_manager::get_tile_size() * get_map_zoom())),
+                                 (global_tile_size::get() * get_map_zoom())),
                 static_cast<i32>(snapped_relative_mouse_pos.y /
-                                 (tileset_manager::get_tile_size() * get_map_zoom()))};
+                                 (global_tile_size::get() * get_map_zoom()))};
 
             bool is_tileset_appropiate_for_layer;
             if (auto layer = current_layer_selected.get())
@@ -881,4 +882,4 @@ std::vector<Handle<assets::Map>> get_maps() {
     return maps;
 }
 
-} // namespace arpiyi_editor::map_manager
+} // namespace arpiyi::map_manager

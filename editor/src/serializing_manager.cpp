@@ -7,15 +7,17 @@
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_opengl3.h>
 
-#include "assets/map.hpp"
 #include "assets/entity.hpp"
+#include "assets/map.hpp"
 #include "assets/script.hpp"
 #include "assets/sprite.hpp"
+#include "global_tile_size.hpp"
 #include "project_info.hpp"
 #include "serializing_exceptions.hpp"
 #include "serializing_manager.hpp"
 #include "tileset_manager.hpp"
 
+#include "global_tile_size.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
@@ -26,7 +28,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::serializing_manager {
+namespace arpiyi::serializing_manager {
 
 namespace detail::project_file_definitions {
 
@@ -81,7 +83,7 @@ static void save_project_file(fs::path base_dir) {
     w.StartObject();
     {
         w.Key(tile_size_json_key.data());
-        w.Uint(tileset_manager::get_tile_size());
+        w.Uint(global_tile_size::get());
         w.Key(editor_version_json_key.data());
         w.String(ARPIYI_EDITOR_VERSION);
     }
@@ -132,7 +134,7 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
     task_progress = 1.f / static_cast<float>(assets_to_save);
     u64 cur_type_loading = 1;
 
-    using namespace ::arpiyi_editor::detail;
+    using namespace ::arpiyi::detail;
 
     const auto save_assets = [&project_save_path, &cur_type_loading, &per_step](auto container) {
         rapidjson::StringBuffer s;
@@ -198,7 +200,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
     u64 cur_type_loading = 0;
     constexpr u64 assets_to_save = 3;
 
-    using namespace ::arpiyi_editor::detail;
+    using namespace ::arpiyi::detail;
 
     const auto load_assets = [&project_load_path, &cur_type_loading, &per_step](auto container) {
         using AssetT = typename decltype(container)::AssetType;
@@ -298,7 +300,7 @@ void start_load(fs::path project_path, bool ignore_editor_version) {
         throw exceptions::EditorVersionDiffers(project_path, data.editor_version);
     }
     last_project_path = project_path;
-    tileset_manager::set_tile_size(data.tile_size);
+    global_tile_size::set(data.tile_size);
 
     dialog_to_render = DialogType::loading;
 }
@@ -322,4 +324,4 @@ void render() {
     }
 }
 
-} // namespace arpiyi_editor::serializing_manager
+} // namespace arpiyi::serializing_manager

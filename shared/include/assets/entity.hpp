@@ -14,7 +14,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Entity {
     std::string name;

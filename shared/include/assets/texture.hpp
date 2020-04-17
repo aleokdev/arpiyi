@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Texture {
     unsigned int handle = -1;

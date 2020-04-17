@@ -1,13 +1,13 @@
 #include "widgets/inspector.hpp"
 
-#include <algorithm>
 #include "widgets/pickers.hpp"
+#include <algorithm>
 
 #include "script_manager.hpp"
 #include "util/icons_material_design.hpp"
 #include "window_list_menu.hpp"
 
-namespace arpiyi_editor::widgets::inspector {
+namespace arpiyi::widgets::inspector {
 
 struct SelectedAsset {
     u64 id;
@@ -26,13 +26,12 @@ void draw_entity_inspector(assets::Entity& entity) {
     const ImVec2 img_size = {ImGui::GetContentRegionAvailWidth() / 4.f,
                              ImGui::GetContentRegionAvailWidth() / 4.f};
     if (auto s = entity.sprite.get()) {
-        if(ImGui::ImageButton(reinterpret_cast<ImTextureID>(s->texture.get()->handle), img_size,
-                     {s->uv_min.x, s->uv_min.y}, {s->uv_max.x, s->uv_max.y}, 1)) {
+        if (ImGui::ImageButton(reinterpret_cast<ImTextureID>(s->texture.get()->handle), img_size,
+                               {s->uv_min.x, s->uv_min.y}, {s->uv_max.x, s->uv_max.y}, 1)) {
             show_sprite_selector = true;
         }
     } else {
-        if(ImGui::ImageButton(nullptr, img_size,
-                     {}, {}, 1)) {
+        if (ImGui::ImageButton(nullptr, img_size, {}, {}, 1)) {
             show_sprite_selector = true;
         }
     }
@@ -86,8 +85,8 @@ void draw_entity_inspector(assets::Entity& entity) {
     ImGui::EndChild();
     ImGui::PopStyleVar();
 
-    if(show_sprite_selector) {
-        if(ImGui::Begin(ICON_MD_ADD "Sprite Selector", &show_sprite_selector)) {
+    if (show_sprite_selector) {
+        if (ImGui::Begin(ICON_MD_ADD "Sprite Selector", &show_sprite_selector)) {
             show_sprite_selector = !widgets::sprite_picker::show(entity.sprite);
         }
         ImGui::End();
@@ -139,4 +138,4 @@ void set_inspected_asset(Handle<assets::Map::Comment> comment) {
     selection.type = SelectedAsset::Type::comment;
 }
 
-} // namespace arpiyi_editor::widgets::inspector
+} // namespace arpiyi::widgets::inspector

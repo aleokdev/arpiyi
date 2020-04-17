@@ -14,7 +14,7 @@
 #include "util/intdef.hpp"
 #include "util/math.hpp"
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Map {
     struct Tile {

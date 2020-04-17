@@ -7,7 +7,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 namespace entity_file_definitions {
 constexpr std::string_view name_json_key = "name";

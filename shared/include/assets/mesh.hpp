@@ -12,7 +12,7 @@
 
 #include "util/intdef.hpp"
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Mesh {
     static Mesh generate_quad();

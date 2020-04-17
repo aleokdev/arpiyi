@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 struct Script {
     std::string name;

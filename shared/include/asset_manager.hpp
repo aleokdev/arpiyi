@@ -9,7 +9,7 @@
 #include <fstream>
 #include <unordered_map>
 
-namespace arpiyi_editor {
+namespace arpiyi {
 
 namespace detail {
 
@@ -105,9 +105,9 @@ private:
     u64 id;
 };
 
-} // namespace arpiyi_editor
+} // namespace arpiyi
 
-namespace arpiyi_editor::asset_manager {
+namespace arpiyi::asset_manager {
 
 template<typename AssetT> Handle<AssetT> load(assets::LoadParams<AssetT> const& load_params) {
     auto& container = detail::AssetContainer<AssetT>::get_instance();
@@ -142,6 +142,6 @@ Handle<AssetT> put(AssetT const& asset, u64 id_to_use) {
     return Handle<AssetT>(id_to_use);
 }
 
-} // namespace arpiyi_editor::asset_manager
+} // namespace arpiyi::asset_manager
 
 #endif // ARPIYI_ASSET_MANAGER_HPP

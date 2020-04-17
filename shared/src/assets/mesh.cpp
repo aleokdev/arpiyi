@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 Mesh Mesh::generate_split_quad(u32 x_slices,
                                u32 y_slices) {

@@ -17,7 +17,7 @@
 
 #include "assets/shader.hpp"
 
-namespace arpiyi_editor::tileset_manager {
+namespace arpiyi::tileset_manager {
 
 Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
@@ -42,7 +42,7 @@ static void update_grid_texture() {
     glGenTextures(1, &grid_texture.handle);
     glBindTexture(GL_TEXTURE_2D, grid_texture.handle);
 
-    const auto tileset_size = tileset->get_size_in_tiles(tile_size);
+    const auto tileset_size = tileset->get_size_in_tiles();
     grid_texture.w = tileset_size.x * tile_size;
     grid_texture.h = tileset_size.y * tile_size;
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, grid_texture.w, grid_texture.h, 0, GL_RGBA,
@@ -382,7 +382,7 @@ void render(bool* p_show) {
                         const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / tile_size),
                                                          (int)(relative_mouse_pos.y / tile_size)};
                         const ImVec2 img_size{64, 64};
-                        const math::IVec2D size_in_tiles = ts->get_size_in_tiles(tile_size);
+                        const math::IVec2D size_in_tiles = ts->get_size_in_tiles();
                         const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
                                             (float)tile_hovering.y / (float)size_in_tiles.y};
                         const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
@@ -393,7 +393,7 @@ void render(bool* p_show) {
                         static std::size_t tile_id;
                         if (update_tooltip_info)
                             tile_id = tile_hovering.x +
-                                      tile_hovering.y * ts->get_size_in_tiles(tile_size).x;
+                                      tile_hovering.y * ts->get_size_in_tiles().x;
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
                         ImGui::Text("ID %zu", tile_id);
                         ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x,
@@ -427,7 +427,8 @@ void render(bool* p_show) {
                 std::string selectable_strid = _t.name;
                 selectable_strid += "##";
                 selectable_strid += std::to_string(_id);
-                if (ImGui::Selectable(selectable_strid.c_str(), _id == selection.tileset.get_id())) {
+                if (ImGui::Selectable(selectable_strid.c_str(),
+                                      _id == selection.tileset.get_id())) {
                     selection.tileset = Handle<assets::Tileset>(_id);
                     update_grid_texture();
                 }
@@ -604,4 +605,4 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
     update_grid_texture();
 }
 
-} // namespace arpiyi_editor::tileset_manager
+} // namespace arpiyi::tileset_manager

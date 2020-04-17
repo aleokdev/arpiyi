@@ -1,5 +1,5 @@
 #include "assets/tileset.hpp"
-#include "tileset_manager.hpp"
+#include "global_tile_size.hpp"
 
 #include <algorithm>
 #include <rapidjson/document.h>
@@ -7,23 +7,15 @@
 
 #include "util/intdef.hpp"
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 math::IVec2D Tileset::get_size_in_tiles() const {
-    const auto tile_size = tileset_manager::get_tile_size();
     auto tex = texture.get();
-    return math::IVec2D{static_cast<i32>(tex->w / tile_size), static_cast<i32>(tex->h / tile_size)};
+    return math::IVec2D{static_cast<i32>(tex->w / global_tile_size::get()), static_cast<i32>(tex->h / global_tile_size::get())};
 }
 
-math::IVec2D Tileset::get_size_in_tiles(u32 tile_size) const {
-    auto tex = texture.get();
-    return math::IVec2D{static_cast<i32>(tex->w / tile_size), static_cast<i32>(tex->h / tile_size)};
-}
-
-math::Rect2D Tileset::get_uv(u32 id) const { return get_uv(id, tileset_manager::get_tile_size()); }
-
-math::Rect2D Tileset::get_uv(u32 id, u32 tile_size) const {
-    math::IVec2D size = get_size_in_tiles(tile_size);
+math::Rect2D Tileset::get_uv(u32 id) const {
+    math::IVec2D size = get_size_in_tiles();
     std::uint32_t tile_pos_x = id % size.x;
     std::uint32_t tile_pos_y = id / size.x;
     math::Vec2D start_uv_pos = {1.f / static_cast<float>(size.x) * static_cast<float>(tile_pos_x),
@@ -37,7 +29,7 @@ math::Rect2D Tileset::get_uv(u32 id, u32 tile_size) const {
 
 u32 Tileset::get_id(math::IVec2D pos) const {
     auto tex = texture.get();
-    return pos.x + pos.y * static_cast<u32>(tex->w / tileset_manager::get_tile_size());
+    return pos.x + pos.y * static_cast<u32>(tex->w / global_tile_size::get());
 }
 
 static const std::set<u8> tile_table = {
@@ -82,7 +74,7 @@ u32 Tileset::get_id_auto(u32 x_index, u32 surroundings) const {
     const auto it = tile_table.find(surroundings);
     if (it == tile_table.end())
         assert(false);
-    return x_index + get_size_in_tiles(tileset_manager::get_tile_size()).x *
+    return x_index + get_size_in_tiles().x *
                          static_cast<u8>(std::distance(tile_table.begin(), it));
 }
 

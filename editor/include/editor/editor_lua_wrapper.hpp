@@ -4,13 +4,13 @@
 #include "editor_renderer.hpp"
 #include <sol/sol.hpp>
 
-namespace arpiyi_editor::editor::lua_wrapper {
+namespace arpiyi::editor::lua_wrapper {
 
 void init();
 
 struct ToolbarWrapper {
     ToolbarWrapper(std::string const& name, sol::function callback);
-    ToolbarWrapper(std::size_t id) : id(id) {};
+    ToolbarWrapper(std::size_t id) : id(id){};
     void lua_destroy();
 
     std::size_t id;
@@ -18,12 +18,12 @@ struct ToolbarWrapper {
 
 struct WindowWrapper {
     WindowWrapper(std::string const& title);
-    WindowWrapper(std::size_t id) : id(id) {};
+    WindowWrapper(std::size_t id) : id(id){};
     void lua_destroy();
 
     std::size_t id;
 };
 
-}; // namespace arpiyi_editor::systems::lua_wrapper
+}; // namespace arpiyi::editor::lua_wrapper
 
 #endif // ARPIYI_EDITOR_LUA_WRAPPER_HPP

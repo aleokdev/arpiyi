@@ -3,7 +3,7 @@
 
 #include <functional>
 
-namespace arpiyi_editor::editor::renderer {
+namespace arpiyi::editor::renderer {
 
 struct Toolbar;
 struct Toolbar {
@@ -27,6 +27,6 @@ bool has_window(std::size_t id);
 
 void render();
 
-} // namespace arpiyi_editor::editor::renderer
+} // namespace arpiyi::editor::renderer
 
 #endif // ARPIYI_EDITOR_RENDERER_HPP

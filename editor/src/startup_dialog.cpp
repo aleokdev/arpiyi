@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::startup_dialog {
+namespace arpiyi::startup_dialog {
 
 struct RecentProjectData {
     fs::path path;
@@ -207,4 +207,4 @@ void render(bool* show_demo_window) {
     }
 }
 
-} // namespace arpiyi_editor::startup_dialog
+} // namespace arpiyi::startup_dialog

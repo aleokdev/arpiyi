@@ -7,7 +7,7 @@
 
 namespace fs = std::filesystem;
 
-namespace arpiyi_editor::plugin_manager {
+namespace arpiyi::plugin_manager {
 
 void init();
 
@@ -17,6 +17,6 @@ void update();
 
 sol::state& get_state();
 
-}
+} // namespace arpiyi::plugin_manager
 
 #endif // ARPIYI_PLUGIN_MANAGER_HPP

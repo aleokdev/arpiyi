@@ -1,10 +1,11 @@
 #include "assets/map.hpp"
+#include "global_tile_size.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-namespace arpiyi_editor::assets {
+namespace arpiyi::assets {
 
 Mesh Map::Layer::generate_layer_split_quad() {
     // Format: {pos.x pos.y uv.x uv.y ...}
