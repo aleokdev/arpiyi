@@ -7,6 +7,9 @@
 #include "util/math.hpp"
 
 #include <glm/vec2.hpp>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace arpiyi_editor::assets {
 
@@ -25,6 +28,13 @@ struct Sprite {
                 static_cast<i32>((uv_max.y - uv_min.y) * tex.h)};
     }
 };
+
+template<> struct LoadParams<Sprite> {
+    fs::path path;
+};
+
+template<> RawSaveData raw_get_save_data(Sprite const&);
+template<> void raw_load(Sprite&, LoadParams<Sprite> const&);
 
 }
 

@@ -252,7 +252,7 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                 map.comments.emplace_back(asset_manager::put(comment));
             }
         } else if (obj.name == entities_json_key.data()) {
-            for(const auto& entity_id : obj.value.GetArray()) {
+            for (const auto& entity_id : obj.value.GetArray()) {
                 map.entities.emplace_back(entity_id.GetUint64());
             }
         }
