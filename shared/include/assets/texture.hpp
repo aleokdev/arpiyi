@@ -62,6 +62,10 @@ template<> RawSaveData raw_get_save_data<Texture>(Texture const& texture);
 
 template<> inline void raw_unload(Texture& texture) { glDeleteTextures(1, &texture.handle); }
 
+template<> struct AssetDirName<Texture> {
+    constexpr static std::string_view value = "textures";
+};
+
 } // namespace arpiyi_editor::assets
 
 #endif // ARPIYI_EDITOR_TEXTURE_HPP

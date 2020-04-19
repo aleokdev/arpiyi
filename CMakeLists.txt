@@ -3,3 +3,4 @@ project(arpiyi)
 
 add_subdirectory(shared)
 add_subdirectory(editor)
+add_subdirectory(player)

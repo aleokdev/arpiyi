@@ -202,6 +202,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
 
     using namespace ::arpiyi::detail;
 
+    // TODO: Use serializer.hpp's version
     const auto load_assets = [&project_load_path, &cur_type_loading, &per_step](auto container) {
         using AssetT = typename decltype(container)::AssetType;
         namespace mfd = detail::meta_file_definitions;

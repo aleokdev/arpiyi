@@ -49,6 +49,10 @@ template<> struct LoadParams<Tileset> { fs::path path; };
 template<> RawSaveData raw_get_save_data<Tileset>(Tileset const& tileset);
 template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& params);
 
+template<> struct AssetDirName<assets::Tileset> {
+    constexpr static std::string_view value = "tilesets";
+};
+
 } // namespace arpiyi_editor::assets
 
 #endif // ARPIYI_TILESET_HPP

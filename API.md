@@ -13,14 +13,15 @@ end
 ```
 
 ### Data Structures
-#### Fvec2
-Stores a floating-point 2D point in space.
+All data structures are contained in the `game` table.
+#### Vec2
+Stores a 2D point in space.
 
 Pseudodefinition:
 ```
-data fvec2 {
+data Vec2 {
     /// Creates a new fvec2 from a X and Y component.
-    fvec2 new(float x, float y);
+    FVec2 new(float x, float y);
 
     float x,y { get; set; }
 }
@@ -28,7 +29,7 @@ data fvec2 {
 #### CameraClass
 Defines the position, scale and effects of the camera.
 
-There must always be a single instance of it, named `Camera`.
+There must always be a single instance of it, named `game.camera`.
 
 Pseudodefinition:
 ```
@@ -62,4 +63,17 @@ data Entity {
     fvec2 pos { get; set; }
     Sprite sprite { get; set; }
 };
+```
+### Other definitions
+#### Assets
+You can use the `game.assets` function table to load resources that the game contains,
+such as sprites, textures, etc.
+
+Pseudodefinition:
+```
+table assets {
+    /// Takes a resource path relative to the main game data / project path and returns the asset
+    /// related to it, or nil if the path is not recognized or not associated with a type.
+    any load(string path);
+}
 ```

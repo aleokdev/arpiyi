@@ -21,6 +21,8 @@ struct RawSaveData {
 template<typename AssetT>
 RawSaveData raw_get_save_data(AssetT const&);
 
+template<typename T> struct AssetDirName { /* constexpr static std::string_view value */ };
+
 }
 
 #endif // ARPIYI_EDITOR_ASSET_HPP

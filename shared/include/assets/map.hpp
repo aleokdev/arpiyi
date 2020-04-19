@@ -77,6 +77,10 @@ template<> struct LoadParams<Map> { fs::path path; };
 template<> RawSaveData raw_get_save_data<Map>(Map const&);
 template<> void raw_load<Map>(Map&, LoadParams<Map> const&);
 
+template<> struct AssetDirName<Map> {
+    constexpr static std::string_view value = "maps";
+};
+
 } // namespace arpiyi_editor::assets
 
 #endif // ARPIYI_MAP_HPP

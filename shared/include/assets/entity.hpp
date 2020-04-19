@@ -43,6 +43,10 @@ template<> struct LoadParams<Entity> { fs::path path; };
 template<> RawSaveData raw_get_save_data<Entity>(Entity const&);
 template<> void raw_load<Entity>(Entity&, LoadParams<Entity> const& params);
 
+template<> struct AssetDirName<assets::Entity> {
+    constexpr static std::string_view value = "entities";
+};
+
 } // namespace arpiyi_editor::assets
 
 #endif // ARPIYI_ENTITY_HPP

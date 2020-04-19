@@ -36,6 +36,10 @@ template<> struct LoadParams<Sprite> {
 template<> RawSaveData raw_get_save_data(Sprite const&);
 template<> void raw_load(Sprite&, LoadParams<Sprite> const&);
 
+template<> struct AssetDirName<assets::Sprite> {
+    constexpr static std::string_view value = "sprites";
+};
+
 }
 
 #endif // ARPIYI_SPRITE_HPP
