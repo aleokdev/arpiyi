@@ -16,7 +16,7 @@ namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
-struct Entity {
+struct [[meta::dir_name("entities")]] Entity {
     std::string name;
     Handle<Sprite> sprite;
     /// Position of this entity (measured in tiles).
@@ -42,10 +42,6 @@ template<> struct LoadParams<Entity> { fs::path path; };
 
 template<> RawSaveData raw_get_save_data<Entity>(Entity const&);
 template<> void raw_load<Entity>(Entity&, LoadParams<Entity> const& params);
-
-template<> struct AssetDirName<assets::Entity> {
-    constexpr static std::string_view value = "entities";
-};
 
 } // namespace arpiyi_editor::assets
 

@@ -16,7 +16,7 @@
 
 namespace arpiyi::assets {
 
-struct Map {
+struct [[meta::dir_name("maps")]] Map {
     struct Tile {
         /// ID of tile (within layer tileset) being used
         u32 id = 0;
@@ -76,10 +76,6 @@ template<> struct LoadParams<Map> { fs::path path; };
 
 template<> RawSaveData raw_get_save_data<Map>(Map const&);
 template<> void raw_load<Map>(Map&, LoadParams<Map> const&);
-
-template<> struct AssetDirName<Map> {
-    constexpr static std::string_view value = "maps";
-};
 
 } // namespace arpiyi_editor::assets
 

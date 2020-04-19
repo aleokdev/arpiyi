@@ -13,7 +13,7 @@ namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
-struct Sprite {
+struct [[meta::dir_name("sprites")]] Sprite {
     /// Texture of the sprite. Not owned by it
     Handle<assets::Texture> texture;
     glm::vec2 uv_min;
@@ -35,10 +35,6 @@ template<> struct LoadParams<Sprite> {
 
 template<> RawSaveData raw_get_save_data(Sprite const&);
 template<> void raw_load(Sprite&, LoadParams<Sprite> const&);
-
-template<> struct AssetDirName<assets::Sprite> {
-    constexpr static std::string_view value = "sprites";
-};
 
 }
 

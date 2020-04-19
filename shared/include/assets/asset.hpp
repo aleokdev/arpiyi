@@ -25,4 +25,6 @@ template<typename T> struct AssetDirName { /* constexpr static std::string_view 
 
 }
 
+#include "assets/asset_cg.hpp" // codegen
+
 #endif // ARPIYI_EDITOR_ASSET_HPP
