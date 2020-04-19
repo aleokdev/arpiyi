@@ -25,6 +25,8 @@ target_include_directories(extlibs PUBLIC
 if (WIN32)
     target_include_directories(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua/include)
     target_link_libraries(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua53.lib)
+elseif(UNIX)
+    target_link_libraries(extlibs PUBLIC lua)
 endif ()
 target_link_libraries(extlibs PUBLIC glad glfw glm cppast)
 
