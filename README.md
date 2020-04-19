@@ -33,6 +33,8 @@ You'll get an error if it isn't.
 If your GPU does not have OpenGL 4.5 support, try updating your drivers.
 
 ### Building
+**IMPORTANT: Clone to a path that doesn't have any spaces in it. Codegen has not been tested with spaced paths.**
+
 Arpiyi compiles on Windows/Linux (Tested with clang-cl on Windows 10 & clang on Manjaro)
 
 Either build the project directly to the `build/` folder or copy the `build/editor/data`
