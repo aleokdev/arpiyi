@@ -96,6 +96,7 @@ int main(int argc, const char* argv[]) try {
         config.add_include_dir(include_dir.generic_string());
     }
 
+    config.fast_preprocessing(true);
     config.set_flags(cppast::cpp_standard::cpp_1z);
 
     const auto result_files = parse_directory(assets_path, config);
