@@ -1,3 +1,5 @@
+#include "parser.hpp"
+
 #include <cppast/cpp_file.hpp>
 #include <cppast/libclang_parser.hpp>
 #include <cppast/visitor.hpp>
@@ -91,6 +93,10 @@ int main(int argc, const char* argv[]) try {
     std::cout << "Starting codegen with folder = " << assets_path.generic_string()
               << " and database = " << database_path << std::endl;
 
+    for (auto const& entry : fs::directory_iterator(assets_path)) {
+        arpiyi::codegen::parse_cpp_file(entry.path());
+    }
+    /*
     cppast::libclang_compile_config config;
     for (const auto& include_dir : extract_include_dirs(database_path, fs::path("build/shared"))) {
         config.add_include_dir(include_dir.generic_string());
@@ -151,6 +157,7 @@ int main(int argc, const char* argv[]) try {
 
     out_f << codegen_out.str() << std::endl;
     std::cout << "Assets file written to " << out_path << std::endl;
+     */
 } catch (const cppast::libclang_error& ex) {
     std::cerr << std::string("[fatal parsing error] ") + ex.what() << std::endl;
     return -1;
