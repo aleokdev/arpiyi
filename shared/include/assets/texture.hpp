@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
-struct Texture {
+struct [[meta::dir_name("textures")  ]] Texture {
     unsigned int handle = -1;
     u32 w;
     u32 h;
@@ -61,10 +61,6 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
 template<> RawSaveData raw_get_save_data<Texture>(Texture const& texture);
 
 template<> inline void raw_unload(Texture& texture) { glDeleteTextures(1, &texture.handle); }
-
-template<> struct AssetDirName<Texture> {
-    constexpr static std::string_view value = "textures";
-};
 
 } // namespace arpiyi_editor::assets
 

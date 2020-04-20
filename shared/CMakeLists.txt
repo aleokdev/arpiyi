@@ -11,8 +11,11 @@ add_library(arpiyi-shared STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/script.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/entity.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/sprite.cpp
-        include/global_tile_size.hpp src/global_tile_size.cpp include/api/api.hpp include/serializer.hpp)
+        src/global_tile_size.cpp)
 
-add_subdirectory(../lib build/)
 target_link_libraries(arpiyi-shared PUBLIC extlibs)
 target_include_directories(arpiyi-shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(arpiyi-shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
+
+add_dependencies(arpiyi-shared run-arpiyi-codegen)
