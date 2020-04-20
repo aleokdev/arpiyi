@@ -27,7 +27,7 @@ if (WIN32)
 elseif(UNIX)
     target_link_libraries(extlibs PUBLIC lua)
 endif ()
-target_link_libraries(extlibs PUBLIC glad glfw glm anton_math)
+target_link_libraries(extlibs PUBLIC glad glfw anton_math)
 
 target_compile_definitions(extlibs PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
