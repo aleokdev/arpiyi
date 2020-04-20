@@ -13,9 +13,6 @@
 [submodule "lib/noc"]
 	path = lib/noc
 	url = https://github.com/guillaumechereau/noc.git
-[submodule "lib/glm"]
-	path = lib/glm
-	url = https://github.com/g-truc/glm
 [submodule "lib/rapidjson"]
 	path = lib/rapidjson
 	url = https://github.com/Tencent/rapidjson/
@@ -25,3 +22,6 @@
 [submodule "lib/imguitextedit"]
 	path = lib/imguitextedit
 	url = https://github.com/BalazsJako/ImGuiColorTextEdit
+[submodule "lib/anton_math"]
+	path = lib/anton_math
+	url = https://github.com/kociap/anton_math

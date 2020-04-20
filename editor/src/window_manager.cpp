@@ -2,12 +2,12 @@
 
 #include <iostream>
 
-#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
 #include "util/defs.hpp"
+#include <anton/math/transform.hpp>
 #include <iostream>
 
 namespace arpiyi::window_manager {
@@ -104,10 +104,10 @@ bool init() {
 
 GLFWwindow* get_window() { return window; }
 
-glm::mat4 get_projection() {
+aml::Matrix4 get_projection() {
     int fb_w, fb_h;
     glfwGetFramebufferSize(window_manager::get_window(), &fb_w, &fb_h);
-    return glm::ortho(0.f, (float)fb_w, 0.f, (float)fb_h);
+    return aml::orthographic_rh(0.f, (float)fb_w, 0.f, (float)fb_h, -1000000.f, 1000000.f);
 }
 
 math::IVec2D get_framebuf_size() {

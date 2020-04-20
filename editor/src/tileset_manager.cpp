@@ -3,20 +3,23 @@
 #include "window_manager.hpp"
 
 #include <algorithm>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <noc_file_dialog.h>
 #include <vector>
 
 #include "assets/map.hpp"
+#include "global_tile_size.hpp"
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
 #include "util/math.hpp"
-#include "global_tile_size.hpp"
 
 #include "assets/shader.hpp"
+
+#include <anton/math/matrix4.hpp>
+#include <anton/math/transform.hpp>
+
+namespace aml = anton::math;
 
 namespace arpiyi::tileset_manager {
 
@@ -28,7 +31,7 @@ Handle<assets::Mesh> quad_mesh;
 unsigned int grid_framebuffer;
 assets::Texture grid_texture;
 
-glm::mat4 proj_mat;
+aml::Matrix4 proj_mat;
 
 TilesetSelection selection{-1, {0, 0}, {0, 0}};
 
@@ -62,9 +65,9 @@ static void update_grid_texture() {
     glUniform4f(3, bg_color.x, bg_color.y, bg_color.z, 1.f); // Grid color
     glUniform2ui(4, tileset_size.x, tileset_size.y);
     glViewport(0.f, 0.f, grid_texture.w, grid_texture.h);
-    glm::mat4 model = glm::mat4(1);
-    glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
-    glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
+    aml::Matrix4 model = aml::Matrix4::identity;
+    glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+    glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
 
     constexpr int quad_verts = 2 * 3;
     glDrawArrays(GL_TRIANGLES, 0, quad_verts);
@@ -93,7 +96,7 @@ calculate_rpgmaker_a2_auto_tileset_texture(assets::Texture const& source_tex) {
                                                          rpgmaker_tileset_size_in_tiles.y / 3};
     const i32 rpgmaker_tileset_number_of_tilesets =
         rpgmaker_tileset_size_in_tilesets.x * rpgmaker_tileset_size_in_tilesets.y;
-    glm::mat4 tex_mat = glm::ortho(0.0f, 1.0f, 0.0f, 1.0f);
+    aml::Matrix4 tex_mat = aml::orthographic_rh(0.0f, 1.0f, 0.0f, 1.0f, -1.f, 1.f);
 
     // 64 tiles are needed to cache all possible combinations of corners.
     // HOWEVER, some of them are equal. RPGMaker-style texture only uses corner textures when there
@@ -256,12 +259,12 @@ calculate_rpgmaker_a2_auto_tileset_texture(assets::Texture const& source_tex) {
                             target_minitile_y =
                                 target_tile_uv_y_scale * (static_cast<float>(tile_index) +
                                                           static_cast<float>(minitile / 2) / 2.f);
-                glm::mat4 model = glm::mat4(1);
-                model = glm::translate(model, glm::vec3(target_minitile_x, target_minitile_y, 0));
-                model = glm::scale(model, glm::vec3(target_tile_uv_x_scale / 2.f,
-                                                    target_tile_uv_y_scale / 2.f, 1));
-                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
-                glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(tex_mat));
+                aml::Matrix4 model = aml::Matrix4::identity;
+                model = model * aml::translate({target_minitile_x, target_minitile_y, 0});
+                model = model *
+                        aml::scale({target_tile_uv_x_scale / 2.f, target_tile_uv_y_scale / 2.f, 1});
+                glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+                glUniformMatrix4fv(2, 1, GL_FALSE, tex_mat.get_raw());
                 glUniform2f(3, source_minitile_relative_x, source_minitile_relative_y); // UV start
                 glUniform2f(4, source_minitile_relative_x + source_tile_uv_size_x / 2.f,
                             source_minitile_relative_y + source_tile_uv_size_y / 2.f); // UV end
@@ -286,7 +289,7 @@ void init() {
     uv_tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile_uv.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
-    proj_mat = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f);
+    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);
     window_list_menu::add_entry({"Tileset view", &render});
 }
 
@@ -305,10 +308,10 @@ void render(bool* p_show) {
                 ImVec2 relative_mouse_pos =
                     ImVec2(mouse_pos.x - tileset_render_pos.x, mouse_pos.y - tileset_render_pos.y);
                 // Snap the relative mouse position
-                relative_mouse_pos.x =
-                    (int)relative_mouse_pos.x - ((int)relative_mouse_pos.x % global_tile_size::get());
-                relative_mouse_pos.y =
-                    (int)relative_mouse_pos.y - ((int)relative_mouse_pos.y % global_tile_size::get());
+                relative_mouse_pos.x = (int)relative_mouse_pos.x -
+                                       ((int)relative_mouse_pos.x % global_tile_size::get());
+                relative_mouse_pos.y = (int)relative_mouse_pos.y -
+                                       ((int)relative_mouse_pos.y % global_tile_size::get());
                 // Apply the same snapping effect to the regular mouse pos
                 mouse_pos = ImVec2(relative_mouse_pos.x + tileset_render_pos.x,
                                    relative_mouse_pos.y + tileset_render_pos.y);
@@ -325,11 +328,15 @@ void render(bool* p_show) {
                 draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
 
                 const ImVec2 tile_selection_start_rel =
-                    ImVec2{tileset_render_pos.x + (float)selection.selection_start.x * global_tile_size::get(),
-                           tileset_render_pos.y + (float)selection.selection_start.y * global_tile_size::get()};
-                const ImVec2 tile_selection_end_rel = ImVec2{
-                    tileset_render_pos.x + (float)(selection.selection_end.x + 1) * global_tile_size::get(),
-                    tileset_render_pos.y + (float)(selection.selection_end.y + 1) * global_tile_size::get()};
+                    ImVec2{tileset_render_pos.x +
+                               (float)selection.selection_start.x * global_tile_size::get(),
+                           tileset_render_pos.y +
+                               (float)selection.selection_start.y * global_tile_size::get()};
+                const ImVec2 tile_selection_end_rel =
+                    ImVec2{tileset_render_pos.x +
+                               (float)(selection.selection_end.x + 1) * global_tile_size::get(),
+                           tileset_render_pos.y +
+                               (float)(selection.selection_end.y + 1) * global_tile_size::get()};
                 // Draw the selected rect
                 draw_list->AddRect(tile_selection_start_rel, tile_selection_end_rel, 0xFFFFFFFF, 0,
                                    ImDrawCornerFlags_All, 5.f);
@@ -345,10 +352,12 @@ void render(bool* p_show) {
                     tooltip_alpha += (1.f - tooltip_alpha) / 16.f;
 
                     draw_list->AddRect(mouse_pos,
-                                       {mouse_pos.x + global_tile_size::get(), mouse_pos.y + global_tile_size::get()},
+                                       {mouse_pos.x + global_tile_size::get(),
+                                        mouse_pos.y + global_tile_size::get()},
                                        0xFFFFFFFF, 0, ImDrawCornerFlags_All, 4.f);
                     draw_list->AddRect(mouse_pos,
-                                       {mouse_pos.x + global_tile_size::get(), mouse_pos.y + global_tile_size::get()},
+                                       {mouse_pos.x + global_tile_size::get(),
+                                        mouse_pos.y + global_tile_size::get()},
                                        0xFF000000, 0, ImDrawCornerFlags_All, 2.f);
 
                     draw_list->PopClipRect();
@@ -356,8 +365,9 @@ void render(bool* p_show) {
                     static bool pressed_last_frame = false;
                     if (io.MouseDown[ImGuiMouseButton_Left]) {
                         if (!pressed_last_frame) {
-                            selection.selection_start = {(int)(relative_mouse_pos.x / global_tile_size::get()),
-                                                         (int)(relative_mouse_pos.y / global_tile_size::get())};
+                            selection.selection_start = {
+                                (int)(relative_mouse_pos.x / global_tile_size::get()),
+                                (int)(relative_mouse_pos.y / global_tile_size::get())};
                             selection.selection_end = selection.selection_start;
                         } else {
                             selection.selection_end = {
@@ -379,8 +389,9 @@ void render(bool* p_show) {
                 if (tooltip_alpha > 0.01f) {
                     ImGui::BeginTooltip();
                     {
-                        const math::IVec2D tile_hovering{(int)(relative_mouse_pos.x / global_tile_size::get()),
-                                                         (int)(relative_mouse_pos.y / global_tile_size::get())};
+                        const math::IVec2D tile_hovering{
+                            (int)(relative_mouse_pos.x / global_tile_size::get()),
+                            (int)(relative_mouse_pos.y / global_tile_size::get())};
                         const ImVec2 img_size{64, 64};
                         const math::IVec2D size_in_tiles = ts->get_size_in_tiles();
                         const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
@@ -392,8 +403,7 @@ void render(bool* p_show) {
                         ImGui::SameLine();
                         static std::size_t tile_id;
                         if (update_tooltip_info)
-                            tile_id = tile_hovering.x +
-                                      tile_hovering.y * ts->get_size_in_tiles().x;
+                            tile_id = tile_hovering.x + tile_hovering.y * ts->get_size_in_tiles().x;
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
                         ImGui::Text("ID %zu", tile_id);
                         ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x,
@@ -491,7 +501,8 @@ void render(bool* p_show) {
             static int input_tile_size = global_tile_size::get();
             bool can_modify_tile_size =
                 detail::AssetContainer<assets::Tileset>::get_instance().map.empty();
-            if(!can_modify_tile_size) input_tile_size = global_tile_size::get();
+            if (!can_modify_tile_size)
+                input_tile_size = global_tile_size::get();
             if (can_modify_tile_size) {
                 ImGui::InputInt("Tile size", &input_tile_size);
                 if (ImGui::IsItemHovered()) {
