@@ -6,21 +6,23 @@
 #include "texture.hpp"
 #include "util/math.hpp"
 
-#include <glm/vec2.hpp>
+#include <anton/math/vector2.hpp>
 #include <filesystem>
 
 namespace fs = std::filesystem;
+// Anton math library
+namespace aml = anton::math;
 
 namespace arpiyi::assets {
 
 struct Sprite {
     /// Texture of the sprite. Not owned by it
     Handle<assets::Texture> texture;
-    glm::vec2 uv_min;
-    glm::vec2 uv_max;
+    aml::Vector2 uv_min;
+    aml::Vector2 uv_max;
     std::string name;
     /// Where this sprite originates from. Goes from {0,0} (Upper left) to {1,1} (Lower right).
-    glm::vec2 pivot;
+    aml::Vector2 pivot;
 
     [[nodiscard]] math::IVec2D get_size_in_pixels() const {
         const auto tex = *texture.get();

@@ -189,11 +189,11 @@ void render(bool* p_show) {
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
             }
             if (ImGui::Button("OK")) {
-                glm::vec2 tileset_uv_min{static_cast<float>(tileset_tile_selection_start.x) /
+                aml::Vector2 tileset_uv_min{static_cast<float>(tileset_tile_selection_start.x) /
                                              static_cast<float>(t->get_size_in_tiles().x),
                                          static_cast<float>(tileset_tile_selection_start.y) /
                                              static_cast<float>(t->get_size_in_tiles().y)};
-                glm::vec2 tileset_uv_max{static_cast<float>(tileset_tile_selection_end.x + 1) /
+                aml::Vector2 tileset_uv_max{static_cast<float>(tileset_tile_selection_end.x + 1) /
                                              static_cast<float>(t->get_size_in_tiles().x),
                                          static_cast<float>(tileset_tile_selection_end.y + 1) /
                                              static_cast<float>(t->get_size_in_tiles().y)};
