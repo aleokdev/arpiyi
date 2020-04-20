@@ -25,3 +25,6 @@
 [submodule "lib/imguitextedit"]
 	path = lib/imguitextedit
 	url = https://github.com/BalazsJako/ImGuiColorTextEdit
+[submodule "lib/anton_math"]
+	path = lib/anton_math
+	url = https://github.com/kociap/anton_math

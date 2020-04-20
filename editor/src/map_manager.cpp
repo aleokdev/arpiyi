@@ -18,10 +18,12 @@
 #include "window_manager.hpp"
 #include "global_tile_size.hpp"
 
+#include <anton/math/matrix4.hpp>
+#include <anton/math/transform.hpp>
 #include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
+
+namespace aml = anton::math;
 
 namespace arpiyi::map_manager {
 
@@ -29,7 +31,7 @@ Handle<assets::Map> current_map;
 Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
 Handle<assets::Mesh> quad_mesh;
-glm::mat4 proj_mat;
+aml::Matrix4 proj_mat;
 Handle<assets::Map::Layer> current_layer_selected;
 ImVec2 map_scroll{0, 0};
 std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
@@ -364,15 +366,15 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
     float clip_rect_height = cmd->ClipRect.w - callback_data.abs_content_min_rect.y;
     glViewport(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w, clip_rect_width,
                clip_rect_height);
-    glm::mat4 model = glm::mat4(1);
-    model = glm::translate(model, glm::vec3(0, map_total_height / clip_rect_height,
-                                            0)); // Put model in left-top corner
-    model = glm::translate(model, glm::vec3(callback_data.map_render_pos.x / clip_rect_width,
+    aml::Matrix4 model = aml::Matrix4::identity;
+    model = model * aml::translate({0, map_total_height / clip_rect_height,
+                                            0}); // Put model in left-top corner
+    model = model * aml::translate({callback_data.map_render_pos.x / clip_rect_width,
                                             callback_data.map_render_pos.y / clip_rect_height,
-                                            0));    // Put model in given position
-    model = glm::scale(model, glm::vec3(1, -1, 1)); // Flip model from its Y axis
-    model = glm::scale(model, glm::vec3(map_total_width / clip_rect_width,
-                                        map_total_height / clip_rect_height, 1));
+                                            0});    // Put model in given position
+    model = model * aml::scale({1, -1, 1}); // Flip model from its Y axis
+    model = model * aml::scale({map_total_width / clip_rect_width,
+                                        map_total_height / clip_rect_height, 1});
 
     if (!map.layers.empty()) {
         glUseProgram(tile_shader.get()->handle);
@@ -386,8 +388,8 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
             glBindVertexArray(layer->get_mesh().get()->vao);
             glBindTexture(GL_TEXTURE_2D, layer->tileset.get()->texture.get()->handle);
 
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
-            glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
+            glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+            glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
 
             constexpr int quad_verts = 2 * 3;
             glDrawArrays(GL_TRIANGLES, 0, map.width * map.height * quad_verts);
@@ -400,8 +402,8 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         glUniform2ui(4, current_map.get()->width, current_map.get()->height);
 
-        glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(proj_mat));
+        glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+        glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
 
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
@@ -536,7 +538,7 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
                                 : math::IVec2D{static_cast<i32>(global_tile_size::get()),
                                                static_cast<i32>(global_tile_size::get())};
 
-        const glm::vec2 tile_entity_square_render_pos_min = entity.get_left_corner_pos();
+        const aml::Vector2 tile_entity_square_render_pos_min = entity.get_left_corner_pos();
         ImVec2 entity_square_render_pos_min{
             tile_entity_square_render_pos_min.x *
                     static_cast<float>(global_tile_size::get()) * get_map_zoom() +
@@ -657,10 +659,10 @@ static void process_map_input(assets::Map& map,
                         assets::Entity entity;
                         entity.name = "Entity";
                         if (io.KeyCtrl) {
-                            entity.pos = glm::vec2{static_cast<float>(mouse_tile_pos.x),
+                            entity.pos = {static_cast<float>(mouse_tile_pos.x),
                                                    static_cast<float>(mouse_tile_pos.y)};
                         } else {
-                            entity.pos = glm::vec2{
+                            entity.pos = {
                                 relative_mouse_pos.x /
                                     (static_cast<float>(global_tile_size::get()) *
                                      get_map_zoom()),
@@ -716,7 +718,7 @@ void init() {
     grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
-    proj_mat = glm::ortho(0.0f, 1.0f, 1.0f, (float)0.0f);
+    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);
     window_list_menu::add_entry({"Map View", &render});
 }
 

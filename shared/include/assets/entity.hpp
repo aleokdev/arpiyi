@@ -10,9 +10,10 @@
 #include <string>
 #include <vector>
 
-#include <glm/vec2.hpp>
+#include <anton/math/vector2.hpp>
 
 namespace fs = std::filesystem;
+namespace aml = anton::math;
 
 namespace arpiyi::assets {
 
@@ -20,10 +21,10 @@ struct Entity {
     std::string name;
     Handle<Sprite> sprite;
     /// Position of this entity (measured in tiles).
-    glm::vec2 pos;
+    aml::Vector2 pos;
     std::vector<Handle<assets::Script>> scripts;
 
-    [[nodiscard]] glm::vec2 get_left_corner_pos() const {
+    [[nodiscard]] aml::Vector2 get_left_corner_pos() const {
         if (auto s = sprite.get()) {
             const auto& spr = *s;
             assert(spr.texture.get());
