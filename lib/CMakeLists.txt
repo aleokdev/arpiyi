@@ -10,7 +10,6 @@ add_library(extlibs STATIC
 add_subdirectory(glad)
 add_subdirectory(glfw)
 add_subdirectory(glm)
-add_subdirectory(cppast)
 
 target_include_directories(extlibs PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/imgui/"
@@ -28,7 +27,7 @@ if (WIN32)
 elseif(UNIX)
     target_link_libraries(extlibs PUBLIC lua)
 endif ()
-target_link_libraries(extlibs PUBLIC glad glfw glm cppast)
+target_link_libraries(extlibs PUBLIC glad glfw glm)
 
 target_compile_definitions(extlibs PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 

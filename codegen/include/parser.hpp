@@ -11,7 +11,8 @@ namespace arpiyi::codegen {
 
 enum class EntityType {
     // parser only accepts attributes assigned to structs right now
-    struct_t
+    struct_t,
+    none
 };
 
 struct Attribute {

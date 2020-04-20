@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
-struct [[meta::dir_name("textures")]] Texture {
+struct [[meta::dir_name("textures")  ]] Texture {
     unsigned int handle = -1;
     u32 w;
     u32 h;
