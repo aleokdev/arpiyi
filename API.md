@@ -21,7 +21,7 @@ Pseudodefinition:
 ```
 data Vec2 {
     /// Creates a new fvec2 from a X and Y component.
-    FVec2 new(float x, float y);
+    new(float x, float y);
 
     float x,y { get; set; }
 }
@@ -64,6 +64,34 @@ data Entity {
     Sprite sprite { get; set; }
 };
 ```
+#### ScreenLayer
+Defines an object that has a drawing callback and an order. Examples of these objects can be, for example, the map view,
+an UI menu, etc.
+
+This class contains static methods that you can call using `game.ScreenLayer.x()`, where `x` is the static function to
+call.
+
+Pseudodefinition:
+```
+data ScreenLayer {
+    /// Creates a new ScreenLayer that is automatically added to the ScreenLayer list.
+    /// ScreenLayers start visible and on the back; you'll need to use to_front() to bring them to the front.
+    new(function render_callback);
+    bool visible { get; set; }
+    function render_callback { get; set; }
+    
+    /// Sends the screen layer to the top of the render queue, and thus is rendered last, after other layers.
+    void to_front();
+    /// Sends the screen layer to the top of the render queue, and thus is rendered last, in front of other layers.
+    void to_back();
+
+    /// Returns all the screenlayers created via new() or internally, which includes both hidden and visible ones.
+    static ScreenLayer[] get_all();
+    static ScreenLayer[] get_visible();
+    static ScreenLayer[] get_hidden();
+};
+```
+
 ### Other definitions
 #### Assets
 You can use the `game.assets` function table to load resources that the game contains,
@@ -75,5 +103,33 @@ table assets {
     /// Takes a resource path relative to the main game data / project path and returns the asset
     /// related to it, or nil if the path is not recognized or not associated with a type.
     any load(string path);
-}
+};
+```
+#### Input
+The `game.input` table contains many functions and utils to get user input.
+
+Pseudodefinition:
+```
+table input {
+    /// An enumeration table containing all possible keys being held.
+    table keys {
+        k_A = 0,
+        k_B = 1,
+        k_C = 2,
+        // ...
+    };
+    
+    /// Contains the state of a key.
+    data KeyState {
+        /// True if the key is pressed, false otherwise.
+        bool held();
+        /// True if the key press had begun on the last frame.
+        bool just_pressed();
+        /// True if the key release had begun on the last frame.
+        bool just_released();
+    };
+
+    /// Returns the key state of a particular key from the keys table.
+    KeyState get_key_state(int);
+};
 ```
