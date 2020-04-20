@@ -20,10 +20,22 @@ Stores a 2D point in space.
 Pseudodefinition:
 ```
 data Vec2 {
-    /// Creates a new fvec2 from a X and Y component.
+    /// Creates a new Vec2 from a X and Y component.
     new(float x, float y);
 
     float x,y { get; set; }
+}
+```
+#### IVec2
+Stores an 2D point in space composed by integers.
+
+Pseudodefinition:
+```
+data IVec2 {
+    /// Creates a new IVec2 from a X and Y component.
+    new(int x, int y);
+
+    int x,y { get; set; }
 }
 ```
 #### CameraClass
@@ -35,7 +47,7 @@ Pseudodefinition:
 ```
 data CameraClass {
     /// Position (Measured in tiles)
-    fvec2 pos { get; set; }
+    Vec2 pos { get; set; }
     /// Camera zoom, measured in screen pixels per asset pixels. (i.e. 2 => 200% zoom.)
     float zoom { get; set; }
 } camera;
@@ -48,7 +60,10 @@ Pseudodefinition:
 data Sprite {
     /// Pivot of the sprite, aka where it scales/rotates/translates from.
     /// {0,0} means upper left corner of the image, {1,1} means lower right.
-    fvec2 pivot { get; set; }
+    Vec2 pivot { get; set; }
+
+    string name { get; }
+    IVec2 size_in_pixels { get; }
 };
 ```
 #### Entity
@@ -60,8 +75,9 @@ Pseudodefinition:
 ```
 data Entity {
     /// Position (Measured in tiles)
-    fvec2 pos { get; set; }
+    Vec2 pos { get; set; }
     Sprite sprite { get; set; }
+    string name { get; set; }
 };
 ```
 #### ScreenLayer
@@ -75,7 +91,7 @@ Pseudodefinition:
 ```
 data ScreenLayer {
     /// Creates a new ScreenLayer that is automatically added to the ScreenLayer list.
-    /// ScreenLayers start visible and on the back; you'll need to use to_front() to bring them to the front.
+    /// ScreenLayers start visible and on the front.
     new(function render_callback);
     bool visible { get; set; }
     function render_callback { get; set; }
