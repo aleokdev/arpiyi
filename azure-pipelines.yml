@@ -37,7 +37,7 @@ jobs:
     - task: CMake@1
       displayName: 'Create CMake cache'
       inputs:
-        cmakeArgs: '.. -GNinja -DCMAKE_CXX_COMPILER=clang++-9'
+        cmakeArgs: '.. -DCMAKE_CXX_COMPILER=clang++-9'
 
     - task: CMake@1
       displayName: 'Build arpiyi-editor'
