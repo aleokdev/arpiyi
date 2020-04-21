@@ -16,6 +16,13 @@ add_library(arpiyi-shared STATIC
 target_link_libraries(arpiyi-shared PUBLIC extlibs)
 target_include_directories(arpiyi-shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(arpiyi-shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
-target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
+
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    if (NOT MSVC) # clang
+        target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
+    else() # clang-cl
+        target_compile_options(arpiyi-shared PUBLIC -Wno-unknown-attributes)
+    endif()
+endif()
 
 add_dependencies(arpiyi-shared run-arpiyi-codegen)
