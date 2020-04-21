@@ -10,8 +10,10 @@
 
 namespace fs = std::filesystem;
 
-int main() {
-    const fs::path assets_path = fs::absolute(fs::path("shared/include/assets"));
+int main(int argc, char** argv) {
+    std::cout << argc << "\n";
+    fs::path assets_path = fs::path(argv[1]);
+//    fs::path assets_path = "../../shared/include/assets";
     std::cout << "Starting codegen with folder = " << assets_path.generic_string() << std::endl;
 
     std::stringstream codegen_out;
@@ -23,6 +25,7 @@ int main() {
 
     // Create file now so we don't get "asset_cg.hpp doesn't exist" errors when parsing
     const fs::path out_path = "build/shared/include/assets/asset_cg.hpp";
+//    const fs::path out_path = "../shared/include/assets/asset_cg.hpp";
     fs::create_directories(out_path.parent_path());
     auto out_f = std::ofstream(out_path);
 

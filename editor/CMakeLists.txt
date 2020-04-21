@@ -64,11 +64,11 @@ if (WIN32)
         else ()
             # clang-cl
             # W3 maps to some ultra-high level warning level in clang-cl (so high it triggers -Wc++98-compat) so we turn it down a little bit
-            target_compile_options(arpiyi-editor PRIVATE -W2 /diagnostics:caret)
+            target_compile_options(arpiyi-editor PRIVATE -W2 /diagnostics:caret -Wno-unused-command-line-argument)
         endif ()
     else ()
         # msvc
-        target_compile_options(arpiyi-editor PRIVATE -W3 /diagnostics:caret)
+        target_compile_options(arpiyi-editor PRIVATE -W3 /diagnostics:caret -Wno-unused-command-line-argument)
     endif ()
 elseif (UNIX)
     target_compile_options(arpiyi-editor PRIVATE -Wall)

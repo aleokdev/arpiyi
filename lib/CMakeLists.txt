@@ -11,6 +11,9 @@ add_subdirectory(glad)
 add_subdirectory(glfw)
 add_subdirectory(anton_math)
 
+set(PHOBOS_ENABLE_TEST_APP OFF)
+add_subdirectory(phobos)
+
 target_include_directories(extlibs PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/imgui/"
         "${CMAKE_CURRENT_SOURCE_DIR}/imgui/examples/"
@@ -19,15 +22,15 @@ target_include_directories(extlibs PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/noc/"
         "${CMAKE_CURRENT_SOURCE_DIR}/rapidjson/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/imguitextedit"
+        "${CMAKE_CURRENT_SOURCE_DIR}/phobos/include"
         )
-
 if (WIN32)
     target_include_directories(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua/include)
     target_link_libraries(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua53.lib)
 elseif(UNIX)
     target_link_libraries(extlibs PUBLIC lua)
 endif ()
-target_link_libraries(extlibs PUBLIC glad glfw anton_math)
+target_link_libraries(extlibs PUBLIC glad glfw anton_math Phobos)
 
 target_compile_definitions(extlibs PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 

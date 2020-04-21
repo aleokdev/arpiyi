@@ -14,6 +14,7 @@
 #include "util/intdef.hpp"
 #include "util/math.hpp"
 
+
 namespace arpiyi::assets {
 
 struct [[meta::dir_name("maps")]] Map {
