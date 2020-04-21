@@ -29,6 +29,11 @@ jobs:
       displayName: 'Install GTK+3 dev library'
 
     - task: CMake@1
+      displayName: 'Create CMake cache'
+      inputs:
+        cmakeArgs: '..'
+
+    - task: CMake@1
       displayName: 'Build arpiyi-editor'
       inputs:
         cmakeArgs: '--build .. --target arpiyi-editor -- -j 2'
