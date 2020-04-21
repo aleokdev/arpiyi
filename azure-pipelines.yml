@@ -25,7 +25,7 @@ jobs:
       submodules: true
       displayName: 'Init submodules'
 
-    - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev lua
+    - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev lua5.3
       displayName: 'Install GTK+3 dev library'
 
     - task: CMake@1
