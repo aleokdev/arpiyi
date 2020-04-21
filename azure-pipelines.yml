@@ -25,8 +25,14 @@ jobs:
       submodules: true
       displayName: 'Init submodules'
 
-    - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev lua5.3
+    - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev liblua5.3-0
       displayName: 'Install GTK+3 dev library'
+
+    - script: sudo ln /usr/lib/x86_64-linux-gnu/liblua5.3-c++.so.0 /usr/lib/lua
+      displayName: 'Create lua shortcut'
+
+    - script: dpkg -L liblua5.3-0
+      displayName: '[Debug] Show lua install locations'
 
     - task: CMake@1
       displayName: 'Create CMake cache'
