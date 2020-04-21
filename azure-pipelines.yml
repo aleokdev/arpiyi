@@ -14,7 +14,7 @@ steps:
   displayName: 'Run a one-line script'
 - task: CMake@1
   inputs:
-    cmakeArgs: 
+    cmakeArgs: ..
 
 - script: |
     echo Add other tasks to build, test, and deploy your project.
