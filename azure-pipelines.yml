@@ -21,7 +21,7 @@ jobs:
       testRunPlatform: linux
 
     steps:
-    - checkout: 'https://github.com/alexdevteam/arpiyi.git'
+    - checkout: self
       submodules: true
       displayName: 'Init submodules'
 
