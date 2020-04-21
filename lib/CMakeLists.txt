@@ -20,6 +20,7 @@ target_include_directories(extlibs PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/rapidjson/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/imguitextedit"
         )
+set_property(TARGET extlibs PROPERTY CXX_STANDARD 17)
 
 if (WIN32)
     target_include_directories(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua/include)
