@@ -28,6 +28,9 @@ jobs:
     - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev liblua5.3-0
       displayName: 'Install GTK+3 dev library'
 
+    - script: sudo ln /lib/x86_64-linux-gnu/liblua5.3-c++.so.0 /lib/lua
+      displayName: 'Create lua shortcut'
+
     - script: dpkg -L liblua5.3-0
       displayName: '[Debug] Show lua install locations'
 
