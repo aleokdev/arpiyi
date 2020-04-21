@@ -20,14 +20,22 @@ target_include_directories(extlibs PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/rapidjson/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/imguitextedit"
         )
+set_property(TARGET extlibs PROPERTY CXX_STANDARD 17)
 
 if (WIN32)
     target_include_directories(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua/include)
     target_link_libraries(extlibs PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lua53.lib)
-elseif(UNIX)
-    target_link_libraries(extlibs PUBLIC lua)
+elseif (UNIX)
+    FIND_PACKAGE(PkgConfig REQUIRED)
+    PKG_CHECK_MODULES(LUA REQUIRED lua5.3 IMPORTED_TARGET)
+    message("-- Using lua " ${LUA_VERSION})
+    target_link_libraries(extlibs PUBLIC PkgConfig::LUA)
 endif ()
 target_link_libraries(extlibs PUBLIC glad glfw anton_math)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(extlibs PUBLIC stdc++fs)
+endif ()
 
 target_compile_definitions(extlibs PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 

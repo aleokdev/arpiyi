@@ -25,6 +25,7 @@ add_executable(arpiyi-editor
         src/script_manager.cpp
         src/serializing_manager.cpp
         src/window_list_menu.cpp)
+set_property(TARGET arpiyi-editor PROPERTY CXX_STANDARD 17)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")

@@ -23,7 +23,7 @@ struct Shader {
         }
     }
 
-    unsigned int handle = -1;
+    unsigned int handle = static_cast<unsigned int>(-1);
     constexpr static auto nohandle = static_cast<decltype(handle)>(-1);
 };
 
