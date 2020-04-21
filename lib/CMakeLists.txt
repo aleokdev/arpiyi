@@ -30,6 +30,10 @@ elseif(UNIX)
 endif ()
 target_link_libraries(extlibs PUBLIC glad glfw anton_math)
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(extlibs PUBLIC stdc++fs)
+endif ()
+
 target_compile_definitions(extlibs PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
 if (WIN32)
