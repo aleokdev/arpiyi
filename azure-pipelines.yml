@@ -28,6 +28,9 @@ jobs:
     - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev liblua5.3
       displayName: 'Install GTK+3 dev library'
 
+    - script: dpkg -L liblua5.3
+      displayName: '[Debug] Show lua install locations'
+
     - task: CMake@1
       displayName: 'Create CMake cache'
       inputs:
