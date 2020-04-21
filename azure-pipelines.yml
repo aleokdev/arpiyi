@@ -26,4 +26,4 @@ jobs:
 
     - task: CMake@1
       inputs:
-        cmakeArgs: ..
+        cwd: "build"
