@@ -80,7 +80,8 @@ std::vector<AttributedEntity> parse_cpp_file(fs::path const& path) {
     std::ifstream f(path);
     std::stringstream buffer;
     buffer << f.rdbuf();
-    std::string_view file_view = buffer.str();
+    std::string file_str = buffer.str();
+    std::string_view file_view = file_str;
     std::vector<Attribute> attribute_queue;
     EntityType type_read = EntityType::none;
 
