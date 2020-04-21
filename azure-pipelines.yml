@@ -42,7 +42,7 @@ jobs:
     - task: CMake@1
       displayName: 'Build arpiyi-editor'
       inputs:
-        cmakeArgs: '--build . --target arpiyi-editor -- -j 2'
+        cmakeArgs: '--build . --target arpiyi-editor -- -j 2 VERBOSE=1'
 
     - task: CMake@1
       displayName: 'Build arpiyi-player'
