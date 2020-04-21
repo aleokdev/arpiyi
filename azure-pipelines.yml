@@ -14,7 +14,7 @@ jobs:
     condition: succeeded()
 
     pool:
-      vmImage: ubuntu-18.04
+      vmImage: ubuntu-latest
 
     variables:
       testRunTitle: '$(build.sourceBranchName)-linux'
@@ -31,7 +31,7 @@ jobs:
     - task: CMake@1
       displayName: 'Create CMake cache'
       inputs:
-        cmakeArgs: '..'
+        cmakeArgs: '.. -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_CC_COMPILER=clang-9'
 
     - task: CMake@1
       displayName: 'Build arpiyi-editor'
