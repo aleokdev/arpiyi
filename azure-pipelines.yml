@@ -3,20 +3,25 @@
 # Add steps that build, run tests, deploy, and more:
 # https://aka.ms/yaml
 
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
+- job: Ubuntu_CI_Tests
+  displayName: Ubuntu CI Tests
+  condition: succeeded()
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-- task: CMake@1
-  inputs:
-    cmakeArgs: ..
+  pool:
+    vmImage: ubuntu-16.04
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+  variables:
+    testRunTitle: '$(build.sourceBranchName)-linux'
+    testRunPlatform: linux
+    openssl_version: 1.1.1f
+
+  steps:
+  - task: CMake@1
+    inputs:
+      cmakeArgs: ..
