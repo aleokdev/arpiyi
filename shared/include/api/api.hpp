@@ -1,36 +1,67 @@
 #ifndef ARPIYI_API_HPP
 #define ARPIYI_API_HPP
 
-#include <glm/vec2.hpp>
+#include <anton/math/vector2.hpp>
+#include <functional>
 #include <sol/sol.hpp>
+#include "asset_manager.hpp"
 
-namespace sol {
-
-struct state_view;
-
-}
+namespace aml = anton::math;
 
 namespace arpiyi::api {
 
 struct GamePlayData;
 class Camera {
 public:
-    explicit Camera(GamePlayData& data) noexcept : data(&data) {}
-    glm::vec2 pos = {0,0};
+    Camera() noexcept {}
+
+    aml::Vector2 pos = {0,0};
     float zoom = 1;
-
-private:
-    GamePlayData * const data;
 };
 
-struct GamePlayData {
-    GamePlayData() noexcept : cam(*this) {}
+class ScreenLayer;
+class ScreenLayer {
+public:
+    explicit ScreenLayer(std::function<void(void)> const& render_callback);
+    explicit ScreenLayer(sol::function const& render_callback);
 
-    Camera cam;
+    bool visible = true;
+    std::function<void(void)> render_callback;
+    std::size_t layer_order;
+
+    void to_front();
+    void to_back();
+
+    static std::vector<Handle<ScreenLayer>> get_all();
+    static std::vector<Handle<ScreenLayer>> get_visible();
+    static std::vector<Handle<ScreenLayer>> get_hidden();
+
+    static void add_default_map_layer();
 };
 
-void define_api(sol::state_view const& s);
+extern void map_screen_layer_render_cb();
 
+namespace game_play_data {
+    static Camera cam;
+    using ScreenLayerContainer = detail::AssetContainer<ScreenLayer>;
+};
+
+void define_api(sol::state_view& s);
+
+}
+
+namespace sol {
+template<typename T> struct unique_usertype_traits<arpiyi::Handle<T>> {
+    typedef T type;
+    typedef arpiyi::Handle<T> actual_type;
+    static const bool value = true;
+
+    static bool is_null(const actual_type& ptr) { return ptr.get(); }
+    static type* get(const actual_type& ptr) {
+        auto val = ptr.get();
+        return val ? const_cast<type*>(&*val) : nullptr;
+    }
+};
 }
 
 #endif // ARPIYI_API_HPP
