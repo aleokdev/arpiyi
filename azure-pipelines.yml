@@ -21,8 +21,8 @@ jobs:
       testRunPlatform: linux
 
     steps:
-    - script: apt-get update
-    - script: apt-get -yq install gtk3
+    - script: sudo apt-get update
+    - script: sudo apt-get -yq install gtk3
       displayName: 'Install dependencies'
 
     - task: CMake@1
