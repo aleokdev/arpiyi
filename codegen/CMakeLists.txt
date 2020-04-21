@@ -12,6 +12,7 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.h
         DEPENDS ${PROJECT_SOURCE_DIR}/shared/include/assets/*
         )
 add_custom_target(run-arpiyi-codegen ALL
+        COMMAND arpiyi-codegen
         DEPENDS arpiyi-codegen
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         COMMENT "Starting codegen...")
