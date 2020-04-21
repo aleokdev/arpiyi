@@ -25,13 +25,13 @@ jobs:
       submodules: true
       displayName: 'Init submodules'
 
-    - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev liblua5.3-dev
+    - script: sudo apt-get update && sudo apt-get -yq install libgtk-3-dev lua
       displayName: 'Install GTK+3 dev library'
 
     - task: CMake@1
       displayName: 'Create CMake cache'
       inputs:
-        cmakeArgs: '.. -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_CC_COMPILER=clang-9'
+        cmakeArgs: '.. -DCMAKE_CXX_COMPILER=clang++-9'
 
     - task: CMake@1
       displayName: 'Build arpiyi-editor'
