@@ -9,19 +9,22 @@ trigger:
 - master
 
 jobs:
-- job: Ubuntu_CI_Tests
-  displayName: Ubuntu CI Tests
-  condition: succeeded()
+  - job: Ubuntu_CI_Tests
+    displayName: Ubuntu CI Tests
+    condition: succeeded()
 
-  pool:
-    vmImage: ubuntu-18.04
+    pool:
+      vmImage: ubuntu-18.04
 
-  variables:
-    testRunTitle: '$(build.sourceBranchName)-linux'
-    testRunPlatform: linux
-    openssl_version: 1.1.1f
+    variables:
+      testRunTitle: '$(build.sourceBranchName)-linux'
+      testRunPlatform: linux
 
-  steps:
-  - task: CMake@1
-    inputs:
-      cmakeArgs: ..
+    steps:
+    - script: apt-get update
+    - script: apt-get -yq install gtk3
+      displayName: 'Install dependencies'
+
+    - task: CMake@1
+      inputs:
+        cmakeArgs: ..
