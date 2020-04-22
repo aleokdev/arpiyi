@@ -58,8 +58,13 @@ Attribute parse_attribute(std::string_view& view) {
         for (const auto& arg : args) {
             attribute.arguments.emplace_back(consume_spaces(arg));
         }
-    } else
-        attribute.name = full_attribute.substr(0, view.find_first_of("]]"));
+    } else {
+        if(scope_operator_location == std::string_view::npos) {
+            attribute.name = full_attribute.substr(0, view.find_first_of("]]"));
+        } else {
+            attribute.name = full_attribute.substr(scope_operator_location + 1, view.find_first_of("]]") - 1);
+        }
+    }
 
     view = view.substr(view.find_first_of("]]")+2);
 

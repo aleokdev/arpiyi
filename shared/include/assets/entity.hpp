@@ -17,7 +17,7 @@ namespace aml = anton::math;
 
 namespace arpiyi::assets {
 
-struct [[meta::dir_name("entities")]] Entity {
+struct [[assets::serialize]] [[meta::dir_name("entities")]] Entity {
     std::string name;
     Handle<Sprite> sprite;
     /// Position of this entity (measured in tiles).

@@ -7,7 +7,7 @@
 
 namespace arpiyi::assets {
 
-struct [[meta::dir_name("scripts")]] Script {
+struct [[assets::serialize]] [[meta::dir_name("scripts")]] Script {
     std::string name;
     std::string source;
 };
