@@ -11,6 +11,8 @@ struct Entry {
     std::string_view name;
     void (*func)(bool*);
     bool open = true;
+    /// Whether to show an entry for this rendering function in the window MenuItem list or not.
+    bool show_list_entry = true;
 };
 
 void add_entry(Entry entry);

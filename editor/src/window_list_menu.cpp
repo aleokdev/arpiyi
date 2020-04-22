@@ -6,7 +6,11 @@ std::vector<Entry> window_entries;
 void add_entry(Entry entry) { window_entries.emplace_back(entry); }
 
 void show_menu_items() {
-    for (auto& entry : window_entries) { ImGui::MenuItem(entry.name.data(), nullptr, &entry.open); }
+    for (auto& entry : window_entries) {
+        if (entry.show_list_entry) {
+            ImGui::MenuItem(entry.name.data(), nullptr, &entry.open);
+        }
+    }
 }
 
 void render_entries() {

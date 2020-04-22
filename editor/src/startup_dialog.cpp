@@ -4,6 +4,7 @@
 
 #include "project_info.hpp"
 #include "util/icons_material_design.hpp"
+#include "window_list_menu.hpp"
 
 #include <array>
 #include <filesystem>
@@ -89,6 +90,10 @@ void init() {
         recent_projects.emplace_back(
             RecentProjectData{std::string(recent_project_path.GetString())});
     }
+
+    // Create an entry for the startup dialog, but do not create a list entry for it so it cannot be
+    // opened again.
+    window_list_menu::add_entry({"", &render, true, false});
 }
 
 void render(bool* show_demo_window) {

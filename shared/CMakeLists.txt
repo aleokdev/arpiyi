@@ -19,9 +19,11 @@ target_include_directories(arpiyi-shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/incl
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     if (NOT MSVC) # clang
         target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
-    else() # clang-cl
+    else () # clang-cl
         target_compile_options(arpiyi-shared PUBLIC -Wno-unknown-attributes)
-    endif()
-endif()
+    endif ()
+else ()
+    target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
+endif ()
 
 add_dependencies(arpiyi-shared run-arpiyi-codegen)
