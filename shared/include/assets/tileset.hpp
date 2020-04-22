@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
-struct [[meta::dir_name("tilesets")]] Tileset {
+struct [[assets::serialize]] [[meta::dir_name("tilesets")]] Tileset {
     enum class AutoType {
         none,
         // Used for RPGMaker A2 tilesets (Those that only contain floor / floor details).

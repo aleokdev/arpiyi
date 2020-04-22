@@ -25,6 +25,7 @@ int main() {
     const fs::path out_path = "build/shared/include/assets/asset_cg.hpp";
     fs::create_directories(out_path.parent_path());
     auto out_f = std::ofstream(out_path);
+    std::vector<arpiyi::codegen::AttributedEntity> serialized_assets;
 
     for (auto const& entry : fs::directory_iterator(assets_path)) {
         const auto entities = arpiyi::codegen::parse_cpp_file(entry.path());
@@ -42,12 +43,30 @@ int main() {
                         std::cerr << "Unrecognized attribute name: meta::" << attr.name
                                   << std::endl;
                     }
+                } else if (attr.scope == "assets") {
+                    if (attr.name == "serialize") {
+                        serialized_assets.emplace_back(e);
+                    } else {
+                        std::cerr << "Unrecognized attribute name: assets::" << attr.name
+                                  << std::endl;
+                    }
                 }
             }
         }
     }
 
-    codegen_out << "}\n";
+    codegen_out << "}\n\n";
+    codegen_out << "#include \"serializer.hpp\"\n\n";
+    codegen_out << "namespace arpiyi::serializer {\n";
+    codegen_out << "void load_all_assets(fs::path project_path,\n"
+                   "                 std::function<void(std::string_view /* progress string */, float /* progress (0~1) */)>\n"
+                   "                     per_step_func) {\n";
+
+    for(const auto& e : serialized_assets) {
+        codegen_out << "\tload_assets<assets::" << e.name << ">(project_path, per_step_func);\n";
+    }
+
+    codegen_out << "}\n}\n";
     codegen_out << "#endif // ARPIYI_ASSET_CG_HPP";
 
     out_f << codegen_out.str() << std::endl;

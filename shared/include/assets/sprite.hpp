@@ -15,7 +15,7 @@ namespace aml = anton::math;
 
 namespace arpiyi::assets {
 
-struct [[meta::dir_name("sprites")]] Sprite {
+struct [[assets::serialize]] [[meta::dir_name("sprites")]] Sprite {
     /// Texture of the sprite. Not owned by it
     Handle<assets::Texture> texture;
     aml::Vector2 uv_min;
