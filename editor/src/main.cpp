@@ -64,8 +64,6 @@ int main() {
 
         editor::renderer::render();
         window_list_menu::render_entries();
-        startup_dialog::render(&show_demo_window);
-        serializing_manager::render();
         if (show_demo_window) {
             ImGui::ShowDemoWindow(&show_demo_window);
         }

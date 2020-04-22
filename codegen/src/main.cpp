@@ -51,26 +51,43 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
     fs::create_directories(serializer_out_path.parent_path());
     auto out_f = std::ofstream(serializer_out_path);
     out_f << "// serializer_cg.cpp\n"
-          << "// Generated source file for usage with the arpiyi shared library.\n"
-          << "#include <functional>\n"
-          << "#include <filesystem>\n\n"
-          << "#include \"serializer.hpp\"\n\n"
-          << "namespace fs = std::filesystem;\n\n";
+             "// Generated source file for usage with the arpiyi shared library.\n"
+             "#include <functional>\n"
+             "#include <filesystem>\n\n"
+             "#include \"serializer.hpp\"\n\n"
+             "namespace fs = std::filesystem;\n\n";
     // Include asset header paths
-    for (const auto& asset : serializable_assets) { out_f << "#include \"" << asset.header_path.generic_string() << "\"\n"; }
+    for (const auto& asset : serializable_assets) {
+        out_f << "#include \"" << asset.header_path.generic_string() << "\"\n";
+    }
 
-    out_f << "\nnamespace arpiyi::serializer {\n\n"
+    /* clang-format off */
+    out_f
+        << "\nnamespace arpiyi::serializer {\n\n"
+           "/// The number of asset structs that are marked with the [[assets::serialize]] \n"
+           "/// attribute.\n"
+           "const std::size_t serializable_assets = " << serializable_assets.size() << ";\n\n"
 
-          << "void load_all_assets(fs::path project_path,\n"
-             "                 std::function<void(std::string_view /* progress string */, "
-             "float /* progress (0~1) */)>\n"
-             "                     per_step_func) {\n";
+           "/// Loads one single asset type from a project folder and places the results in the \n"
+           "/// corresponding asset container. The \"One single asset type\" is useful for \n"
+           "/// simulating coroutines.\n"
+           "/// You can call this function with indices from 0 to <serializable_assets> to load \n"
+           "/// all assets.\n"
+           "void load_one_asset_type(std::size_t asset_type_index, fs::path project_path,\n"
+           "                 std::function<void(std::string_view /* progress string */, "
+           "float /* progress (0~1) */)>\n"
+           "                     per_step_func) {\n"
+           "\tswitch(asset_type_index) {\n";
+    /* clang-format on */
 
     std::vector<SerializableAsset> loaded_assets;
 
     const auto load_asset = [&out_f, &loaded_assets](SerializableAsset const& asset) {
-        out_f << "\tload_assets<assets::" << asset.asset_entity.name
-              << ">(project_path, per_step_func);\n";
+        /* clang-format off */
+        out_f << "\t\tcase " << loaded_assets.size() << ": "
+                 "load_assets<assets::" << asset.asset_entity.name << ">"
+                 "(project_path, per_step_func); break;\n";
+        /* clang-format on */
         loaded_assets.emplace_back(asset);
     };
 
@@ -88,7 +105,7 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
                 const auto check_dependencies = [&]() {
                     for (const auto& dependency : asset.asset_load_dependencies) {
                         if (std::find_if(loaded_assets.begin(), loaded_assets.end(),
-                                         [&asset, &dependency](const auto& other) -> bool {
+                                         [&dependency](const auto& other) -> bool {
                                              return dependency == other.asset_entity.name;
                                          }) == loaded_assets.end())
                             return;
@@ -101,18 +118,29 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
         }
     }
 
-    out_f << "}\n\n"
-          << "void save_all_assets(fs::path project_path,\n"
-             "                 std::function<void(std::string_view /* progress string */, "
-             "float /* progress (0~1) */)>\n"
-             "                     per_step_func) {\n";
+    out_f
+        << "\t}\n}\n\n"
+           "/// Saves one single asset type from its container to a project folder.\n"
+           "/// The \"One single asset type\" is useful for simulating coroutines.\n"
+           "/// You can call this function with indices from 0 to <serializable_assets> to save \n"
+           "/// all assets.\n"
+           "void save_one_asset_type(std::size_t asset_type_index, fs::path project_path,\n"
+           "                 std::function<void(std::string_view /* progress string */, "
+           "float /* progress (0~1) */)>\n"
+           "                     per_step_func) {\n"
+           "\tswitch(asset_type_index) {\n";
 
+    std::size_t i = 0;
     for (const auto& e : serializable_assets) {
-        out_f << "\tsave_assets<assets::" << e.asset_entity.name
-              << ">(project_path, per_step_func);\n";
+        /* clang-format off */
+        out_f << "\t\tcase " << i << ": "
+                 "save_assets<assets::" << e.asset_entity.name << ">"
+                 "(project_path, per_step_func); break;\n";
+        /* clang-format on */
+        ++i;
     }
 
-    out_f << "}\n}\n";
+    out_f << "\t}\n}\n}\n";
 
     std::cout << "Assets file written to " << serializer_out_path << std::endl;
 }

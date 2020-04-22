@@ -16,7 +16,7 @@
 
 namespace arpiyi::assets {
 
-struct [[assets::serialize]] [[assets::load_before(Tileset)]] [[meta::dir_name("maps")]] Map {
+struct [[assets::serialize]] [[assets::load_before(Tileset)]] [[assets::load_before(Entity)]] [[meta::dir_name("maps")]] Map {
     struct Tile {
         /// ID of tile (within layer tileset) being used
         u32 id = 0;

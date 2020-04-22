@@ -11,9 +11,13 @@ struct Entry {
     std::string_view name;
     void (*func)(bool*);
     bool open = true;
+    /// Whether to show an entry for this rendering function in the window MenuItem list or not.
+    bool show_list_entry = true;
 };
 
 void add_entry(Entry entry);
+/// Deletes an entry by its render callback function.
+void delete_entry(void (*render_callback)(bool*));
 
 /// Generates an ImGui MenuItem for each entry in the entry vector.
 void show_menu_items();

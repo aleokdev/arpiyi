@@ -106,16 +106,28 @@ void save_assets(fs::path const& project_path,
     }
 }
 
-/// Loads all assets marked with the [[assets::serialize]] attribute into their respective
-/// containers. Defined in the generated build/src/serializer_cg.cpp file.
-void load_all_assets(fs::path project_path,
-                     std::function<void(std::string_view /* progress string */,
-                                        float /* progress (0~1) */)> per_step_func);
-/// Saves all assets marked with the [[assets::serialize]] attribute to a path. Defined in the
-/// generated build/src/serializer_cg.cpp file.
-void save_all_assets(fs::path project_path,
-                     std::function<void(std::string_view /* progress string */,
-                                        float /* progress (0~1) */)> per_step_func);
+/// The number of asset structs that are marked with the [[assets::serialize]]
+/// attribute.
+extern const std::size_t serializable_assets;
+
+/// Loads one single asset type from a project folder and places the results in the
+/// corresponding asset container. The "One single asset type" is useful for
+/// simulating coroutines.
+/// You can call this function with indices from 0 to <serializable_assets> to load
+/// all assets.
+void load_one_asset_type(std::size_t asset_type_index,
+                         fs::path project_path,
+                         std::function<void(std::string_view /* progress string */,
+                                            float /* progress (0~1) */)> per_step_func);
+
+/// Saves one single asset type from its container to a project folder.
+/// The "One single asset type" is useful for simulating coroutines.
+/// You can call this function with indices from 0 to <serializable_assets> to save
+/// all assets.
+void save_one_asset_type(std::size_t asset_type_index,
+                         fs::path project_path,
+                         std::function<void(std::string_view /* progress string */,
+                                            float /* progress (0~1) */)> per_step_func);
 
 } // namespace arpiyi::serializer
 

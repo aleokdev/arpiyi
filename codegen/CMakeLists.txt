@@ -7,9 +7,10 @@ add_executable(arpiyi-codegen src/main.cpp src/parser.cpp)
 set_property(TARGET arpiyi-codegen PROPERTY CXX_STANDARD 17)
 target_link_libraries(arpiyi-codegen PRIVATE extlibs)
 target_include_directories(arpiyi-codegen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+file(GLOB CODEGEN_DEPENDENCIES ${PROJECT_SOURCE_DIR}/shared/include/assets/*)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp
         COMMAND arpiyi-codegen
-        DEPENDS ${PROJECT_SOURCE_DIR}/shared/include/assets/*
+        DEPENDS ${CODEGEN_DEPENDENCIES}
         )
 
 if (NOT EXISTS "${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp")

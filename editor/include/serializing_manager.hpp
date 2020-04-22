@@ -29,8 +29,6 @@ template<typename AssetT> fs::path get_asset_save_path(u64 handle_id) {
 void start_save();
 void start_load(fs::path project_path, bool ignore_editor_version = false);
 
-void render();
-
 } // namespace arpiyi::serializing_manager
 
 #endif // ARPIYI_SERIALIZING_MANAGER_HPP
