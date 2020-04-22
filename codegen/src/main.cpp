@@ -1,74 +1,163 @@
 #include "parser.hpp"
 
+#include <algorithm>
+#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
-#include <cassert>
 
 namespace fs = std::filesystem;
+using namespace arpiyi::codegen;
+
+struct AssetWithDirName {
+    AttributedEntity asset_entity;
+    Attribute dir_name_attribute;
+};
+
+struct SerializableAsset {
+    AttributedEntity asset_entity;
+    /// Names of asset types that must be loaded before this one.
+    std::vector<std::string> asset_load_dependencies;
+};
+
+void create_assets_codegen_file(std::vector<AssetWithDirName> const& assets_with_dir_name) {
+    const fs::path assets_out_path = "build/shared/include/assets/asset_cg.hpp";
+    fs::create_directories(assets_out_path.parent_path());
+    auto out_f = std::ofstream(assets_out_path);
+    out_f << "// asset_cg.hpp\n"
+          << "// Generated header for usage with the arpiyi shared library.\n"
+          << "#ifndef ARPIYI_ASSET_CG_HPP\n"
+          << "#define ARPIYI_ASSET_CG_HPP\n\n"
+          << "#include <string_view>\n\n"
+          << "namespace arpiyi::assets {\n";
+
+    for (const auto& asset_e : assets_with_dir_name) {
+        const auto asset_dir_name = asset_e.dir_name_attribute.arguments[0];
+        out_f << "struct " << asset_e.asset_entity.name << ";\n"
+              << "template<> struct AssetDirName<" << asset_e.asset_entity.name
+              << "> { constexpr static std::string_view value = " << asset_dir_name << "; };\n\n";
+    }
+
+    out_f << "}\n"
+          << "#endif // ARPIYI_ASSET_CG_HPP" << std::endl;
+
+    std::cout << "Assets file written to " << assets_out_path << std::endl;
+}
+
+void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_assets) {
+    const fs::path serializer_out_path = "build/shared/include/serializer_cg.hpp";
+    fs::create_directories(serializer_out_path.parent_path());
+    auto out_f = std::ofstream(serializer_out_path);
+    out_f << "// serializer_cg.hpp\n"
+          << "// Generated header for usage with the arpiyi shared library.\n"
+          << "#ifndef ARPIYI_SERIALIZER_CG_HPP\n"
+          << "#define ARPIYI_SERIALIZER_CG_HPP\n\n"
+          << "#include <functional>\n"
+          << "#include <filesystem>\n\n"
+          << "#include \"serializer.hpp\"\n\n"
+          << "namespace fs = std::filesystem;\n\n"
+          << "namespace arpiyi::serializer {\n\n"
+
+          << "void load_all_assets(fs::path project_path,\n"
+             "                 std::function<void(std::string_view /* progress string */, "
+             "float /* progress (0~1) */)>\n"
+             "                     per_step_func) {\n";
+
+    std::vector<SerializableAsset> loaded_assets;
+
+    const auto load_asset = [&out_f, &loaded_assets](SerializableAsset const& asset) {
+        out_f << "\tload_assets<assets::" << asset.asset_entity.name
+              << ">(project_path, per_step_func);\n";
+        loaded_assets.emplace_back(asset);
+    };
+
+    while (loaded_assets.size() != serializable_assets.size()) {
+        for (const auto& asset : serializable_assets) {
+            if (std::find_if(loaded_assets.begin(), loaded_assets.end(),
+                             [&asset](const auto& other) -> bool {
+                                 asset.asset_entity.name == other.asset_entity.name;
+                             }) != loaded_assets.end())
+                continue;
+            if (asset.asset_load_dependencies.empty())
+                load_asset(asset);
+            else {
+                // Use lambda so we can use return
+                const auto check_dependencies = [&]() {
+                    for (const auto& dependency : asset.asset_load_dependencies) {
+                        if (std::find_if(loaded_assets.begin(), loaded_assets.end(),
+                                         [&asset, &dependency](const auto& other) -> bool {
+                                             dependency == other.asset_entity.name;
+                                         }) == loaded_assets.end())
+                            return;
+                    }
+                    load_asset(asset);
+                };
+
+                check_dependencies();
+            }
+        }
+    }
+
+    out_f << "}\n\n"
+          << "void save_all_assets(fs::path project_path,\n"
+             "                 std::function<void(std::string_view /* progress string */, "
+             "float /* progress (0~1) */)>\n"
+             "                     per_step_func) {\n";
+
+    for (const auto& e : serializable_assets) {
+        out_f << "\tsave_assets<assets::" << e.asset_entity.name << ">(project_path, per_step_func);\n";
+    }
+
+    out_f << "}\n}\n"
+          << "#endif // ARPIYI_SERIALIZER_CG_HPP" << std::endl;
+
+    std::cout << "Assets file written to " << serializer_out_path << std::endl;
+}
 
 int main() {
     const fs::path assets_path = fs::absolute(fs::path("shared/include/assets"));
     std::cout << "Starting codegen with folder = " << assets_path.generic_string() << std::endl;
 
-    std::stringstream codegen_out;
-    codegen_out << "// asset_cg.hpp\n";
-    codegen_out << "// Generated header for usage with the arpiyi shared library.\n";
-    codegen_out << "#ifndef ARPIYI_ASSET_CG_HPP\n";
-    codegen_out << "#define ARPIYI_ASSET_CG_HPP\n";
-    codegen_out << "namespace arpiyi::assets {\n";
-
-    // Create file now so we don't get "asset_cg.hpp doesn't exist" errors when parsing
-    const fs::path out_path = "build/shared/include/assets/asset_cg.hpp";
-    fs::create_directories(out_path.parent_path());
-    auto out_f = std::ofstream(out_path);
-    std::vector<arpiyi::codegen::AttributedEntity> serialized_assets;
+    std::vector<AssetWithDirName> assets_with_dir_name;
+    std::vector<SerializableAsset> serializable_assets;
 
     for (auto const& entry : fs::directory_iterator(assets_path)) {
         const auto entities = arpiyi::codegen::parse_cpp_file(entry.path());
-        for(const auto& e : entities) {
-            for(const auto& attr : e.attributes) {
+        for (const auto& e : entities) {
+            SerializableAsset serializable_asset;
+            std::vector<std::string> load_dependencies;
+            bool do_serialize = false;
+
+            for (const auto& attr : e.attributes) {
                 if (attr.scope == "meta") {
                     if (attr.name == "dir_name") {
                         assert(!attr.arguments.empty());
-                        const auto asset_dir_name = attr.arguments[0];
-                        codegen_out << "struct " << e.name << ";\n";
-                        codegen_out << "template<> struct AssetDirName<" << e.name
-                                    << "> { constexpr static std::string_view value = "
-                                    << asset_dir_name << "; };\n\n";
+                        assets_with_dir_name.emplace_back(AssetWithDirName{e, attr});
                     } else {
                         std::cerr << "Unrecognized attribute name: meta::" << attr.name
                                   << std::endl;
                     }
                 } else if (attr.scope == "assets") {
                     if (attr.name == "serialize") {
-                        serialized_assets.emplace_back(e);
+                        do_serialize = true;
+                    } else if (attr.name == "load_before") {
+                        load_dependencies.emplace_back(attr.arguments[0]);
                     } else {
                         std::cerr << "Unrecognized attribute name: assets::" << attr.name
                                   << std::endl;
                     }
                 }
             }
+
+            if(do_serialize) {
+                serializable_assets.emplace_back(SerializableAsset{e, load_dependencies});
+            }
         }
     }
 
-    codegen_out << "}\n\n";
-    codegen_out << "#include \"serializer.hpp\"\n\n";
-    codegen_out << "namespace arpiyi::serializer {\n";
-    codegen_out << "void load_all_assets(fs::path project_path,\n"
-                   "                 std::function<void(std::string_view /* progress string */, float /* progress (0~1) */)>\n"
-                   "                     per_step_func) {\n";
-
-    for(const auto& e : serialized_assets) {
-        codegen_out << "\tload_assets<assets::" << e.name << ">(project_path, per_step_func);\n";
-    }
-
-    codegen_out << "}\n}\n";
-    codegen_out << "#endif // ARPIYI_ASSET_CG_HPP";
-
-    out_f << codegen_out.str() << std::endl;
-    std::cout << "Assets file written to " << out_path << std::endl;
+    create_assets_codegen_file(assets_with_dir_name);
+    create_serializer_codegen_file(serializable_assets);
 }
