@@ -78,7 +78,7 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
         for (const auto& asset : serializable_assets) {
             if (std::find_if(loaded_assets.begin(), loaded_assets.end(),
                              [&asset](const auto& other) -> bool {
-                                 asset.asset_entity.name == other.asset_entity.name;
+                                 return asset.asset_entity.name == other.asset_entity.name;
                              }) != loaded_assets.end())
                 continue;
             if (asset.asset_load_dependencies.empty())
@@ -89,7 +89,7 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
                     for (const auto& dependency : asset.asset_load_dependencies) {
                         if (std::find_if(loaded_assets.begin(), loaded_assets.end(),
                                          [&asset, &dependency](const auto& other) -> bool {
-                                             dependency == other.asset_entity.name;
+                                             return dependency == other.asset_entity.name;
                                          }) == loaded_assets.end())
                             return;
                     }
