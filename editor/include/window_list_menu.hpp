@@ -16,6 +16,8 @@ struct Entry {
 };
 
 void add_entry(Entry entry);
+/// Deletes an entry by its render callback function.
+void delete_entry(void (*render_callback)(bool*));
 
 /// Generates an ImGui MenuItem for each entry in the entry vector.
 void show_menu_items();

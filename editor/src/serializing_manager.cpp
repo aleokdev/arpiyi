@@ -1,32 +1,21 @@
-#include <glad/glad.h>
-// GLAD must be included before GLFW
-#include <GLFW/glfw3.h>
-
 #include <imgui.h>
-// imgui.h must be included before the API implementations
-#include <examples/imgui_impl_glfw.h>
-#include <examples/imgui_impl_opengl3.h>
 
 #include <noc_file_dialog.h>
 
-#include "assets/entity.hpp"
-#include "assets/map.hpp"
-#include "assets/script.hpp"
-#include "assets/sprite.hpp"
 #include "global_tile_size.hpp"
 #include "project_info.hpp"
+#include "serializer.hpp"
 #include "serializing_exceptions.hpp"
 #include "serializing_manager.hpp"
 #include "tileset_manager.hpp"
-#include "serializer.hpp"
-
-#include "global_tile_size.hpp"
+#include "window_list_menu.hpp"
 #include "window_manager.hpp"
 
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -100,113 +89,80 @@ static ProjectFileData load_project_file(fs::path base_dir) {
 }
 
 float task_progress = 0;
-static fs::path last_project_path;
+static fs::path project_path;
 std::string task_status;
 
-void save(fs::path project_save_path, std::function<void(void)> per_step) {
-    task_progress = 0.f;
-    task_status = "Saving project file...";
-    save_project_file(project_save_path);
+enum class TaskType { saving, loading };
+template<TaskType task_type> void task_renderer(bool*) {
+    constexpr std::string_view task_type_str = task_type == TaskType::saving ? "Saving" : "Loading";
+    static long asset_type_index = -1;
 
-    const auto wrapped_per_step = [&per_step](std::string_view progress_str, float progress) {
-      task_progress = progress;
-      task_status = progress_str;
-      per_step();
-    };
+    if (asset_type_index == -1) {
+        task_progress = 0.f;
+        task_status = std::string(task_type_str) + " project file...";
+        if constexpr (task_type == TaskType::saving)
+            save_project_file(project_path);
+        else
+            load_project_file(project_path);
+        // Proceed loading assets
+        ++asset_type_index;
+    } else if (asset_type_index == serializer::serializable_assets) {
+        task_progress = 1.f;
+        task_status = "Done!";
+        window_list_menu::delete_entry(&task_renderer<task_type>);
+        // Reset state for next time
+        asset_type_index = -1;
+    } else {
+        const auto set_progress_vars = [task_type_str](std::string_view progress_str,
+                                                       float progress) {
+            task_progress = progress;
+            task_status = std::string(task_type_str) + " " + std::string(progress_str) + "...";
+        };
 
-    serializer::load_all_assets(project_save_path, wrapped_per_step);
+        if constexpr (task_type == TaskType::saving)
+            serializer::save_one_asset_type(static_cast<std::size_t>(asset_type_index),
+                                            project_path, set_progress_vars);
+        else
+            serializer::load_one_asset_type(static_cast<std::size_t>(asset_type_index),
+                                            project_path, set_progress_vars);
 
-    task_progress = 1.f;
-}
+        ++asset_type_index;
+    }
 
-void load(fs::path project_load_path, std::function<void(void)> per_step) {
-    task_progress = 0.f;
-    task_status = "Loading project file...";
-    load_project_file(project_load_path);
-
-    const auto wrapped_per_step = [&per_step](std::string_view progress_str, float progress) {
-        task_progress = progress;
-        task_status = progress_str;
-        per_step();
-    };
-
-    serializer::load_all_assets(project_load_path, wrapped_per_step);
-
-    task_progress = 1.f;
-}
-
-enum class DialogType { none, saving, loading };
-template<DialogType dialog_type> void per_step_callback() {
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    glfwSwapBuffers(window_manager::get_window());
-    // Start the ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::OpenPopup(dialog_type == DialogType::saving ? "Saving..." : "Loading...");
+    ImGui::OpenPopup(task_type_str.data());
     ImGui::SetNextWindowSize(ImVec2{300, 0}, ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal(dialog_type == DialogType::saving ? "Saving..." : "Loading...",
-                               nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+    if (ImGui::BeginPopupModal(task_type_str.data(), nullptr,
+                               ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
         ImGui::TextUnformatted(task_status.c_str());
         ImGui::ProgressBar(task_progress);
         ImGui::EndPopup();
     }
-
-    glfwPollEvents();
-
-    int display_w, display_h;
-    glfwGetFramebufferSize(window_manager::get_window(), &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
 }
 
-static DialogType dialog_to_render = DialogType::none;
 void start_save() {
-    if (last_project_path.empty() || !fs::is_directory(last_project_path)) {
+    if (project_path.empty() || !fs::is_directory(project_path)) {
         if (const char* c_path =
                 noc_file_dialog_open(NOC_FILE_DIALOG_DIR, nullptr, nullptr, nullptr)) {
-            last_project_path = c_path;
-            if (!fs::is_directory(last_project_path)) {
-                last_project_path = last_project_path.parent_path();
+            project_path = c_path;
+            if (!fs::is_directory(project_path)) {
+                project_path = project_path.parent_path();
             }
         } else
             return;
     }
-    dialog_to_render = DialogType::saving;
+
+    window_list_menu::add_entry({"", &task_renderer<TaskType::saving>, true, false});
 }
 
-void start_load(fs::path project_path, bool ignore_editor_version) {
-    ProjectFileData data = load_project_file(project_path);
+void start_load(fs::path _project_path, bool ignore_editor_version) {
+    ProjectFileData data = load_project_file(_project_path);
     if (!ignore_editor_version && data.editor_version != ARPIYI_EDITOR_VERSION) {
-        throw exceptions::EditorVersionDiffers(project_path, data.editor_version);
+        throw exceptions::EditorVersionDiffers(_project_path, data.editor_version);
     }
-    last_project_path = project_path;
     global_tile_size::set(data.tile_size);
 
-    dialog_to_render = DialogType::loading;
-}
-
-// Opening the dialogs is the LAST thing that should be done in the frame (imgui
-// destroys layout in some specific conditions), so load/save is not called
-// directly on start_x, but rather on render().
-void render() {
-    switch (dialog_to_render) {
-        case DialogType::loading:
-            per_step_callback<DialogType::loading>();
-            load(last_project_path, per_step_callback<DialogType::loading>);
-            dialog_to_render = DialogType::none;
-            break;
-        case DialogType::saving:
-            per_step_callback<DialogType::saving>();
-            save(last_project_path, per_step_callback<DialogType::saving>);
-            dialog_to_render = DialogType::none;
-            break;
-        default: break;
-    }
+    project_path = _project_path;
+    window_list_menu::add_entry({"", &task_renderer<TaskType::loading>, true, false});
 }
 
 } // namespace arpiyi::serializing_manager
