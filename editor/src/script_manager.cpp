@@ -117,4 +117,7 @@ void render(bool* p_show) {
     }
 }
 
+Handle<assets::Script> get_startup_script() { return startup_script; }
+void set_startup_script(Handle<assets::Script> script) { startup_script = script; }
+
 } // namespace arpiyi::script_editor

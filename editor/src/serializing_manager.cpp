@@ -10,6 +10,7 @@
 #include "tileset_manager.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
+#include "script_manager.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -23,13 +24,12 @@ namespace arpiyi::serializing_manager {
 
 namespace detail::project_file_definitions {
 
-constexpr std::string_view default_tilesets_path = "tilesets";
-constexpr std::string_view default_maps_path = "maps";
 /// Path for storing files containing asset IDs and their location.
 constexpr std::string_view metadata_path = "meta";
 
 constexpr std::string_view tile_size_json_key = "tile_size";
 constexpr std::string_view editor_version_json_key = "editor_version";
+constexpr std::string_view startup_script_id_key = "startup_script_id";
 
 } // namespace detail::project_file_definitions
 
@@ -51,6 +51,8 @@ static void save_project_file(fs::path base_dir) {
         w.Uint(global_tile_size::get());
         w.Key(editor_version_json_key.data());
         w.String(ARPIYI_EDITOR_VERSION);
+        w.Key(startup_script_id_key.data());
+        w.Uint64(script_editor::get_startup_script().get_id());
     }
     w.EndObject();
 
@@ -82,6 +84,8 @@ static ProjectFileData load_project_file(fs::path base_dir) {
             file_data.tile_size = obj.value.GetUint();
         } else if (obj.name == editor_version_json_key.data()) {
             file_data.editor_version = obj.value.GetString();
+        } else if (obj.name == startup_script_id_key.data()) {
+            script_editor::set_startup_script(obj.value.GetUint64());
         }
     }
 
