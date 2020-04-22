@@ -51,3 +51,34 @@ else ()
     target_compile_options(glad PRIVATE -Wno-everything)
     target_compile_options(glfw PRIVATE -Wno-everything)
 endif ()
+
+if (WIN32)
+    target_compile_definitions(extlibs PUBLIC
+            _CRT_SECURE_NO_WARNINGS
+            _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING # caused by sol2/single/include/sol/sol.hpp:22511
+            # TODO: Proper handling of UNICODE on windows. NOC file dialog causes compiler errors when compiled with unicode.
+            # UNICODE
+            # _UNICODE
+            )
+
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if (NOT MSVC)
+            # clang
+            target_compile_options(extlibs PUBLIC
+                    PRIVATE
+                    -Wall -Wextra -pedantic
+                    -Werror=return-type
+                    -Wno-language-extension-token
+                    )
+        else ()
+            # clang-cl
+            # W3 maps to some ultra-high level warning level in clang-cl (so high it triggers -Wc++98-compat) so we turn it down a little bit
+            target_compile_options(extlibs PUBLIC -W2 /diagnostics:caret)
+        endif ()
+    else ()
+        # msvc
+        target_compile_options(extlibs PUBLIC -W3 /diagnostics:caret)
+    endif ()
+elseif (UNIX)
+    target_compile_options(extlibs PUBLIC -Wall)
+endif ()

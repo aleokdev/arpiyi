@@ -7,6 +7,8 @@
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_opengl3.h>
 
+#include <noc_file_dialog.h>
+
 #include "assets/entity.hpp"
 #include "assets/map.hpp"
 #include "assets/script.hpp"
@@ -16,15 +18,15 @@
 #include "serializing_exceptions.hpp"
 #include "serializing_manager.hpp"
 #include "tileset_manager.hpp"
+#include "serializer.hpp"
 
 #include "global_tile_size.hpp"
+#include "window_manager.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
-#include <imgui.h>
-#include <noc_file_dialog.h>
-#include <window_manager.hpp>
 
 namespace fs = std::filesystem;
 
@@ -46,32 +48,6 @@ namespace detail::meta_file_definitions {
 
 constexpr std::string_view id_json_key = "id";
 constexpr std::string_view path_json_key = "path";
-
-/* clang-format off */
-template<> struct AssetDirName<assets::Map> {
-    constexpr static std::string_view value = "maps";
-};
-
-template<> struct AssetDirName<assets::Texture> {
-    constexpr static std::string_view value = "textures";
-};
-
-template<> struct AssetDirName<assets::Tileset> {
-    constexpr static std::string_view value = "tilesets";
-};
-
-template<> struct AssetDirName<assets::Script> {
-    constexpr static std::string_view value = "scripts";
-};
-
-template<> struct AssetDirName<assets::Entity> {
-    constexpr static std::string_view value = "entities";
-};
-
-template<> struct AssetDirName<assets::Sprite> {
-    constexpr static std::string_view value = "sprites";
-};
-/* clang-format on */
 
 } // namespace detail::meta_file_definitions
 
@@ -128,125 +104,33 @@ static fs::path last_project_path;
 std::string task_status;
 
 void save(fs::path project_save_path, std::function<void(void)> per_step) {
+    task_progress = 0.f;
     task_status = "Saving project file...";
     save_project_file(project_save_path);
-    constexpr u64 assets_to_save = 4;
-    task_progress = 1.f / static_cast<float>(assets_to_save);
-    u64 cur_type_loading = 1;
 
-    using namespace ::arpiyi::detail;
-
-    const auto save_assets = [&project_save_path, &cur_type_loading, &per_step, assets_to_save](auto container) {
-        rapidjson::StringBuffer s;
-        rapidjson::Writer<rapidjson::StringBuffer> meta(s);
-        namespace pfd = detail::project_file_definitions;
-        namespace mfd = detail::meta_file_definitions;
-
-        using AssetT = typename decltype(container)::AssetType;
-        std::size_t i = 0;
-        meta.StartArray();
-        for (auto const& [id, asset] : container.map) {
-            task_status = ("Saving " +
-                           std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) +
-                           "/" + std::to_string(id) + ".asset...");
-
-            const fs::path asset_path = project_save_path / detail::get_asset_save_path<AssetT>(id);
-            fs::create_directories(asset_path.parent_path());
-            assets::RawSaveData data = assets::raw_get_save_data(asset);
-            std::ofstream f(asset_path);
-            f << data.bytestream.rdbuf();
-
-            // Add metadata object
-            meta.StartObject();
-            meta.Key(mfd::id_json_key.data());
-            meta.Uint64(id);
-            meta.Key(mfd::path_json_key.data());
-            std::string const relative_path =
-                fs::relative(asset_path, project_save_path).generic_string();
-            meta.String(relative_path.c_str());
-            meta.EndObject();
-
-            task_progress =
-                static_cast<float>(cur_type_loading) / static_cast<float>(assets_to_save) +
-                1.f / static_cast<float>(assets_to_save) *
-                    (static_cast<float>(i) / container.map.size());
-            per_step();
-            ++i;
-        }
-        meta.EndArray();
-
-        {
-            std::string meta_filename = mfd::AssetDirName<AssetT>::value.data();
-            meta_filename += ".json";
-            fs::create_directories(project_save_path / pfd::metadata_path);
-            std::ofstream meta_file(project_save_path / pfd::metadata_path / meta_filename);
-            meta_file << s.GetString();
-        }
-        ++cur_type_loading;
+    const auto wrapped_per_step = [&per_step](std::string_view progress_str, float progress) {
+      task_progress = progress;
+      task_status = progress_str;
+      per_step();
     };
 
-    save_assets(AssetContainer<assets::Texture>::get_instance());
-    save_assets(AssetContainer<assets::Tileset>::get_instance());
-    save_assets(AssetContainer<assets::Map>::get_instance());
-    save_assets(AssetContainer<assets::Script>::get_instance());
-    save_assets(AssetContainer<assets::Entity>::get_instance());
-    save_assets(AssetContainer<assets::Sprite>::get_instance());
+    serializer::load_all_assets(project_save_path, wrapped_per_step);
 
     task_progress = 1.f;
 }
 
 void load(fs::path project_load_path, std::function<void(void)> per_step) {
     task_progress = 0.f;
-    u64 cur_type_loading = 0;
-    constexpr u64 assets_to_save = 3;
+    task_status = "Loading project file...";
+    load_project_file(project_load_path);
 
-    using namespace ::arpiyi::detail;
-
-    // TODO: Use serializer.hpp's version
-    const auto load_assets = [&project_load_path, &cur_type_loading, &per_step, assets_to_save](auto container) {
-        using AssetT = typename decltype(container)::AssetType;
-        namespace mfd = detail::meta_file_definitions;
-        std::string meta_filename = mfd::AssetDirName<AssetT>::value.data();
-        meta_filename += ".json";
-        if (!fs::exists(project_load_path / detail::project_file_definitions::metadata_path /
-                        meta_filename))
-            return;
-        // Read meta document
-        std::ifstream f(project_load_path / detail::project_file_definitions::metadata_path /
-                        meta_filename);
-        std::stringstream buffer;
-        buffer << f.rdbuf();
-
-        rapidjson::Document doc;
-        doc.Parse(buffer.str().data());
-
-        std::size_t i = 0;
-        for (auto const& asset_meta : doc.GetArray()) {
-            const auto id = asset_meta.GetObject()[mfd::id_json_key.data()].GetUint64();
-            const fs::path path =
-                project_load_path / asset_meta.GetObject()[mfd::path_json_key.data()].GetString();
-            task_status = ("Loading " +
-                           std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) +
-                           "/" + std::to_string(id) + ".asset...");
-            AssetT asset;
-            assets::raw_load(asset, {path});
-            asset_manager::put(asset, id);
-            task_progress =
-                static_cast<float>(cur_type_loading) / static_cast<float>(assets_to_save) +
-                1.f / static_cast<float>(assets_to_save) *
-                    (static_cast<float>(i) / doc.GetArray().Size());
-            per_step();
-            ++i;
-        }
-        ++cur_type_loading;
+    const auto wrapped_per_step = [&per_step](std::string_view progress_str, float progress) {
+        task_progress = progress;
+        task_status = progress_str;
+        per_step();
     };
 
-    load_assets(AssetContainer<assets::Texture>::get_instance());
-    load_assets(AssetContainer<assets::Tileset>::get_instance());
-    load_assets(AssetContainer<assets::Map>::get_instance());
-    load_assets(AssetContainer<assets::Script>::get_instance());
-    load_assets(AssetContainer<assets::Entity>::get_instance());
-    load_assets(AssetContainer<assets::Sprite>::get_instance());
+    serializer::load_all_assets(project_load_path, wrapped_per_step);
 
     task_progress = 1.f;
 }
