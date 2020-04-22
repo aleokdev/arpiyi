@@ -22,7 +22,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     else() # clang-cl
         target_compile_options(arpiyi-shared PUBLIC -Wno-unknown-attributes)
     endif()
-else()
+elseif(NOT MSVC)
+    # any sane compiler
     target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
 endif()
 
