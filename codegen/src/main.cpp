@@ -5,8 +5,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <memory>
-#include <sstream>
 #include <string>
 
 namespace fs = std::filesystem;
@@ -18,6 +16,7 @@ struct AssetWithDirName {
 };
 
 struct SerializableAsset {
+    fs::path header_path;
     AttributedEntity asset_entity;
     /// Names of asset types that must be loaded before this one.
     std::vector<std::string> asset_load_dependencies;
@@ -48,18 +47,19 @@ void create_assets_codegen_file(std::vector<AssetWithDirName> const& assets_with
 }
 
 void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_assets) {
-    const fs::path serializer_out_path = "build/shared/include/serializer_cg.hpp";
+    const fs::path serializer_out_path = "build/shared/src/serializer_cg.cpp";
     fs::create_directories(serializer_out_path.parent_path());
     auto out_f = std::ofstream(serializer_out_path);
-    out_f << "// serializer_cg.hpp\n"
-          << "// Generated header for usage with the arpiyi shared library.\n"
-          << "#ifndef ARPIYI_SERIALIZER_CG_HPP\n"
-          << "#define ARPIYI_SERIALIZER_CG_HPP\n\n"
+    out_f << "// serializer_cg.cpp\n"
+          << "// Generated source file for usage with the arpiyi shared library.\n"
           << "#include <functional>\n"
           << "#include <filesystem>\n\n"
           << "#include \"serializer.hpp\"\n\n"
-          << "namespace fs = std::filesystem;\n\n"
-          << "namespace arpiyi::serializer {\n\n"
+          << "namespace fs = std::filesystem;\n\n";
+    // Include asset header paths
+    for (const auto& asset : serializable_assets) { out_f << "#include \"" << asset.header_path.generic_string() << "\"\n"; }
+
+    out_f << "\nnamespace arpiyi::serializer {\n\n"
 
           << "void load_all_assets(fs::path project_path,\n"
              "                 std::function<void(std::string_view /* progress string */, "
@@ -108,11 +108,11 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
              "                     per_step_func) {\n";
 
     for (const auto& e : serializable_assets) {
-        out_f << "\tsave_assets<assets::" << e.asset_entity.name << ">(project_path, per_step_func);\n";
+        out_f << "\tsave_assets<assets::" << e.asset_entity.name
+              << ">(project_path, per_step_func);\n";
     }
 
-    out_f << "}\n}\n"
-          << "#endif // ARPIYI_SERIALIZER_CG_HPP" << std::endl;
+    out_f << "}\n}\n";
 
     std::cout << "Assets file written to " << serializer_out_path << std::endl;
 }
@@ -152,8 +152,9 @@ int main() {
                 }
             }
 
-            if(do_serialize) {
-                serializable_assets.emplace_back(SerializableAsset{e, load_dependencies});
+            if (do_serialize) {
+                serializable_assets.emplace_back(SerializableAsset{
+                    fs::relative(entry.path(), "shared/include"), e, load_dependencies});
             }
         }
     }

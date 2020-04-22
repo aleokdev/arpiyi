@@ -106,8 +106,17 @@ void save_assets(fs::path const& project_path,
     }
 }
 
-} // namespace arpiyi::serializer
+/// Loads all assets marked with the [[assets::serialize]] attribute into their respective
+/// containers. Defined in the generated build/src/serializer_cg.cpp file.
+void load_all_assets(fs::path project_path,
+                     std::function<void(std::string_view /* progress string */,
+                                        float /* progress (0~1) */)> per_step_func);
+/// Saves all assets marked with the [[assets::serialize]] attribute to a path. Defined in the
+/// generated build/src/serializer_cg.cpp file.
+void save_all_assets(fs::path project_path,
+                     std::function<void(std::string_view /* progress string */,
+                                        float /* progress (0~1) */)> per_step_func);
 
-#include "serializer_cg.hpp"
+} // namespace arpiyi::serializer
 
 #endif // ARPIYI_SERIALIZER_HPP
