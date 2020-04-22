@@ -16,6 +16,7 @@ static TextEditor editor;
 static ImFont* code_font;
 static sol::state lua_linter;
 static Handle<assets::Script> selected_script;
+static Handle<assets::Script> startup_script;
 
 static void check_for_errors_in_editor_script() {
     const std::string editor_text = editor.GetText();
@@ -77,12 +78,23 @@ void render(bool* p_show) {
             for (auto& [_id, _s] : detail::AssetContainer<assets::Script>::get_instance().map) {
                 ImGui::TextDisabled("%zu", _id);
                 ImGui::SameLine();
-                if (ImGui::Selectable(_s.name.c_str(), _id == selected_script.get_id())) {
-                    selected_script = Handle<assets::Script>(_id);
-                    editor.SetText(_s.source);
-                    check_for_errors_in_editor_script();
+                {
+                    std::string str_id;
+                    if (_id == startup_script.get_id()) {
+                        str_id = ICON_MD_PLAY_ARROW + _s.name + "###" + std::to_string(_id);
+                    } else {
+                        str_id = _s.name + "###" + std::to_string(_id);
+                    }
+                    if (ImGui::Selectable(str_id.c_str(), _id == selected_script.get_id())) {
+                        selected_script = Handle<assets::Script>(_id);
+                        editor.SetText(_s.source);
+                        check_for_errors_in_editor_script();
+                    }
                 }
                 if (ImGui::BeginPopupContextItem()) {
+                    if (ImGui::Selectable("Set as startup script")) {
+                        startup_script = _id;
+                    }
                     if (ImGui::Selectable("Delete")) {
                         id_to_delete = _id;
                         selected_script = Handle<assets::Script>(Handle<assets::Script>::noid);

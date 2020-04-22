@@ -48,32 +48,6 @@ namespace detail::meta_file_definitions {
 constexpr std::string_view id_json_key = "id";
 constexpr std::string_view path_json_key = "path";
 
-/* clang-format off */
-template<> struct AssetDirName<assets::Map> {
-    constexpr static std::string_view value = "maps";
-};
-
-template<> struct AssetDirName<assets::Texture> {
-    constexpr static std::string_view value = "textures";
-};
-
-template<> struct AssetDirName<assets::Tileset> {
-    constexpr static std::string_view value = "tilesets";
-};
-
-template<> struct AssetDirName<assets::Script> {
-    constexpr static std::string_view value = "scripts";
-};
-
-template<> struct AssetDirName<assets::Entity> {
-    constexpr static std::string_view value = "entities";
-};
-
-template<> struct AssetDirName<assets::Sprite> {
-    constexpr static std::string_view value = "sprites";
-};
-/* clang-format on */
-
 } // namespace detail::meta_file_definitions
 
 static void save_project_file(fs::path base_dir) {
@@ -148,7 +122,7 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
         meta.StartArray();
         for (auto const& [id, asset] : container.map) {
             task_status = ("Saving " +
-                           std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) +
+                           std::string(assets::AssetDirName<AssetT>::value) +
                            "/" + std::to_string(id) + ".asset...");
 
             const fs::path asset_path = project_save_path / detail::get_asset_save_path<AssetT>(id);
@@ -177,7 +151,7 @@ void save(fs::path project_save_path, std::function<void(void)> per_step) {
         meta.EndArray();
 
         {
-            std::string meta_filename = mfd::AssetDirName<AssetT>::value.data();
+            std::string meta_filename = assets::AssetDirName<AssetT>::value.data();
             meta_filename += ".json";
             fs::create_directories(project_save_path / pfd::metadata_path);
             std::ofstream meta_file(project_save_path / pfd::metadata_path / meta_filename);
@@ -207,7 +181,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
     const auto load_assets = [&project_load_path, &cur_type_loading, &per_step, assets_to_save](auto container) {
         using AssetT = typename decltype(container)::AssetType;
         namespace mfd = detail::meta_file_definitions;
-        std::string meta_filename = mfd::AssetDirName<AssetT>::value.data();
+        std::string meta_filename = assets::AssetDirName<AssetT>::value.data();
         meta_filename += ".json";
         if (!fs::exists(project_load_path / detail::project_file_definitions::metadata_path /
                         meta_filename))
@@ -227,7 +201,7 @@ void load(fs::path project_load_path, std::function<void(void)> per_step) {
             const fs::path path =
                 project_load_path / asset_meta.GetObject()[mfd::path_json_key.data()].GetString();
             task_status = ("Loading " +
-                           std::string(detail::meta_file_definitions::AssetDirName<AssetT>::value) +
+                           std::string(assets::AssetDirName<AssetT>::value) +
                            "/" + std::to_string(id) + ".asset...");
             AssetT asset;
             assets::raw_load(asset, {path});
