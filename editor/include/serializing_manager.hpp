@@ -17,19 +17,11 @@ namespace arpiyi::serializing_manager {
 
 namespace detail {
 
-namespace meta_file_definitions {
-
-template<typename AssetT> struct AssetDirName;
-
-} // namespace meta_file_definitions
-
 /// @returns A path relative to the project base directory pointing to where the asset should be
 /// saved. Includes filename.
 template<typename AssetT> fs::path get_asset_save_path(u64 handle_id) {
-    namespace mfd = meta_file_definitions;
-
     const std::string asset_filename = std::to_string(handle_id) + ".asset";
-    return fs::path(mfd::AssetDirName<AssetT>::value) / asset_filename;
+    return fs::path(assets::AssetDirName<AssetT>::value) / asset_filename;
 }
 
 } // namespace detail

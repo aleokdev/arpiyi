@@ -11,8 +11,17 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.h
         COMMAND arpiyi-codegen
         DEPENDS ${PROJECT_SOURCE_DIR}/shared/include/assets/*
         )
-add_custom_target(run-arpiyi-codegen ALL
-        COMMAND arpiyi-codegen
-        DEPENDS arpiyi-codegen
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMENT "Starting codegen...")
+
+if (NOT EXISTS "${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp")
+    # Force codegen if asset_cg doesn't exist
+    add_custom_target(run-arpiyi-codegen ALL
+            COMMAND arpiyi-codegen
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            COMMENT "Initializing codegen...")
+else ()
+    # Only run codegen if assets dir has updated
+    add_custom_target(run-arpiyi-codegen ALL
+            DEPENDS arpiyi-codegen
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            COMMENT "Updating codegen...")
+endif ()
