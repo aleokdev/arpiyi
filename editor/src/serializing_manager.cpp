@@ -7,6 +7,8 @@
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_opengl3.h>
 
+#include <noc_file_dialog.h>
+
 #include "assets/entity.hpp"
 #include "assets/map.hpp"
 #include "assets/script.hpp"
@@ -18,13 +20,12 @@
 #include "tileset_manager.hpp"
 
 #include "global_tile_size.hpp"
+#include "window_manager.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
-#include <imgui.h>
-#include <noc_file_dialog.h>
-#include <window_manager.hpp>
 
 namespace fs = std::filesystem;
 
