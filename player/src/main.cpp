@@ -22,6 +22,7 @@
 #include <sol/sol.hpp>
 #include <lua.hpp>
 #include "api/api.hpp"
+#include "assets/script.hpp"
 
 namespace fs = std::filesystem;
 using namespace arpiyi;
@@ -154,6 +155,48 @@ static void debug_callback(GLenum const source,
               << stringify_source(source) << "]: " << message << std::endl;
 }
 
+namespace detail::project_file_definitions {
+
+/// Path for storing files containing asset IDs and their location.
+constexpr std::string_view metadata_path = "meta";
+
+constexpr std::string_view tile_size_json_key = "tile_size";
+constexpr std::string_view editor_version_json_key = "editor_version";
+constexpr std::string_view startup_script_id_key = "startup_script_id";
+
+} // namespace detail::project_file_definitions
+
+struct ProjectFileData {
+    u32 tile_size = 48;
+    std::string editor_version;
+    Handle<assets::Script> startup_script;
+};
+
+static ProjectFileData load_project_file(fs::path base_dir) {
+    std::ifstream f(base_dir / "project.json");
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    rapidjson::Document doc;
+    doc.Parse(buffer.str().data());
+
+    ProjectFileData file_data;
+
+    using namespace ::detail::project_file_definitions;
+
+    for (auto const& obj : doc.GetObject()) {
+        if (obj.name == tile_size_json_key.data()) {
+            file_data.tile_size = obj.value.GetUint();
+        } else if (obj.name == editor_version_json_key.data()) {
+            file_data.editor_version = obj.value.GetString();
+        } else if (obj.name == startup_script_id_key.data()) {
+            file_data.startup_script = obj.value.GetUint64();
+        }
+    }
+
+    return file_data;
+}
+
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
         std::cerr << "You must supply a valid arpiyi project path to load." << std::endl;
@@ -203,6 +246,7 @@ int main(int argc, const char* argv[]) {
     };
 
     fs::path project_path = fs::absolute(argv[1]);
+    ProjectFileData project_data = load_project_file(project_path);
     serializer::load_assets<assets::Texture>(project_path, callback);
     serializer::load_assets<assets::Sprite>(project_path, callback);
     serializer::load_assets<assets::Entity>(project_path, callback);
@@ -211,6 +255,13 @@ int main(int argc, const char* argv[]) {
     std::cout << "Finished loading." << std::endl;
 
     arpiyi::api::define_api(lua);
+    sol::function startup_func = lua.script(project_data.startup_script.get()->source);
+    try {
+        startup_func();
+    } catch(sol::error const& e) {
+        std::cerr << e.what() << std::endl;
+    }
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 

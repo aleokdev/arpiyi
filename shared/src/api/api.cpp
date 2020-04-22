@@ -119,7 +119,7 @@ void define_entity(sol::state_view& s) {
 void define_screen_layer(sol::state_view& s) {
     /* clang-format off */
     sol::table game_table = s["game"];
-    game_table.new_usertype<ScreenLayer>("ScreenLayer",
+    game_table.new_usertype<ScreenLayer>("ScreenLayer", sol::constructors<ScreenLayer(sol::function const&)>(),
                                          "visible", &ScreenLayer::visible,
                                          "render_callback", &ScreenLayer::render_callback,
                                          "to_front", &ScreenLayer::to_front,
