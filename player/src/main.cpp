@@ -262,10 +262,12 @@ int main(int argc, const char* argv[]) {
     arpiyi::api::define_api(lua);
 
     lua.open_libraries(sol::lib::base, sol::lib::debug);
-    try {
-        lua.script(project_data.startup_script.get()->source);
-    } catch(sol::error const& e) {
-        std::cout << e.what() << std::endl;
+    if(auto startup_script = project_data.startup_script.get()) {
+        try {
+            lua.script(startup_script->source);
+        } catch(sol::error const& e) {
+            std::cout << e.what() << std::endl;
+        }
     }
 
     while (!glfwWindowShouldClose(window)) {
