@@ -115,6 +115,15 @@ static ProjectFileData load_project_file(fs::path base_dir) {
     return file_data;
 }
 
+static bool show_state_inspector = false;
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (mods & GLFW_MOD_CONTROL && key == GLFW_KEY_K && action & GLFW_PRESS) {
+        show_state_inspector = !show_state_inspector;
+    }
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+}
+
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
         std::cerr << "No arguments given. You must supply a valid arpiyi project path to load." << std::endl;
@@ -155,6 +164,7 @@ int main(int argc, const char* argv[]) {
     // debug: set current map to 0
     game_data_manager::get_game_data().current_map = Handle<assets::Map>((u64)0);
 
+    glfwSetKeyCallback(window_manager::get_window(), key_callback);
     while (!glfwWindowShouldClose(window_manager::get_window())) {
         glfwPollEvents();
 
@@ -173,8 +183,8 @@ int main(int argc, const char* argv[]) {
             layer->render_callback();
         }
 
-        bool _ = true;
-        DrawLuaStateInspector(lua.lua_state(), &_);
+        if(show_state_inspector)
+            DrawLuaStateInspector(lua.lua_state(), &show_state_inspector);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
