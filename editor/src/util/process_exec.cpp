@@ -31,7 +31,6 @@ void arpiyi::util::execute_process(fs::path const& path, std::string const& arg)
     // Close process and thread handles.
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
-    free(cmdline);
 }
 #elif defined(__linux__)
 extern "C" {
@@ -40,7 +39,7 @@ extern "C" {
 
 void arpiyi::util::execute_process(fs::path const& path, std::string const& arg) {
     std::string file_path = fs::absolute(path).generic_string();
-    system((file_path + " \"" + arg + "\"").c_str());
+    system((file_path + " \"" + arg + "\" &").c_str());
 }
 
 #endif

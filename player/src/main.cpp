@@ -211,7 +211,7 @@ int main(int argc, const char* argv[]) {
 
     if (!glfwInit()) {
         std::cerr << "Couldn't init GLFW." << std::endl;
-        return -1;
+        return -2;
     }
 
     // Use OpenGL 4.5
@@ -223,7 +223,7 @@ int main(int argc, const char* argv[]) {
         std::cerr
             << "Couldn't create window. Check your GPU drivers, as arpiyi requires OpenGL 4.5."
             << std::endl;
-        return -1;
+        return -3;
     }
     // Activate VSync and fix FPS
     glfwSwapInterval(1);
