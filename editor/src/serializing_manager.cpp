@@ -42,6 +42,7 @@ constexpr std::string_view path_json_key = "path";
 } // namespace detail::meta_file_definitions
 
 static void save_project_file(fs::path base_dir) {
+    project_manager::set_project_path(base_dir);
     rapidjson::StringBuffer s;
     rapidjson::Writer<rapidjson::StringBuffer> w(s);
     using namespace detail::project_file_definitions;
