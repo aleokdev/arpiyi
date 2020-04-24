@@ -7,6 +7,8 @@
 
 #if __has_builtin(__builtin_unreachable)
 #    define ARPIYI_UNREACHABLE() __builtin_unreachable()
+#elif MSVC
+#    define ARPIYI_UNREACHABLE() __assume(0)
 #else
 #    define ARPIYI_UNREACHABLE()
 #endif
