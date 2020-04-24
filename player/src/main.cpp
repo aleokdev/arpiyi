@@ -199,7 +199,13 @@ static ProjectFileData load_project_file(fs::path base_dir) {
 
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
-        std::cerr << "You must supply a valid arpiyi project path to load." << std::endl;
+        std::cerr << "No arguments given. You must supply a valid arpiyi project path to load." << std::endl;
+        return -1;
+    }
+    fs::path project_path = fs::absolute(argv[1]);
+    std::cout << project_path.generic_string() << std::endl;
+    if(!fs::is_directory(project_path)) {
+        std::cerr << "Path given is not a folder. You must supply a valid arpiyi project path to load." << std::endl;
         return -1;
     }
 
@@ -245,7 +251,6 @@ int main(int argc, const char* argv[]) {
                   << (progress * 100) << "%)" << std::endl;
     };
 
-    fs::path project_path = fs::absolute(argv[1]);
     ProjectFileData project_data = load_project_file(project_path);
     serializer::load_assets<assets::Texture>(project_path, callback);
     serializer::load_assets<assets::Sprite>(project_path, callback);
@@ -255,11 +260,12 @@ int main(int argc, const char* argv[]) {
     std::cout << "Finished loading." << std::endl;
 
     arpiyi::api::define_api(lua);
-    sol::function startup_func = lua.script(project_data.startup_script.get()->source);
+
+    lua.open_libraries(sol::lib::base, sol::lib::debug);
     try {
-        startup_func();
+        lua.script(project_data.startup_script.get()->source);
     } catch(sol::error const& e) {
-        std::cerr << e.what() << std::endl;
+        std::cout << e.what() << std::endl;
     }
 
     while (!glfwWindowShouldClose(window)) {

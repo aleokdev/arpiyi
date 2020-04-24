@@ -1,6 +1,9 @@
 #include "editor/editor_renderer.hpp"
 #include "serializing_manager.hpp"
 #include "window_list_menu.hpp"
+#include "util/process_exec.hpp"
+#include "project_info.hpp"
+#include "project_manager.hpp"
 #include <imgui.h>
 
 #include <iostream>
@@ -50,7 +53,6 @@ bool has_window(std::size_t id) {
 }
 
 void render() {
-    bool do_save_project = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 
     // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
@@ -84,11 +86,17 @@ void render() {
             }
         }
         if (ImGui::MenuItem("Save")) {
-            do_save_project = true;
+            serializing_manager::start_save();
         }
         if (ImGui::BeginMenu("Windows")) {
             window_list_menu::show_menu_items();
             ImGui::EndMenu();
+        }
+        if(ImGui::MenuItem("Play")) {
+            serializing_manager::start_save();
+            serializing_manager::set_callback([]() {
+              util::execute_process(fs::path(ARPIYI_PLAYER_EXECUTABLE_NAME), project_manager::get_project_path());
+            });
         }
         ImGui::EndMenuBar();
     }
@@ -103,9 +111,6 @@ void render() {
     toolbars_to_remove.clear();
 
     ImGui::End();
-
-    if (do_save_project)
-        serializing_manager::start_save();
 }
 
 } // namespace arpiyi::editor::renderer

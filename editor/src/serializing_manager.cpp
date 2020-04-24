@@ -1,16 +1,17 @@
-#include <imgui.h>
-
-#include <noc_file_dialog.h>
+#include "serializing_manager.hpp"
 
 #include "global_tile_size.hpp"
 #include "project_info.hpp"
+#include "project_manager.hpp"
+#include "script_manager.hpp"
 #include "serializer.hpp"
 #include "serializing_exceptions.hpp"
-#include "serializing_manager.hpp"
 #include "tileset_manager.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
-#include "script_manager.hpp"
+
+#include <imgui.h>
+#include <noc_file_dialog.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -68,6 +69,7 @@ struct ProjectFileData {
 };
 
 static ProjectFileData load_project_file(fs::path base_dir) {
+    project_manager::set_project_path(base_dir);
     std::ifstream f(base_dir / "project.json");
     std::stringstream buffer;
     buffer << f.rdbuf();
@@ -95,6 +97,7 @@ static ProjectFileData load_project_file(fs::path base_dir) {
 float task_progress = 0;
 static fs::path project_path;
 std::string task_status;
+std::function<void()> task_end_callback;
 
 enum class TaskType { saving, loading };
 template<TaskType task_type> void task_renderer(bool*) {
@@ -116,6 +119,10 @@ template<TaskType task_type> void task_renderer(bool*) {
         window_list_menu::delete_entry(&task_renderer<task_type>);
         // Reset state for next time
         asset_type_index = -1;
+        if (task_end_callback) {
+            task_end_callback();
+            task_end_callback = nullptr;
+        }
     } else {
         const auto set_progress_vars = [task_type_str](std::string_view progress_str,
                                                        float progress) {
@@ -168,5 +175,6 @@ void start_load(fs::path _project_path, bool ignore_editor_version) {
     project_path = _project_path;
     window_list_menu::add_entry({"", &task_renderer<TaskType::loading>, true, false});
 }
+void set_callback(std::function<void()> cb) { task_end_callback = cb; }
 
 } // namespace arpiyi::serializing_manager
