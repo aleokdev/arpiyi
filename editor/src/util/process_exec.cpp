@@ -1,7 +1,7 @@
 #include "util/process_exec.hpp"
 
 #if defined(_WIN32) || defined(_WIN64)
-#    include <cstring>
+#    include <string.h>
 #    include <windows.h>
 
 void arpiyi::util::execute_process(fs::path const& path, std::string const& arg) {

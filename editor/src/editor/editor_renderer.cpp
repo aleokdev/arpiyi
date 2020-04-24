@@ -95,7 +95,7 @@ void render() {
         if(ImGui::MenuItem("Play")) {
             serializing_manager::start_save();
             serializing_manager::set_callback([]() {
-              util::execute_process(fs::path(ARPIYI_PLAYER_EXECUTABLE_NAME), project_manager::get_project_path());
+              util::execute_process(fs::path(ARPIYI_PLAYER_EXECUTABLE_NAME), fs::absolute(project_manager::get_project_path()).generic_string());
             });
         }
         ImGui::EndMenuBar();
