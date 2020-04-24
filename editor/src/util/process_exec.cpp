@@ -15,7 +15,7 @@ void arpiyi::util::execute_process(fs::path const& path, std::string const& arg)
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    char* cmdline = std::strdup(arg.c_str());
+    char* cmdline = _strdup(arg.c_str());
     // start the program up
     CreateProcessA(fs::absolute(path).generic_string().c_str(), // the path
                    cmdline,                             // Command line
