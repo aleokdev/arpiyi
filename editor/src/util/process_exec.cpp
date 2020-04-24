@@ -17,7 +17,7 @@ void arpiyi::util::execute_process(fs::path const& path, std::string const& arg)
 
     std::string cmdline_str = "\"" + fs::absolute(path).generic_string() + "\" \"" + arg + "\"";
     // start the program up
-    CreateProcessA(path_str.c_str(),                    // the path
+    CreateProcessA(fs::absolute(path).generic_string().c_str(), // the path
                    cmdline_str.data(),                  // Command line
                    NULL,                                // Process handle not inheritable
                    NULL,                                // Thread handle not inheritable
