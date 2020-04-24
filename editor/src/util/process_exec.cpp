@@ -15,10 +15,10 @@ void arpiyi::util::execute_process(fs::path const& path, std::string const& arg)
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    char* cmdline = _strdup(arg.c_str());
+    std::string cmdline_str = fs::absolute(path).generic_string() + " " + arg;
     // start the program up
-    CreateProcessA(fs::absolute(path).generic_string().c_str(), // the path
-                   cmdline,                             // Command line
+    CreateProcessA(path_str.c_str(),                    // the path
+                   cmdline_str.data(),                  // Command line
                    NULL,                                // Process handle not inheritable
                    NULL,                                // Thread handle not inheritable
                    FALSE,                               // Set handle inheritance to FALSE
