@@ -58,6 +58,9 @@ static void debug_callback(GLenum const source,
         ARPIYI_UNREACHABLE();
     };
 
+    // Do not send bloat information
+    if(severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
+
     std::cout << "[" << stringify_severity(severity) << ":" << stringify_type(type) << " in "
               << stringify_source(source) << "]: " << message << std::endl;
 }
