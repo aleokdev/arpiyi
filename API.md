@@ -103,8 +103,8 @@ data ScreenLayer {
 
     /// Returns all the screenlayers created via new() or internally, which includes both hidden and visible ones.
     static ScreenLayer[] get_all();
-    static ScreenLayer[] get_visible();
-    static ScreenLayer[] get_hidden();
+    static ScreenLayer[] get_visible_screen_layers();
+    static ScreenLayer[] get_hidden_screen_layers();
 };
 ```
 

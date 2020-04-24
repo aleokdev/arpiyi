@@ -144,7 +144,7 @@ template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& p
 
             tileset.auto_type = static_cast<assets::Tileset::AutoType>(auto_type);
         } else if (obj.name == texture_id_json_key.data()) {
-            tileset.texture = obj.value.GetUint64();
+            tileset.texture = Handle<assets::Texture>(obj.value.GetUint64());
         } else
             assert("Unknown JSON key in tileset file");
     }

@@ -222,7 +222,7 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                     if (layer_val.name == lfd::name_json_key.data()) {
                         layer.name = layer_val.value.GetString();
                     } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
-                        layer.tileset = layer_val.value.GetUint64();
+                        layer.tileset = Handle<Tileset>(layer_val.value.GetUint64());
                         layer.regenerate_mesh();
                     } else if (layer_val.name == lfd::data_json_key.data()) {
                         u64 i = 0;

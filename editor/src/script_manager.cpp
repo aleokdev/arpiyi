@@ -93,7 +93,7 @@ void render(bool* p_show) {
                 }
                 if (ImGui::BeginPopupContextItem()) {
                     if (ImGui::Selectable("Set as startup script")) {
-                        startup_script = _id;
+                        startup_script = Handle<assets::Script>(_id);
                     }
                     if (ImGui::Selectable("Delete")) {
                         id_to_delete = _id;

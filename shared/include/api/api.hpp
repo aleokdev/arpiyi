@@ -4,7 +4,9 @@
 #include <anton/math/vector2.hpp>
 #include <functional>
 #include <sol/sol.hpp>
+#include <memory>
 #include "asset_manager.hpp"
+#include "assets/map.hpp"
 
 namespace aml = anton::math;
 
@@ -22,8 +24,7 @@ public:
 class ScreenLayer;
 class ScreenLayer {
 public:
-    explicit ScreenLayer(std::function<void(void)> const& render_callback);
-    explicit ScreenLayer(sol::function const& render_callback);
+    explicit ScreenLayer(GamePlayData& game_data, std::function<void(void)> const& render_callback);
 
     bool visible = true;
     std::function<void(void)> render_callback;
@@ -32,21 +33,33 @@ public:
     void to_front();
     void to_back();
 
-    static std::vector<Handle<ScreenLayer>> get_all();
-    static std::vector<Handle<ScreenLayer>> get_visible();
-    static std::vector<Handle<ScreenLayer>> get_hidden();
-
-    static void add_default_map_layer();
+private:
+    GamePlayData * const game_data;
 };
 
 extern void map_screen_layer_render_cb();
 
-namespace game_play_data {
-    static Camera cam;
-    using ScreenLayerContainer = detail::AssetContainer<ScreenLayer>;
+struct GamePlayData {
+    GamePlayData() noexcept;
+    // Lua public API functions/variables
+
+    /// game.new_screen_layer(callback)
+    std::shared_ptr<ScreenLayer>& new_screen_layer(sol::function const& render_callback);
+    /// game.add_default_map_layer()
+    std::shared_ptr<ScreenLayer>& add_default_map_layer();
+
+    std::vector<std::shared_ptr<ScreenLayer>> get_all_screen_layers();
+    std::vector<std::shared_ptr<ScreenLayer>> get_visible_screen_layers();
+    std::vector<std::shared_ptr<ScreenLayer>> get_hidden_screen_layers();
+
+    std::shared_ptr<Camera> cam;
+    Handle<assets::Map> current_map;
+
+    // Members not meant to be used with the lua API
+    std::vector<std::shared_ptr<ScreenLayer>> screen_layers;
 };
 
-void define_api(sol::state_view& s);
+void define_api(GamePlayData& data, sol::state_view& s);
 
 }
 

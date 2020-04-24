@@ -13,8 +13,6 @@ add_executable(arpiyi-editor
         src/util/imgui_addons.cpp
         src/plugin_manager.cpp
         src/tileset_manager.cpp
-        src/stb_image.cpp
-        src/stb_image_write.cpp
         src/noc_file_dialog.cpp
         src/window_manager.cpp
         src/map_manager.cpp
@@ -22,7 +20,9 @@ add_executable(arpiyi-editor
         src/sprite_manager.cpp
         src/script_manager.cpp
         src/serializing_manager.cpp
-        src/window_list_menu.cpp include/util/process_exec.hpp src/util/process_exec.cpp src/project_manager.cpp)
+        src/window_list_menu.cpp
+        src/util/process_exec.cpp
+        src/project_manager.cpp)
 set_property(TARGET arpiyi-editor PROPERTY CXX_STANDARD 17)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")

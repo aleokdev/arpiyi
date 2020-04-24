@@ -39,7 +39,7 @@ bool show(Handle<assets::Sprite>& spr) {
         if (ImGui::ImageButton(reinterpret_cast<ImTextureID>(sprite.texture.get()->handle),
                                {50, 50}, {sprite.uv_min.x, sprite.uv_min.y},
                                {sprite.uv_max.x, sprite.uv_max.y})) {
-            spr = id;
+            spr = Handle<assets::Sprite>(id);
             changed = true;
         }
         ImGui::PopID();

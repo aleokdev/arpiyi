@@ -6,23 +6,18 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-
-#include "assets/entity.hpp"
-#include "assets/map.hpp"
-#include "assets/sprite.hpp"
-#include "assets/texture.hpp"
-#include "serializer.hpp"
-#include <GLFW/glfw3.h>
-#include <filesystem>
-#include <iostream>
-
-#include "util/defs.hpp"
-
-#include <imgui.h>
 #include <sol/sol.hpp>
-#include <lua.hpp>
+
+#include "serializer.hpp"
+#include "util/defs.hpp"
 #include "api/api.hpp"
 #include "assets/script.hpp"
+#include "game_data_manager.hpp"
+#include "window_manager.hpp"
+#include "default_render_impls.hpp"
+
+#include <filesystem>
+#include <iostream>
 
 namespace fs = std::filesystem;
 using namespace arpiyi;
@@ -78,54 +73,6 @@ void DrawLuaStateInspector(sol::state_view const& state, bool* p_open) {
     ImGui::End();
 }
 
-static void debug_callback(GLenum const source,
-                           GLenum const type,
-                           GLuint,
-                           GLenum const severity,
-                           GLsizei,
-                           GLchar const* const message,
-                           void const*) {
-    auto stringify_source = [](GLenum const source) {
-        switch (source) {
-            case GL_DEBUG_SOURCE_API: return u8"API";
-            case GL_DEBUG_SOURCE_APPLICATION: return u8"Application";
-            case GL_DEBUG_SOURCE_SHADER_COMPILER: return u8"Shader Compiler";
-            case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return u8"Window System";
-            case GL_DEBUG_SOURCE_THIRD_PARTY: return u8"Third Party";
-            case GL_DEBUG_SOURCE_OTHER: return u8"Other";
-        }
-        ARPIYI_UNREACHABLE();
-    };
-
-    auto stringify_type = [](GLenum const type) {
-        switch (type) {
-            case GL_DEBUG_TYPE_ERROR: return u8"Error";
-            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return u8"Deprecated Behavior";
-            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return u8"Undefined Behavior";
-            case GL_DEBUG_TYPE_PORTABILITY: return u8"Portability";
-            case GL_DEBUG_TYPE_PERFORMANCE: return u8"Performance";
-            case GL_DEBUG_TYPE_MARKER: return u8"Marker";
-            case GL_DEBUG_TYPE_PUSH_GROUP: return u8"Push Group";
-            case GL_DEBUG_TYPE_POP_GROUP: return u8"Pop Group";
-            case GL_DEBUG_TYPE_OTHER: return u8"Other";
-        }
-        ARPIYI_UNREACHABLE();
-    };
-
-    auto stringify_severity = [](GLenum const severity) {
-        switch (severity) {
-            case GL_DEBUG_SEVERITY_HIGH: return u8"Fatal Error";
-            case GL_DEBUG_SEVERITY_MEDIUM: return u8"Error";
-            case GL_DEBUG_SEVERITY_LOW: return u8"Warning";
-            case GL_DEBUG_SEVERITY_NOTIFICATION: return u8"Note";
-        }
-        ARPIYI_UNREACHABLE();
-    };
-
-    std::cout << "[" << stringify_severity(severity) << ":" << stringify_type(type) << " in "
-              << stringify_source(source) << "]: " << message << std::endl;
-}
-
 namespace detail::project_file_definitions {
 
 /// Path for storing files containing asset IDs and their location.
@@ -161,7 +108,7 @@ static ProjectFileData load_project_file(fs::path base_dir) {
         } else if (obj.name == editor_version_json_key.data()) {
             file_data.editor_version = obj.value.GetString();
         } else if (obj.name == startup_script_id_key.data()) {
-            file_data.startup_script = obj.value.GetUint64();
+            file_data.startup_script = Handle<assets::Script>(obj.value.GetUint64());
         }
     }
 
@@ -180,42 +127,8 @@ int main(int argc, const char* argv[]) {
         return -1;
     }
 
-    if (!glfwInit()) {
-        std::cerr << "Couldn't init GLFW." << std::endl;
-        return -2;
-    }
-
-    // Use OpenGL 4.5
-    const char* glsl_version = "#version 450";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    GLFWwindow* window = glfwCreateWindow(1080, 720, "Arpiyi Player", nullptr, nullptr);
-    if (!window) {
-        std::cerr
-            << "Couldn't create window. Check your GPU drivers, as arpiyi requires OpenGL 4.5."
-            << std::endl;
-        return -3;
-    }
-    // Activate VSync and fix FPS
-    glfwSwapInterval(1);
-
-    glfwMakeContextCurrent(window);
-    gladLoadGLLoader((GLADloadproc)&glfwGetProcAddress);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEBUG_OUTPUT);
-    glCullFace(GL_FRONT_AND_BACK);
-
-    glDebugMessageCallback(debug_callback, nullptr);
-
-    // Setup ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+    if(!window_manager::init())
+        return -1;
 
     const auto callback = [](auto str, auto progress) {
         std::cout << "Loading " << str << "... (" << std::setprecision(0) << std::fixed
@@ -223,14 +136,12 @@ int main(int argc, const char* argv[]) {
     };
 
     ProjectFileData project_data = load_project_file(project_path);
-    serializer::load_assets<assets::Texture>(project_path, callback);
-    serializer::load_assets<assets::Sprite>(project_path, callback);
-    serializer::load_assets<assets::Entity>(project_path, callback);
-    serializer::load_assets<assets::Script>(project_path, callback);
-    serializer::load_assets<assets::Map>(project_path, callback);
+    for(std::size_t i = 0; i < serializer::serializable_assets; ++i)
+        serializer::load_one_asset_type(i, project_path, callback);
     std::cout << "Finished loading." << std::endl;
 
-    arpiyi::api::define_api(lua);
+    default_render_impls::init();
+    arpiyi::api::define_api(game_data_manager::get_game_data(), lua);
 
     lua.open_libraries(sol::lib::base, sol::lib::debug);
     if(auto startup_script = project_data.startup_script.get()) {
@@ -241,7 +152,10 @@ int main(int argc, const char* argv[]) {
         }
     }
 
-    while (!glfwWindowShouldClose(window)) {
+    // debug: set current map to 0
+    game_data_manager::get_game_data().current_map = Handle<assets::Map>((u64)0);
+
+    while (!glfwWindowShouldClose(window_manager::get_window())) {
         glfwPollEvents();
 
         // Start the ImGui frame
@@ -250,13 +164,13 @@ int main(int argc, const char* argv[]) {
         ImGui::NewFrame();
 
         int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glfwGetFramebufferSize(window_manager::get_window(), &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        for (const auto& [id, layer] : arpiyi::api::game_play_data::ScreenLayerContainer::get_instance().map) {
-            layer.render_callback();
+        for (const auto& layer : game_data_manager::get_game_data().screen_layers) {
+            layer->render_callback();
         }
 
         bool _ = true;
@@ -265,7 +179,7 @@ int main(int argc, const char* argv[]) {
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(window_manager::get_window());
     }
 
     glfwTerminate();
