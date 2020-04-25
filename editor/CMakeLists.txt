@@ -27,7 +27,6 @@ set_property(TARGET arpiyi-editor PROPERTY CXX_STANDARD 17)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-add_dependencies(arpiyi-editor arpiyi-player)
 # We need to set a header with information about the project (project_info.hpp). A simple configure_file won't do since
 # we require generator expressions for setting ARPIYI_PLAYER_EXECUTABLE_NAME.
 file(GENERATE
@@ -64,6 +63,8 @@ endif ()
 
 # Copy player executable to editor dir
 add_custom_command(TARGET arpiyi-editor
-        PRE_BUILD
+        POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:arpiyi-player> ${CMAKE_CURRENT_BINARY_DIR})
+
+add_dependencies(arpiyi-editor arpiyi-player)
