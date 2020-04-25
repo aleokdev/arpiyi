@@ -52,7 +52,7 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
     // Center map
     model *= aml::translate({-map_total_width / 2.f, map_total_height / 2.f, 0});
     // Translate by camera vector
-    model *= aml::translate(aml::Vector3(cam->pos));
+    model *= aml::translate(aml::Vector3(cam->pos) * global_tile_size::get() * cam->zoom);
     // Scale accordingly
     model *= aml::scale(aml::Vector3{map_total_width, -map_total_height, 1});
 

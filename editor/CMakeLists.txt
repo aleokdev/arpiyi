@@ -62,9 +62,10 @@ elseif (UNIX)
 endif ()
 
 # Copy player executable to editor dir
-add_custom_command(TARGET arpiyi-editor
-        POST_BUILD
+add_custom_command(OUTPUT PLAYER_RUN_ALWAYS
         COMMAND ${CMAKE_COMMAND} -E copy
-        $<TARGET_FILE:arpiyi-player> ${CMAKE_CURRENT_BINARY_DIR})
-
-add_dependencies(arpiyi-editor arpiyi-player)
+        $<TARGET_FILE:arpiyi-player> ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Copying player executable to editor build folder" VERBATIM)
+add_custom_target(copy-arpiyi-player
+        DEPENDS PLAYER_RUN_ALWAYS)
+add_dependencies(arpiyi-editor arpiyi-player copy-arpiyi-player)
