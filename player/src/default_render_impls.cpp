@@ -24,7 +24,6 @@ namespace arpiyi::default_render_impls {
 
 void init() {
     sprite_shader = asset_manager::load<assets::Shader>({"data/basic.vert", "data/basic.frag"});
-    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);
 }
 
 } // namespace arpiyi::default_render_impls
@@ -43,7 +42,6 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
     glUseProgram(sprite_shader.get()->handle);
     glBindVertexArray(layer.get_mesh().get()->vao);
 
-    aml::Vector2 output_size = window_manager::get_framebuf_size();
     const auto& cam = game_data_manager::get_game_data().cam;
 
     float map_total_width = map.width * global_tile_size::get() * cam->zoom;
@@ -51,10 +49,13 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
 
     aml::Matrix4 model = aml::Matrix4::identity;
 
-    model *= aml::translate({0, map_total_height / output_size.y, 0});
+    // Center map
+    model *= aml::translate({-map_total_width / 2.f, map_total_height / 2.f, 0});
+    // Translate by camera vector
     model *= aml::translate(aml::Vector3(cam->pos));
-    model *= aml::scale(aml::Vector3{map_total_width / output_size.x,
-                                     -map_total_height / output_size.y, 1});
+    // Scale accordingly
+    model *= aml::scale(aml::Vector3{map_total_width,
+                                     -map_total_height, 1});
 
     glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
     glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
@@ -64,6 +65,9 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
 }
 
 void map_screen_layer_render_cb() {
+    aml::Vector2 output_size = window_manager::get_framebuf_size();
+    proj_mat = aml::orthographic_rh(-output_size.x / 2.f, output_size.x / 2.f, output_size.y / 2.f, -output_size.y / 2.f, -10000.f, 10000.f);
+
     if (auto map = game_data_manager::get_game_data().current_map.get()) {
         for (auto& layer : map->layers) {
             assert(layer.get());
