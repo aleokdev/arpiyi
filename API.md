@@ -144,23 +144,23 @@ Pseudodefinition:
 table input {
     /// An enumeration table containing all possible keys being held.
     table keys {
-        k_A = 0,
-        k_B = 1,
-        k_C = 2,
+        A = 0,
+        B = 1,
+        C = 2,
         // ...
     };
     
     /// Contains the state of a key.
     data KeyState {
         /// True if the key is pressed, false otherwise.
-        bool held();
+        bool held { get; }
         /// True if the key press had begun on the last frame.
-        bool just_pressed();
+        bool just_pressed { get; }
         /// True if the key release had begun on the last frame.
-        bool just_released();
+        bool just_released { get; }
     };
 
     /// Returns the key state of a particular key from the keys table.
-    KeyState get_key_state(int);
+    KeyState get_key_state(key);
 };
 ```

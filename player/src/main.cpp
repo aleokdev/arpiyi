@@ -14,7 +14,7 @@
 #include "assets/script.hpp"
 #include "game_data_manager.hpp"
 #include "window_manager.hpp"
-#include "default_render_impls.hpp"
+#include "default_api_impls.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -24,14 +24,15 @@ using namespace arpiyi;
 
 sol::state lua;
 
-void draw_lua_state_inspector_table(sol::table const& table) {
+void draw_lua_state_inspector_table(sol::table const& table, std::size_t id_to_use = 0) {
     ImGui::Indent();
     for(const auto& [k, v] : table) {
         std::string k_val = k.as<std::string>();
         if(v.get_type() == sol::type::table) {
-            if(ImGui::CollapsingHeader((k_val + "##" + std::to_string(table.registry_index())).c_str())) {
+            std::string str_id = k_val + "###" + std::to_string(id_to_use);
+            if(ImGui::CollapsingHeader(str_id.c_str())) {
                 sol::table tbl = v;
-                draw_lua_state_inspector_table(tbl);
+                draw_lua_state_inspector_table(tbl, id_to_use + 1);
             }
         } else {
             std::string v_val;
@@ -55,6 +56,7 @@ void draw_lua_state_inspector_table(sol::table const& table) {
             ImGui::SameLine();
             ImGui::TextUnformatted(v_val.c_str());
         }
+        id_to_use += 100;
     }
     ImGui::Unindent();
 }
@@ -149,7 +151,7 @@ int main(int argc, const char* argv[]) {
         serializer::load_one_asset_type(i, project_path, callback);
     std::cout << "Finished loading." << std::endl;
 
-    default_render_impls::init();
+    default_api_impls::init();
     arpiyi::api::define_api(game_data_manager::get_game_data(), lua);
 
     lua.open_libraries(sol::lib::base, sol::lib::debug, sol::lib::coroutine, sol::lib::math);

@@ -1,12 +1,12 @@
 #ifndef ARPIYI_API_HPP
 #define ARPIYI_API_HPP
 
-#include <anton/math/vector2.hpp>
-#include <functional>
-#include <sol/sol.hpp>
-#include <memory>
 #include "asset_manager.hpp"
 #include "assets/map.hpp"
+#include <anton/math/vector2.hpp>
+#include <functional>
+#include <memory>
+#include <sol/sol.hpp>
 
 namespace aml = anton::math;
 
@@ -17,7 +17,7 @@ class Camera {
 public:
     Camera() noexcept {}
 
-    aml::Vector2 pos = {0,0};
+    aml::Vector2 pos = {0, 0};
     float zoom = 1;
 };
 
@@ -34,10 +34,18 @@ public:
     void to_back();
 
 private:
-    GamePlayData * const game_data;
+    GamePlayData* const game_data;
 };
 
-extern void map_screen_layer_render_cb();
+enum class InputKey;
+struct KeyState {
+    /// True if the key is pressed, false otherwise.
+    bool held;
+    /// True if the key press had begun on the last frame.
+    bool just_pressed;
+    /// True if the key release had begun on the last frame.
+    bool just_released;
+};
 
 struct GamePlayData {
     GamePlayData() noexcept;
@@ -61,7 +69,16 @@ struct GamePlayData {
 
 void define_api(GamePlayData& data, sol::state_view& s);
 
-}
+// Implementation-defined functions
+
+/// The render callback of the screen layer added when the GamePlayData::add_default_map_layer
+/// function is called.
+extern void map_screen_layer_render_cb();
+
+/// The implementation for the input.get_key_state function.
+extern KeyState get_key_state(InputKey key);
+
+} // namespace arpiyi::api
 
 namespace sol {
 template<typename T> struct unique_usertype_traits<arpiyi::Handle<T>> {
@@ -75,6 +92,6 @@ template<typename T> struct unique_usertype_traits<arpiyi::Handle<T>> {
         return val ? const_cast<type*>(&*val) : nullptr;
     }
 };
-}
+} // namespace sol
 
 #endif // ARPIYI_API_HPP

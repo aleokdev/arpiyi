@@ -20,13 +20,13 @@ namespace aml = anton::math;
 static arpiyi::Handle<arpiyi::assets::Shader> sprite_shader;
 static aml::Matrix4 proj_mat;
 
-namespace arpiyi::default_render_impls {
+namespace arpiyi::default_api_impls {
 
 void init() {
     sprite_shader = asset_manager::load<assets::Shader>({"data/basic.vert", "data/basic.frag"});
 }
 
-} // namespace arpiyi::default_render_impls
+} // namespace arpiyi::default_api_impls
 
 namespace arpiyi::api {
 
@@ -54,8 +54,7 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
     // Translate by camera vector
     model *= aml::translate(aml::Vector3(cam->pos));
     // Scale accordingly
-    model *= aml::scale(aml::Vector3{map_total_width,
-                                     -map_total_height, 1});
+    model *= aml::scale(aml::Vector3{map_total_width, -map_total_height, 1});
 
     glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
     glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
@@ -66,7 +65,8 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
 
 void map_screen_layer_render_cb() {
     aml::Vector2 output_size = window_manager::get_framebuf_size();
-    proj_mat = aml::orthographic_rh(-output_size.x / 2.f, output_size.x / 2.f, output_size.y / 2.f, -output_size.y / 2.f, -10000.f, 10000.f);
+    proj_mat = aml::orthographic_rh(-output_size.x / 2.f, output_size.x / 2.f, output_size.y / 2.f,
+                                    -output_size.y / 2.f, -10000.f, 10000.f);
 
     if (auto map = game_data_manager::get_game_data().current_map.get()) {
         for (auto& layer : map->layers) {
@@ -74,6 +74,11 @@ void map_screen_layer_render_cb() {
             render_map_layer(*map, *layer.get());
         }
     }
+}
+
+KeyState get_key_state(InputKey key) {
+    // TODO: Implement just_pressed and just_released
+    return {glfwGetKey(window_manager::get_window(), static_cast<int>(key)) == GLFW_PRESS, false, false};
 }
 
 } // namespace arpiyi::api
