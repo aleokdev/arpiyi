@@ -64,7 +64,7 @@ endif ()
 # Copy player executable to editor dir
 add_custom_command(TARGET arpiyi-editor
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:arpiyi-player> ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(arpiyi-editor arpiyi-player)

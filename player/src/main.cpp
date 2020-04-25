@@ -152,7 +152,7 @@ int main(int argc, const char* argv[]) {
     default_render_impls::init();
     arpiyi::api::define_api(game_data_manager::get_game_data(), lua);
 
-    lua.open_libraries(sol::lib::base, sol::lib::debug, sol::lib::coroutine);
+    lua.open_libraries(sol::lib::base, sol::lib::debug, sol::lib::coroutine, sol::lib::math);
     sol::coroutine main_coroutine;
     if(auto startup_script = project_data.startup_script.get()) {
         try {
