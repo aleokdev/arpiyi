@@ -9,6 +9,9 @@ Here's a sample script that makes the camera follow the parent entity indefinite
 ```lua
 while true do
     camera.pos = entity.pos
+    -- Yielding is needed here to return control to the game and
+    -- allow to execute other scripts/functions.
+    coroutine.yield()
 end
 ```
 
@@ -84,9 +87,6 @@ data Entity {
 Defines an object that has a drawing callback and an order. Examples of these objects can be, for example, the map view,
 an UI menu, etc.
 
-This class contains static methods that you can call using `game.ScreenLayer.x()`, where `x` is the static function to
-call.
-
 Pseudodefinition:
 ```
 data ScreenLayer {
@@ -100,15 +100,30 @@ data ScreenLayer {
     void to_front();
     /// Sends the screen layer to the top of the render queue, and thus is rendered last, in front of other layers.
     void to_back();
-
-    /// Returns all the screenlayers created via new() or internally, which includes both hidden and visible ones.
-    static ScreenLayer[] get_all();
-    static ScreenLayer[] get_visible_screen_layers();
-    static ScreenLayer[] get_hidden_screen_layers();
 };
 ```
 
-### Other definitions
+### The game table
+The game table contains everything the API defines, including all data structures. Apart from them, it
+also defines the following data:
+```
+table game {
+    /// Returns all the screenlayers created via new() or internally, which includes both hidden and visible ones.
+    ScreenLayer[] get_all_screen_layers();
+    ScreenLayer[] get_visible_screen_layers();
+    ScreenLayer[] get_hidden_screen_layers();
+
+    /// A global instance of the Camera class.
+    Camera camera;
+
+    /// Explained later.
+    table input { ... }
+
+    /// Explained later.
+    table assets { ... }
+}
+```
+
 #### Assets
 You can use the `game.assets` function table to load resources that the game contains,
 such as sprites, textures, etc.
