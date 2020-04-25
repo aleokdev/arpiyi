@@ -152,13 +152,25 @@ int main(int argc, const char* argv[]) {
     default_render_impls::init();
     arpiyi::api::define_api(game_data_manager::get_game_data(), lua);
 
-    lua.open_libraries(sol::lib::base, sol::lib::debug);
+    lua.open_libraries(sol::lib::base, sol::lib::debug, sol::lib::coroutine);
+    sol::coroutine main_coroutine;
     if(auto startup_script = project_data.startup_script.get()) {
         try {
-            lua.script(startup_script->source);
+            sol::function f = lua.load(startup_script->source);
+            main_coroutine = f;
+            main_coroutine();
+            if(main_coroutine.status() == sol::call_status::ok) {
+                std::cout << "Main coroutine finished. Exiting..." << std::endl;
+                return 0;
+            }
         } catch(sol::error const& e) {
-            std::cout << e.what() << std::endl;
+            std::cerr << e.what() << std::endl;
+            std::cerr << "Startup script was not able to execute on initialize. Exiting." << std::endl;
+            return -1;
         }
+    } else {
+        std::cerr << "No startup script set. Exiting." << std::endl;
+        return -1;
     }
 
     // debug: set current map to 0
@@ -178,6 +190,12 @@ int main(int argc, const char* argv[]) {
         glViewport(0, 0, display_w, display_h);
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        main_coroutine();
+        if(main_coroutine.status() == sol::call_status::ok) {
+            std::cout << "Main coroutine finished. Exiting..." << std::endl;
+            return 0;
+        }
 
         for (const auto& layer : game_data_manager::get_game_data().screen_layers) {
             layer->render_callback();
