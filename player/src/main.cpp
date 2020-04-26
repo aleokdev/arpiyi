@@ -26,17 +26,17 @@ sol::state lua;
 
 void draw_lua_state_inspector_table(sol::table const& table, std::size_t id_to_use = 0) {
     ImGui::Indent();
-    for(const auto& [k, v] : table) {
+    for (const auto& [k, v] : table) {
         std::string k_val = k.as<std::string>();
-        if(v.get_type() == sol::type::table) {
+        if (v.get_type() == sol::type::table) {
             std::string str_id = k_val + "###" + std::to_string(id_to_use);
-            if(ImGui::CollapsingHeader(str_id.c_str())) {
+            if (ImGui::CollapsingHeader(str_id.c_str())) {
                 sol::table tbl = v;
                 draw_lua_state_inspector_table(tbl, id_to_use + 1);
             }
         } else {
             std::string v_val;
-            switch(v.get_type()) {
+            switch (v.get_type()) {
                 case sol::type::lua_nil: v_val = "nil"; break;
 
                 case sol::type::number:
@@ -48,8 +48,7 @@ void draw_lua_state_inspector_table(sol::table const& table, std::size_t id_to_u
                 case sol::type::userdata: v_val = "userdata"; break;
                 case sol::type::lightuserdata: v_val = "light_userdata"; break;
                 case sol::type::table: break;
-                default:
-                    ARPIYI_UNREACHABLE();
+                default: ARPIYI_UNREACHABLE();
             }
 
             ImGui::TextUnformatted(k_val.c_str());
@@ -128,17 +127,20 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
-        std::cerr << "No arguments given. You must supply a valid arpiyi project path to load." << std::endl;
+        std::cerr << "No arguments given. You must supply a valid arpiyi project path to load."
+                  << std::endl;
         return -1;
     }
     fs::path project_path = fs::absolute(argv[1]);
     std::cout << project_path.generic_string() << std::endl;
-    if(!fs::is_directory(project_path)) {
-        std::cerr << "Path given is not a folder. You must supply a valid arpiyi project path to load." << std::endl;
+    if (!fs::is_directory(project_path)) {
+        std::cerr
+            << "Path given is not a folder. You must supply a valid arpiyi project path to load."
+            << std::endl;
         return -1;
     }
 
-    if(!window_manager::init())
+    if (!window_manager::init())
         return -1;
 
     const auto callback = [](auto str, auto progress) {
@@ -147,7 +149,7 @@ int main(int argc, const char* argv[]) {
     };
 
     ProjectFileData project_data = load_project_file(project_path);
-    for(std::size_t i = 0; i < serializer::serializable_assets; ++i)
+    for (std::size_t i = 0; i < serializer::serializable_assets; ++i)
         serializer::load_one_asset_type(i, project_path, callback);
     std::cout << "Finished loading." << std::endl;
 
@@ -156,18 +158,14 @@ int main(int argc, const char* argv[]) {
 
     lua.open_libraries(sol::lib::base, sol::lib::debug, sol::lib::coroutine, sol::lib::math);
     sol::coroutine main_coroutine;
-    if(auto startup_script = project_data.startup_script.get()) {
+    sol::thread main_coroutine_thread = sol::thread::create(lua.lua_state());
+    if (auto startup_script = project_data.startup_script.get()) {
         try {
-            sol::function f = lua.load(startup_script->source);
+            sol::function f = main_coroutine_thread.state().load(startup_script->source);
             main_coroutine = f;
-            main_coroutine();
-            if(main_coroutine.status() == sol::call_status::ok) {
-                std::cout << "Main coroutine finished. Exiting..." << std::endl;
-                return 0;
-            }
-        } catch(sol::error const& e) {
+        } catch (sol::error const& e) {
             std::cerr << e.what() << std::endl;
-            std::cerr << "Startup script was not able to execute on initialize. Exiting." << std::endl;
+            std::cerr << "Startup script was not able to load on initialize. Exiting." << std::endl;
             return -1;
         }
     } else {
@@ -177,6 +175,8 @@ int main(int argc, const char* argv[]) {
 
     // debug: set current map to 0
     game_data_manager::get_game_data().current_map = Handle<assets::Map>((u64)0);
+
+    assert(game_data_manager::get_game_data().current_map.get());
 
     glfwSetKeyCallback(window_manager::get_window(), key_callback);
     while (!glfwWindowShouldClose(window_manager::get_window())) {
@@ -194,16 +194,53 @@ int main(int argc, const char* argv[]) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         main_coroutine();
-        if(main_coroutine.status() == sol::call_status::ok) {
-            std::cout << "Main coroutine finished. Exiting..." << std::endl;
-            return 0;
+        if (main_coroutine.status() == sol::call_status::ok) {
+            std::cout << "Main coroutine finished. Searching for auto scripts..." << std::endl;
+            struct {
+                Handle<assets::Entity> parent_entity;
+                Handle<assets::Script> script;
+            } auto_obj;
+            for (const auto& e : game_data_manager::get_game_data().current_map.get()->entities) {
+                assert(e.get());
+                for (const auto& script : e.get()->scripts) {
+                    assert(script.get());
+                    if (script.get()->trigger_type == assets::Script::TriggerType::t_auto) {
+                        auto_obj.script = script;
+                        auto_obj.parent_entity = e;
+                        break;
+                    } else if (script.get()->trigger_type ==
+                               assets::Script::TriggerType::t_lp_auto) {
+                        if (auto as = auto_obj.script.get()) {
+                            if (as->trigger_type != assets::Script::TriggerType::t_auto) {
+                                auto_obj.script = script;
+                                auto_obj.parent_entity = e;
+                            }
+                        } else {
+                            auto_obj.script = script;
+                            auto_obj.parent_entity = e;
+                        }
+                    }
+                }
+            }
+            if (auto a_s = auto_obj.script.get()) {
+                assert(auto_obj.parent_entity.get());
+                sol::function f = main_coroutine_thread.state().load(a_s->source);
+                sol::environment script_env(main_coroutine_thread.state(), sol::create, lua.globals());
+                script_env["entity"] = auto_obj.parent_entity;
+                main_coroutine = f;
+                script_env.set_on(main_coroutine);
+            } else {
+                std::cout << "Found no auto script source to replace dead main coroutine, exiting."
+                          << std::endl;
+                return -2;
+            }
         }
 
         for (const auto& layer : game_data_manager::get_game_data().screen_layers) {
             layer->render_callback();
         }
 
-        if(show_state_inspector)
+        if (show_state_inspector)
             DrawLuaStateInspector(lua.lua_state(), &show_state_inspector);
 
         ImGui::Render();
