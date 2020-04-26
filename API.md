@@ -1,9 +1,32 @@
 ## Lua Public API
 
 ### Scripts
-Scripts modify an entity's operation. Automatically, they are run depending on their auto-trigger:
-- None: The script will not be run automatically (Hence something else needs to trigger it, like the player)
-- Autorun: The script will be run once at load.
+Scripts modify an entity's operation.
+
+There are four types of script execution. Ordered from most common to least, here they are:
+- Triggered: Only runs when the script is called by _another_ script. Blocks the execution
+of the caller script until the trigger is finished. This means that if the caller script is
+a parallel one, the main auto/LP auto coroutine will not be affected.
+
+- Auto: Automatically runs once, when the entity is created (Or loaded, if it is part of the
+map.) Blocks the execution of other auto/LP auto scripts. If many auto scripts are created on
+the same frame (For example, on map load), there is no defined order of execution between
+them. As such, refrain from using more than one auto script per map.
+
+- LP Auto: Stands for "Low Priority" auto. Works exactly as an auto script, but if a Low
+Priority auto script and an auto script are loaded on the same frame, the auto script will
+get priority. Normally used for player scripts and nothing more.
+
+- Parallel Auto: Automatically runs once, when the entity is created (Or loaded, if it is
+part of the map.) and **doesn't block any other scripts when doing so**, since it creates
+its own coroutine; effectively running parallel to other scripts. **Parallel scripts should
+be only used if you truly know what you're doing, as they can cause strange side effects and
+synchronization issues.**
+
+- Parallel Triggered: Only runs when the script is called by _another_ script. Does **not**
+block the execution of the caller script, since it creates its own coroutine; effectively
+running parallel to other scripts. **Parallel scripts should be only used if you truly know
+what you're doing, as they can cause strange side effects and synchronization issues.**
 
 Here's a sample script that makes the camera follow the parent entity indefinitely:
 ```lua

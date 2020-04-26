@@ -44,9 +44,36 @@ void init() {
     window_list_menu::add_entry({"Lua Editor", &render});
 }
 
+std::string_view trigger_type_name(assets::Script::TriggerType T) {
+    using TriggerType = assets::Script::TriggerType;
+    switch (T) {
+        case (TriggerType::t_triggered): return "Triggered";
+        case (TriggerType::t_auto): return "Auto";
+        case (TriggerType::t_lp_auto): return "LP Auto";
+        case (TriggerType::t_parallel_auto): return "Parallel Auto";
+        case (TriggerType::t_parallel_triggered): return "Parallel Triggered";
+    }
+}
+
 void render(bool* p_show) {
-    if (ImGui::Begin(ICON_MD_MEMORY " Lua Editor", p_show)) {
+    if (ImGui::Begin(ICON_MD_MEMORY " Lua Editor", p_show, ImGuiWindowFlags_MenuBar)) {
         if (auto script = selected_script.get()) {
+            if (ImGui::BeginMenuBar()) {
+                using TriggerType = assets::Script::TriggerType;
+                if (ImGui::BeginCombo("Trigger Type", trigger_type_name(script->trigger_type).data())) {
+                    for(int i = 0; i < static_cast<int>(TriggerType::count); ++i) {
+                        if(ImGui::Selectable(trigger_type_name(static_cast<TriggerType>(i)).data())) {
+                            script->trigger_type = static_cast<TriggerType>(i);
+                        }
+
+                        if (script->trigger_type == static_cast<TriggerType>(i))
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::EndMenuBar();
+            }
+
             ImGui::PushFont(code_font);
             editor.Render("editor");
             ImGui::PopFont();
