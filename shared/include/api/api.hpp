@@ -86,7 +86,7 @@ template<typename T> struct unique_usertype_traits<arpiyi::Handle<T>> {
     typedef arpiyi::Handle<T> actual_type;
     static const bool value = true;
 
-    static bool is_null(const actual_type& ptr) { return ptr.get(); }
+    static bool is_null(const actual_type& ptr) { return !ptr.get(); }
     static type* get(const actual_type& ptr) {
         auto val = ptr.get();
         return val ? const_cast<type*>(&*val) : nullptr;

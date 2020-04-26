@@ -53,11 +53,10 @@ void render_map_layer(assets::Map const& map, assets::Map::Layer& layer) {
 
     aml::Matrix4 model = aml::Matrix4::identity;
 
-    // Center map (Map mesh goes from 0 to 1 so we need to translate accordingly)
-    // TODO: Make map mesh go from -0.5 to 0.5
-    model *= aml::translate({-map_total_width / 2.f, map_total_height / 2.f, 0});
+    // Move map downwards
+    model *= aml::translate({0, map_total_height, 0});
     // Translate by camera vector
-    model *= aml::translate(aml::Vector3(cam->pos) * global_tile_size::get() * cam->zoom);
+    model *= aml::translate(aml::Vector3(-cam->pos.x, -cam->pos.y, 0) * global_tile_size::get() * cam->zoom);
     // Scale accordingly
     model *= aml::scale(aml::Vector3{map_total_width, -map_total_height, 1});
 
@@ -95,14 +94,12 @@ void render_map_entities(assets::Map const& map) {
                 // Apply sprite pivot
                 model *= aml::translate(aml::Vector3(-sprite->pivot) /
                                         aml::Vector3(map_total_width, map_total_height, 1));
-                // Map mesh goes from 0 to 1 so we need to translate accordingly
-                model *= aml::translate({-map_total_width / 2.f, -map_total_height / 2.f, 0});
                 // Translate by position of entity
                 model *=
                     aml::translate(aml::Vector3(entity->pos) * global_tile_size::get() * cam->zoom);
                 // Translate by camera vector
                 model *=
-                    aml::translate(aml::Vector3(cam->pos) * global_tile_size::get() * cam->zoom);
+                    aml::translate(aml::Vector3(-cam->pos) * global_tile_size::get() * cam->zoom);
                 // Scale accordingly
                 model *= aml::scale(aml::Vector3{sprite_total_width, sprite_total_height, 1});
 
