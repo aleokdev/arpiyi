@@ -41,6 +41,7 @@ struct [[assets::serialize]] [[assets::load_before(Tileset)]] [[assets::load_bef
             regenerate_mesh();
         }
 
+        /// TODO: Layer should not have mesh in it, this should be external
         [[nodiscard]] Handle<assets::Mesh> get_mesh() const { return mesh; }
         void regenerate_mesh();
 

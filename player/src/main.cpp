@@ -6,93 +6,62 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-
-#include "assets/entity.hpp"
-#include "assets/map.hpp"
-#include "assets/sprite.hpp"
-#include "assets/texture.hpp"
-#include "serializer.hpp"
-#include <GLFW/glfw3.h>
-#include <filesystem>
-#include <iostream>
-
-#include "util/defs.hpp"
-
-#include <imgui.h>
 #include <sol/sol.hpp>
-#include <lua.hpp>
+
+#include "serializer.hpp"
+#include "util/defs.hpp"
 #include "api/api.hpp"
 #include "assets/script.hpp"
+#include "game_data_manager.hpp"
+#include "window_manager.hpp"
+#include "default_api_impls.hpp"
+#include "global_tile_size.hpp"
+
+#include <filesystem>
+#include <iostream>
 
 namespace fs = std::filesystem;
 using namespace arpiyi;
 
 sol::state lua;
 
-void drawLuaStateInspectorTable(lua_State* state) {
+void draw_lua_state_inspector_table(sol::table const& table, std::size_t id_to_use = 0) {
     ImGui::Indent();
-    lua_pushnil(state);
-    while (lua_next(state, -2) != 0) { // key(-1) is replaced by the next key(-1) in table(-2)
-        /* uses 'key' (at index -2) and 'value' (at index -1) */
+    for (const auto& [k, v] : table) {
+        std::string k_val = k.as<std::string>();
+        if (v.get_type() == sol::type::table) {
+            std::string str_id = k_val + "###" + std::to_string(id_to_use);
+            if (ImGui::CollapsingHeader(str_id.c_str())) {
+                sol::table tbl = v;
+                draw_lua_state_inspector_table(tbl, id_to_use + 1);
+            }
+        } else {
+            std::string v_val;
+            switch (v.get_type()) {
+                case sol::type::lua_nil: v_val = "nil"; break;
 
-        const char* keyName;
-        const char* valueData;
+                case sol::type::number:
+                case sol::type::boolean:
+                case sol::type::string: v_val = v.as<std::string>(); break;
 
-        // Duplicate the values before converting them to string because tolstring can affect the
-        // actual data in the stack
-        {
-            lua_pushvalue(state, -2);
-            keyName = lua_tostring(state, -1);
-            lua_pop(state, 1);
-        }
-
-        {
-            lua_pushvalue(state, -1);
-            valueData = lua_tostring(state, -1);
-
-            std::string final_string;
-            if (valueData == nullptr) {
-                // lua_tolstring returns NULL if the value is not a number or a string, so let's get
-                // the address instead.
-                const void* address = lua_topointer(state, -1);
-                std::ostringstream addressStr;
-                addressStr << address;
-
-                final_string.append("<");
-                if (lua_iscfunction(state, -1))
-                    final_string.append("C Function");
-                else if (lua_isthread(state, -1))
-                    final_string.append("Thread");
-                else if (lua_isuserdata(state, -1))
-                    final_string.append("Userdata");
-                final_string.append(" @ 0x");
-                final_string.append(addressStr.str());
-                final_string.append(">");
-                valueData = final_string.c_str();
+                case sol::type::thread: v_val = "thread"; break;
+                case sol::type::function: v_val = "function"; break;
+                case sol::type::userdata: v_val = "userdata"; break;
+                case sol::type::lightuserdata: v_val = "light_userdata"; break;
+                case sol::type::table: break;
+                default: ARPIYI_UNREACHABLE();
             }
 
-            lua_pop(state, 1); // Remove duplicate
-
-            if (lua_istable(state, -1)) {
-                if (ImGui::CollapsingHeader(keyName))
-                    drawLuaStateInspectorTable(state);
-                else {
-                    /* removes 'value'; keeps 'key' for next iteration */
-                    lua_pop(state, 1); // remove value(-1), now key on top at(-1)
-                }
-            } else {
-                ImGui::Text("%s - %s", keyName, valueData);
-
-                /* removes 'value'; keeps 'key' for next iteration */
-                lua_pop(state, 1); // remove value(-1), now key on top at(-1)
-            }
+            ImGui::TextUnformatted(k_val.c_str());
+            ImGui::SameLine();
+            ImGui::TextUnformatted(v_val.c_str());
         }
+        id_to_use += 100;
     }
-    lua_pop(state, 1); // remove starting table val
     ImGui::Unindent();
 }
 
-void DrawLuaStateInspector(lua_State* state, bool* p_open) {
+void DrawLuaStateInspector(sol::state_view const& state, bool* p_open) {
     if (!ImGui::Begin("State Inspector", p_open, 0)) {
         // Early out if the window is collapsed, as an optimization.
         ImGui::End();
@@ -100,59 +69,10 @@ void DrawLuaStateInspector(lua_State* state, bool* p_open) {
     }
 
     if (ImGui::CollapsingHeader("GLOBALS")) {
-        lua_pushglobaltable(state);
-        drawLuaStateInspectorTable(state);
+        draw_lua_state_inspector_table(state.globals());
     }
 
     ImGui::End();
-}
-
-static void debug_callback(GLenum const source,
-                           GLenum const type,
-                           GLuint,
-                           GLenum const severity,
-                           GLsizei,
-                           GLchar const* const message,
-                           void const*) {
-    auto stringify_source = [](GLenum const source) {
-        switch (source) {
-            case GL_DEBUG_SOURCE_API: return u8"API";
-            case GL_DEBUG_SOURCE_APPLICATION: return u8"Application";
-            case GL_DEBUG_SOURCE_SHADER_COMPILER: return u8"Shader Compiler";
-            case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return u8"Window System";
-            case GL_DEBUG_SOURCE_THIRD_PARTY: return u8"Third Party";
-            case GL_DEBUG_SOURCE_OTHER: return u8"Other";
-        }
-        ARPIYI_UNREACHABLE();
-    };
-
-    auto stringify_type = [](GLenum const type) {
-        switch (type) {
-            case GL_DEBUG_TYPE_ERROR: return u8"Error";
-            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return u8"Deprecated Behavior";
-            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return u8"Undefined Behavior";
-            case GL_DEBUG_TYPE_PORTABILITY: return u8"Portability";
-            case GL_DEBUG_TYPE_PERFORMANCE: return u8"Performance";
-            case GL_DEBUG_TYPE_MARKER: return u8"Marker";
-            case GL_DEBUG_TYPE_PUSH_GROUP: return u8"Push Group";
-            case GL_DEBUG_TYPE_POP_GROUP: return u8"Pop Group";
-            case GL_DEBUG_TYPE_OTHER: return u8"Other";
-        }
-        ARPIYI_UNREACHABLE();
-    };
-
-    auto stringify_severity = [](GLenum const severity) {
-        switch (severity) {
-            case GL_DEBUG_SEVERITY_HIGH: return u8"Fatal Error";
-            case GL_DEBUG_SEVERITY_MEDIUM: return u8"Error";
-            case GL_DEBUG_SEVERITY_LOW: return u8"Warning";
-            case GL_DEBUG_SEVERITY_NOTIFICATION: return u8"Note";
-        }
-        ARPIYI_UNREACHABLE();
-    };
-
-    std::cout << "[" << stringify_severity(severity) << ":" << stringify_type(type) << " in "
-              << stringify_source(source) << "]: " << message << std::endl;
 }
 
 namespace detail::project_file_definitions {
@@ -190,79 +110,78 @@ static ProjectFileData load_project_file(fs::path base_dir) {
         } else if (obj.name == editor_version_json_key.data()) {
             file_data.editor_version = obj.value.GetString();
         } else if (obj.name == startup_script_id_key.data()) {
-            file_data.startup_script = obj.value.GetUint64();
+            file_data.startup_script = Handle<assets::Script>(obj.value.GetUint64());
         }
     }
 
     return file_data;
 }
 
+static bool show_state_inspector = false;
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (mods & GLFW_MOD_CONTROL && key == GLFW_KEY_K && action & GLFW_PRESS) {
+        show_state_inspector = !show_state_inspector;
+    }
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+}
+
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
-        std::cerr << "You must supply a valid arpiyi project path to load." << std::endl;
+        std::cerr << "No arguments given. You must supply a valid arpiyi project path to load."
+                  << std::endl;
         return -1;
     }
-
-    if (!glfwInit()) {
-        std::cerr << "Couldn't init GLFW." << std::endl;
-        return -1;
-    }
-
-    // Use OpenGL 4.5
-    const char* glsl_version = "#version 450";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    GLFWwindow* window = glfwCreateWindow(1080, 720, "Arpiyi Player", nullptr, nullptr);
-    if (!window) {
+    fs::path project_path = fs::absolute(argv[1]);
+    std::cout << project_path.generic_string() << std::endl;
+    if (!fs::is_directory(project_path)) {
         std::cerr
-            << "Couldn't create window. Check your GPU drivers, as arpiyi requires OpenGL 4.5."
+            << "Path given is not a folder. You must supply a valid arpiyi project path to load."
             << std::endl;
         return -1;
     }
-    // Activate VSync and fix FPS
-    glfwSwapInterval(1);
 
-    glfwMakeContextCurrent(window);
-    gladLoadGLLoader((GLADloadproc)&glfwGetProcAddress);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEBUG_OUTPUT);
-    glCullFace(GL_FRONT_AND_BACK);
-
-    glDebugMessageCallback(debug_callback, nullptr);
-
-    // Setup ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+    if (!window_manager::init())
+        return -1;
 
     const auto callback = [](auto str, auto progress) {
         std::cout << "Loading " << str << "... (" << std::setprecision(0) << std::fixed
                   << (progress * 100) << "%)" << std::endl;
     };
 
-    fs::path project_path = fs::absolute(argv[1]);
     ProjectFileData project_data = load_project_file(project_path);
-    serializer::load_assets<assets::Texture>(project_path, callback);
-    serializer::load_assets<assets::Sprite>(project_path, callback);
-    serializer::load_assets<assets::Entity>(project_path, callback);
-    serializer::load_assets<assets::Script>(project_path, callback);
-    serializer::load_assets<assets::Map>(project_path, callback);
+    global_tile_size::set(project_data.tile_size);
+    for (std::size_t i = 0; i < serializer::serializable_assets; ++i)
+        serializer::load_one_asset_type(i, project_path, callback);
     std::cout << "Finished loading." << std::endl;
 
-    arpiyi::api::define_api(lua);
-    sol::function startup_func = lua.script(project_data.startup_script.get()->source);
-    try {
-        startup_func();
-    } catch(sol::error const& e) {
-        std::cerr << e.what() << std::endl;
+    default_api_impls::init();
+    arpiyi::api::define_api(game_data_manager::get_game_data(), lua);
+
+    lua.open_libraries(sol::lib::base, sol::lib::debug, sol::lib::coroutine, sol::lib::math);
+    sol::coroutine main_coroutine;
+    sol::thread main_coroutine_thread = sol::thread::create(lua.lua_state());
+    if (auto startup_script = project_data.startup_script.get()) {
+        try {
+            sol::function f = main_coroutine_thread.state().load(startup_script->source);
+            main_coroutine = f;
+        } catch (sol::error const& e) {
+            std::cerr << e.what() << std::endl;
+            std::cerr << "Startup script was not able to load on initialize. Exiting." << std::endl;
+            return -1;
+        }
+    } else {
+        std::cerr << "No startup script set. Exiting." << std::endl;
+        return -1;
     }
 
-    while (!glfwWindowShouldClose(window)) {
+    // debug: set current map to 0
+    game_data_manager::get_game_data().current_map = Handle<assets::Map>((u64)0);
+
+    assert(game_data_manager::get_game_data().current_map.get());
+
+    glfwSetKeyCallback(window_manager::get_window(), key_callback);
+    while (!glfwWindowShouldClose(window_manager::get_window())) {
         glfwPollEvents();
 
         // Start the ImGui frame
@@ -271,22 +190,65 @@ int main(int argc, const char* argv[]) {
         ImGui::NewFrame();
 
         int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glfwGetFramebufferSize(window_manager::get_window(), &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        for (const auto& [id, layer] : arpiyi::api::game_play_data::ScreenLayerContainer::get_instance().map) {
-            layer.render_callback();
+        main_coroutine();
+        if (main_coroutine.status() == sol::call_status::ok) {
+            std::cout << "Main coroutine finished. Searching for auto scripts..." << std::endl;
+            struct {
+                Handle<assets::Entity> parent_entity;
+                Handle<assets::Script> script;
+            } auto_obj;
+            for (const auto& e : game_data_manager::get_game_data().current_map.get()->entities) {
+                assert(e.get());
+                for (const auto& script : e.get()->scripts) {
+                    assert(script.get());
+                    if (script.get()->trigger_type == assets::Script::TriggerType::t_auto) {
+                        auto_obj.script = script;
+                        auto_obj.parent_entity = e;
+                        break;
+                    } else if (script.get()->trigger_type ==
+                               assets::Script::TriggerType::t_lp_auto) {
+                        if (auto as = auto_obj.script.get()) {
+                            if (as->trigger_type != assets::Script::TriggerType::t_auto) {
+                                auto_obj.script = script;
+                                auto_obj.parent_entity = e;
+                            }
+                        } else {
+                            auto_obj.script = script;
+                            auto_obj.parent_entity = e;
+                        }
+                    }
+                }
+            }
+            if (auto a_s = auto_obj.script.get()) {
+                assert(auto_obj.parent_entity.get());
+                sol::function f = main_coroutine_thread.state().load(a_s->source);
+                sol::environment script_env(main_coroutine_thread.state(), sol::create, lua.globals());
+                script_env["entity"] = auto_obj.parent_entity;
+                main_coroutine = f;
+                script_env.set_on(main_coroutine);
+            } else {
+                std::cout << "Found no auto script source to replace dead main coroutine, exiting."
+                          << std::endl;
+                return -2;
+            }
         }
 
-        bool _ = true;
-        DrawLuaStateInspector(lua.lua_state(), &_);
+        for (const auto& layer : game_data_manager::get_game_data().screen_layers) {
+            layer->render_callback();
+        }
+
+        if (show_state_inspector)
+            DrawLuaStateInspector(lua.lua_state(), &show_state_inspector);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(window_manager::get_window());
     }
 
     glfwTerminate();

@@ -2,9 +2,11 @@ file(GLOB imgui_source ${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.cpp)
 
 add_library(extlibs STATIC
         ${imgui_source}
-        imgui/examples/imgui_impl_opengl3.cpp
-        imgui/examples/imgui_impl_glfw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/imgui/examples/imgui_impl_opengl3.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/imgui/examples/imgui_impl_glfw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/imguitextedit/TextEditor.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/stb_image.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/stb_image_write.cpp
         )
 
 add_subdirectory(glad)

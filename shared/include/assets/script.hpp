@@ -10,6 +10,15 @@ namespace arpiyi::assets {
 struct [[assets::serialize]] [[meta::dir_name("scripts")]] Script {
     std::string name;
     std::string source;
+
+    enum class TriggerType {
+        t_triggered,
+        t_auto,
+        t_lp_auto,
+        t_parallel_auto,
+        t_parallel_triggered,
+        count
+    } trigger_type = TriggerType::t_triggered;
 };
 
 template<> struct LoadParams<Script> { fs::path path; };

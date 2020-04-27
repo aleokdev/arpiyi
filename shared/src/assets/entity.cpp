@@ -63,7 +63,7 @@ template<> void raw_load<Entity>(Entity& entity, LoadParams<Entity> const& param
         if (obj.name == name_json_key.data()) {
             entity.name = obj.value.GetString();
         } else if (obj.name == sprite_id_json_key.data()) {
-            entity.sprite = obj.value.GetUint64();
+            entity.sprite = Handle<assets::Sprite>(obj.value.GetUint64());
         } else if (obj.name == pos_json_key.data()) {
             entity.pos.x = obj.value.GetArray()[0].GetFloat();
             entity.pos.y = obj.value.GetArray()[1].GetFloat();

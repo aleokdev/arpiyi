@@ -304,7 +304,7 @@ static void show_map_list() {
                 }
                 if (ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
                     if (ImGui::Selectable("Edit...")) {
-                        map_being_edited = _id;
+                        map_being_edited = Handle<assets::Map>(_id);
                     }
                     ImGui::EndPopup();
                 }

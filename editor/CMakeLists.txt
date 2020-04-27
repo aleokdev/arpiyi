@@ -13,8 +13,6 @@ add_executable(arpiyi-editor
         src/util/imgui_addons.cpp
         src/plugin_manager.cpp
         src/tileset_manager.cpp
-        src/stb_image.cpp
-        src/stb_image_write.cpp
         src/noc_file_dialog.cpp
         src/window_manager.cpp
         src/map_manager.cpp
@@ -22,11 +20,32 @@ add_executable(arpiyi-editor
         src/sprite_manager.cpp
         src/script_manager.cpp
         src/serializing_manager.cpp
-        src/window_list_menu.cpp)
+        src/window_list_menu.cpp
+        src/util/process_exec.cpp
+        src/project_manager.cpp)
 set_property(TARGET arpiyi-editor PROPERTY CXX_STANDARD 17)
 target_include_directories(arpiyi-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-configure_file(include/project_info.hpp.in include/project_info.hpp @ONLY)
 target_include_directories(arpiyi-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
+
+# We need to set a header with information about the project (project_info.hpp). A simple configure_file won't do since
+# we require generator expressions for setting ARPIYI_PLAYER_EXECUTABLE_NAME.
+file(GENERATE
+        OUTPUT "config_$<CONFIG>.out"
+        CONTENT "\
+#define ARPIYI_EDITOR_VERSION \"${ARPIYI_EDITOR_VERSION}\"\n\
+#define ARPIYI_PLAYER_EXECUTABLE_NAME \"$<TARGET_FILE_NAME:arpiyi-player>\""
+        )
+
+set(PROJECT_INFO_HEADER_PATH ${CMAKE_CURRENT_BINARY_DIR}/include/project_info.hpp)
+add_custom_command(
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "config_$<CONFIG>.out" ${PROJECT_INFO_HEADER_PATH}
+        VERBATIM
+        PRE_BUILD
+        OUTPUT ${PROJECT_INFO_HEADER_PATH}
+        COMMENT "Creating config.out file ({event: PRE_BUILD}, {filename: ${PROJECT_INFO_HEADER_PATH}})"
+)
+add_custom_target(generate_config_out DEPENDS ${PROJECT_INFO_HEADER_PATH})
+add_dependencies(arpiyi-editor generate_config_out)
 
 target_link_libraries(arpiyi-editor PRIVATE arpiyi-shared)
 
@@ -41,3 +60,12 @@ elseif (UNIX)
     add_definitions(${GTK3_CFLAGS_OTHER})
     target_link_libraries(arpiyi-editor PRIVATE ${GTK3_LIBRARIES})
 endif ()
+
+# Copy player executable to editor dir
+add_custom_command(OUTPUT PLAYER_RUN_ALWAYS
+        COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:arpiyi-player> ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Copying player executable to editor build folder" VERBATIM)
+add_custom_target(copy-arpiyi-player
+        DEPENDS PLAYER_RUN_ALWAYS)
+add_dependencies(arpiyi-editor arpiyi-player copy-arpiyi-player)

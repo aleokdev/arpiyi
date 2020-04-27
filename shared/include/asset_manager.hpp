@@ -52,7 +52,8 @@ public:
 
     Handle() noexcept : id(noid) {}
     Handle(u64 id) noexcept : id(id) {}
-    Handle(std::nullptr_t) noexcept : id(noid) {}
+    explicit Handle(std::nullptr_t) noexcept : id(noid) {}
+    Handle& operator=(u64 _id) = delete;
     Handle& operator=(std::nullptr_t) {
         id = noid;
         return *this;

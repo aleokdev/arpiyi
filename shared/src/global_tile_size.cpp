@@ -3,7 +3,7 @@
 
 namespace arpiyi::global_tile_size {
 
-static u32 tile_size = -1;
+static u32 tile_size = 16;
 
 u32 set(u32 size_in_px) {
     return tile_size = size_in_px;

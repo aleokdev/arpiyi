@@ -1,14 +1,40 @@
 ## Lua Public API
 
 ### Scripts
-Scripts modify an entity's operation. Automatically, they are run depending on their auto-trigger:
-- None: The script will not be run automatically (Hence something else needs to trigger it, like the player)
-- Autorun: The script will be run once at load.
+Scripts modify an entity's operation.
+
+There are four types of script execution. Ordered from most common to least, here they are:
+- Triggered: Only runs when the script is called by _another_ script. Blocks the execution
+of the caller script until the trigger is finished. This means that if the caller script is
+a parallel one, the main auto/LP auto coroutine will not be affected.
+
+- Auto: Automatically runs once, when the entity is created (Or loaded, if it is part of the
+map.) Blocks the execution of other auto/LP auto scripts. If many auto scripts are created on
+the same frame (For example, on map load), there is no defined order of execution between
+them. As such, refrain from using more than one auto script per map.
+
+- LP Auto: Stands for "Low Priority" auto. Works exactly as an auto script, but if a Low
+Priority auto script and an auto script are loaded on the same frame, the auto script will
+get priority. Normally used for player scripts and nothing more.
+
+- Parallel Auto: Automatically runs once, when the entity is created (Or loaded, if it is
+part of the map.) and **doesn't block any other scripts when doing so**, since it creates
+its own coroutine; effectively running parallel to other scripts. **Parallel scripts should
+be only used if you truly know what you're doing, as they can cause strange side effects and
+synchronization issues.**
+
+- Parallel Triggered: Only runs when the script is called by _another_ script. Does **not**
+block the execution of the caller script, since it creates its own coroutine; effectively
+running parallel to other scripts. **Parallel scripts should be only used if you truly know
+what you're doing, as they can cause strange side effects and synchronization issues.**
 
 Here's a sample script that makes the camera follow the parent entity indefinitely:
 ```lua
 while true do
     camera.pos = entity.pos
+    -- Yielding is needed here to return control to the game and
+    -- allow to execute other scripts/functions.
+    coroutine.yield()
 end
 ```
 
@@ -84,9 +110,6 @@ data Entity {
 Defines an object that has a drawing callback and an order. Examples of these objects can be, for example, the map view,
 an UI menu, etc.
 
-This class contains static methods that you can call using `game.ScreenLayer.x()`, where `x` is the static function to
-call.
-
 Pseudodefinition:
 ```
 data ScreenLayer {
@@ -100,15 +123,30 @@ data ScreenLayer {
     void to_front();
     /// Sends the screen layer to the top of the render queue, and thus is rendered last, in front of other layers.
     void to_back();
-
-    /// Returns all the screenlayers created via new() or internally, which includes both hidden and visible ones.
-    static ScreenLayer[] get_all();
-    static ScreenLayer[] get_visible();
-    static ScreenLayer[] get_hidden();
 };
 ```
 
-### Other definitions
+### The game table
+The game table contains everything the API defines, including all data structures. Apart from them, it
+also defines the following data:
+```
+table game {
+    /// Returns all the screenlayers created via new() or internally, which includes both hidden and visible ones.
+    ScreenLayer[] get_all_screen_layers();
+    ScreenLayer[] get_visible_screen_layers();
+    ScreenLayer[] get_hidden_screen_layers();
+
+    /// A global instance of the Camera class.
+    Camera camera;
+
+    /// Explained later.
+    table input { ... }
+
+    /// Explained later.
+    table assets { ... }
+}
+```
+
 #### Assets
 You can use the `game.assets` function table to load resources that the game contains,
 such as sprites, textures, etc.
@@ -129,23 +167,23 @@ Pseudodefinition:
 table input {
     /// An enumeration table containing all possible keys being held.
     table keys {
-        k_A = 0,
-        k_B = 1,
-        k_C = 2,
+        A = 0,
+        B = 1,
+        C = 2,
         // ...
     };
     
     /// Contains the state of a key.
     data KeyState {
         /// True if the key is pressed, false otherwise.
-        bool held();
+        bool held { get; }
         /// True if the key press had begun on the last frame.
-        bool just_pressed();
+        bool just_pressed { get; }
         /// True if the key release had begun on the last frame.
-        bool just_released();
+        bool just_released { get; }
     };
 
     /// Returns the key state of a particular key from the keys table.
-    KeyState get_key_state(int);
+    KeyState get_key_state(key);
 };
 ```

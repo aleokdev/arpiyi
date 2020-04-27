@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <string>
+#include <functional>
 
 #include "asset_manager.hpp"
 #include "assets/asset.hpp"
@@ -28,6 +29,8 @@ template<typename AssetT> fs::path get_asset_save_path(u64 handle_id) {
 
 void start_save();
 void start_load(fs::path project_path, bool ignore_editor_version = false);
+/// Sets the function called for when saving/loading finishes.
+void set_callback(std::function<void()>);
 
 } // namespace arpiyi::serializing_manager
 

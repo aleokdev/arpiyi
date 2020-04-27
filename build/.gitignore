@@ -1,3 +1,4 @@
 /*
 !.gitignore
-!data/
+!editor/data
+!player/data

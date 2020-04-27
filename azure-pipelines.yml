@@ -41,11 +41,6 @@ jobs:
       inputs:
         cmakeArgs: '--build . --target arpiyi-editor -- -j 2 VERBOSE=1'
 
-    - task: CMake@1
-      displayName: 'Build arpiyi-player'
-      inputs:
-        cmakeArgs: '--build . --target arpiyi-player -- -j 2'
-
   - job: Windows_Build
     displayName: Windows Build
     condition: succeeded()
@@ -71,8 +66,3 @@ jobs:
       displayName: 'Build arpiyi-editor'
       inputs:
         cmakeArgs: '--build . --target arpiyi-editor'
-
-    - task: CMake@1
-      displayName: 'Build arpiyi-player'
-      inputs:
-        cmakeArgs: '--build . --target arpiyi-player'
