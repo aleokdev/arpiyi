@@ -38,11 +38,11 @@ file(GENERATE
 
 set(PROJECT_INFO_HEADER_PATH ${CMAKE_CURRENT_BINARY_DIR}/include/project_info.hpp)
 add_custom_command(
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "config_$<CONFIG>.out" ${PROJECT_INFO_HEADER_PATH}
+        COMMAND ${CMAKE_COMMAND} -E copy "config_$<CONFIG>.out" ${PROJECT_INFO_HEADER_PATH}
         VERBATIM
         PRE_BUILD
         OUTPUT ${PROJECT_INFO_HEADER_PATH}
-        COMMENT "Creating config.out file ({event: PRE_BUILD}, {filename: ${PROJECT_INFO_HEADER_PATH}})"
+        COMMENT "Creating config.out file {filename: ${PROJECT_INFO_HEADER_PATH}}"
 )
 add_custom_target(generate_config_out DEPENDS ${PROJECT_INFO_HEADER_PATH})
 add_dependencies(arpiyi-editor generate_config_out)
