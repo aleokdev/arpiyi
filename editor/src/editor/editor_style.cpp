@@ -2,6 +2,9 @@
 #include "util/icons_material_design.hpp"
 
 #include <imgui.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 static ImFont* icon_font;
 
@@ -76,6 +79,10 @@ void init() {
         io.Fonts->AddFontFromFileTTF("data/" FONT_ICON_FILE_NAME_MD, 14.0f, &iconf, icon_ranges);
 
     io.ConfigWindowsMoveFromTitleBarOnly = true;
+
+    // Load layout
+    if(!fs::exists("imgui.ini"))
+        ImGui::LoadIniSettingsFromDisk("data/default_layout.ini");
 }
 
 } // namespace arpiyi::editor::style
