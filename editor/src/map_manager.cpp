@@ -39,6 +39,8 @@ int current_zoom_level = 2;
 static bool show_grid = true;
 enum class EditMode { tile, comment, entity } edit_mode = EditMode::tile;
 
+constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
+
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
 static void show_info_tip(const char* c) {
@@ -55,7 +57,7 @@ static void show_add_layer_window(bool* p_open) {
     if (ImGui::Begin(ICON_MD_ADD_BOX " New Map Layer", p_open)) {
         static char name[32];
         static Handle<assets::Tileset> tileset;
-        bool valid = tileset.get();
+        bool valid = tileset.get() && strlen(name) > 0;
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
@@ -83,12 +85,12 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
     if (ImGui::Begin(ICON_MD_SETTINGS " Edit Map Layer", p_open)) {
         static char name[32];
         static Handle<assets::Tileset> tileset;
-        bool valid = tileset.get();
         if (ImGui::IsWindowAppearing()) {
             assert(layer.name.size() < 32);
             strcpy(name, layer.name.c_str());
             tileset = layer.tileset;
         }
+        bool valid = tileset.get() && strlen(name) > 0;
 
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
@@ -233,9 +235,9 @@ static void show_map_layer_list() {
                         layer.visible = !layer.visible;
                     }
                     ImGui::SameLine();
-                    if (l == current_layer_selected ? ImGui::TextUnformatted(layer.name.c_str())
-                                                    : ImGui::TextDisabled("%s", layer.name.c_str()),
+                    if (ImGui::Selectable(layer.name.c_str(), l == current_layer_selected),
                         ImGui::IsItemClicked()) {
+                        ImGui::SetWindowFocus(map_view_strid);
                         current_layer_selected = l;
                         tileset_manager::set_selection_tileset(layer.tileset);
                     }
@@ -281,7 +283,7 @@ static void show_map_layer_list() {
 static void show_map_list() {
     static bool show_add_map = false;
     static Handle<assets::Map> map_being_edited;
-    if (ImGui::Begin(ICON_MD_VIEW_LIST " Map List", nullptr, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(ICON_MD_VIEW_LIST " Map List##map_list", nullptr, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::MenuItem("New...")) {
                 show_add_map = true;
@@ -295,6 +297,7 @@ static void show_map_list() {
                 ImGui::TextDisabled("%zu", _id);
                 ImGui::SameLine();
                 if (ImGui::Selectable(_m.name.c_str(), _id == current_map.get_id())) {
+                    ImGui::SetWindowFocus(map_view_strid);
                     current_map = Handle<assets::Map>(_id);
                     if (!current_map.get()->layers.empty()) {
                         current_layer_selected = current_map.get()->layers[0];
@@ -725,7 +728,7 @@ void init() {
 void render(bool* p_show) {
     auto map = current_map.get();
 
-    if (ImGui::Begin(ICON_MD_TERRAIN " Map View", p_show,
+    if (ImGui::Begin(map_view_strid, p_show,
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar |
                          ImGuiWindowFlags_NoScrollWithMouse)) {
         if (map) {
