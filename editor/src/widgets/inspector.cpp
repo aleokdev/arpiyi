@@ -23,8 +23,13 @@ void draw_entity_inspector(assets::Entity& entity) {
     char buf[assets::Entity::name_length_limit];
     strcpy(buf, entity.name.c_str());
 
-    const ImVec2 img_size = {ImGui::GetContentRegionAvailWidth() / 4.f,
+    ImVec2 img_size = {ImGui::GetContentRegionAvailWidth() / 4.f,
                              ImGui::GetContentRegionAvailWidth() / 4.f};
+    if (auto s = entity.sprite.get()) {
+        auto size_in_pixels = s->get_size_in_pixels();
+        float max_axis_size = std::max(size_in_pixels.x, size_in_pixels.y);
+        img_size = {img_size.x * size_in_pixels.x / max_axis_size, img_size.y * size_in_pixels.y / max_axis_size};
+    }
     if (auto s = entity.sprite.get()) {
         if (ImGui::ImageButton(reinterpret_cast<ImTextureID>(s->texture.get()->handle), img_size,
                                {s->uv_min.x, s->uv_min.y}, {s->uv_max.x, s->uv_max.y}, 1)) {
