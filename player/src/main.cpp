@@ -15,6 +15,7 @@
 #include "game_data_manager.hpp"
 #include "window_manager.hpp"
 #include "default_api_impls.hpp"
+#include "global_tile_size.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -149,6 +150,7 @@ int main(int argc, const char* argv[]) {
     };
 
     ProjectFileData project_data = load_project_file(project_path);
+    global_tile_size::set(project_data.tile_size);
     for (std::size_t i = 0; i < serializer::serializable_assets; ++i)
         serializer::load_one_asset_type(i, project_path, callback);
     std::cout << "Finished loading." << std::endl;
