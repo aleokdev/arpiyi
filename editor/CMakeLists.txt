@@ -61,11 +61,9 @@ elseif (UNIX)
     target_link_libraries(arpiyi-editor PRIVATE ${GTK3_LIBRARIES})
 endif ()
 
-# Copy player executable to editor dir
-add_custom_command(OUTPUT PLAYER_RUN_ALWAYS
-        COMMAND ${CMAKE_COMMAND} -E copy
-        $<TARGET_FILE:arpiyi-player> ${CMAKE_CURRENT_BINARY_DIR}
-        COMMENT "Copying player executable to editor build folder" VERBATIM)
-add_custom_target(copy-arpiyi-player
-        DEPENDS PLAYER_RUN_ALWAYS)
-add_dependencies(arpiyi-editor arpiyi-player copy-arpiyi-player)
+add_dependencies(arpiyi-editor arpiyi-player)
+
+MESSAGE(STATUS "Building editor to ${CMAKE_BINARY_DIR}/editor")
+set_target_properties(arpiyi-editor PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/editor
+        )
