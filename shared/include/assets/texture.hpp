@@ -21,7 +21,7 @@ struct [[assets::serialize]] [[meta::dir_name("textures")]] Texture {
     constexpr static auto nohandle = static_cast<decltype(handle)>(-1);
 };
 
-enum TextureFilter { point, linear };
+enum class TextureFilter { point, linear };
 template<> struct LoadParams<Texture> {
     fs::path path;
     bool flip = false;
@@ -38,12 +38,12 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     switch (params.filter) {
-        case point:
+        case TextureFilter::point:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glGenerateMipmap(GL_TEXTURE_2D);
             break;
-        case linear:
+        case TextureFilter::linear:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glGenerateMipmap(GL_TEXTURE_2D);
