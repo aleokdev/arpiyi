@@ -39,6 +39,7 @@ file(GENERATE
 set(PROJECT_INFO_HEADER_PATH ${CMAKE_CURRENT_BINARY_DIR}/include/project_info.hpp)
 add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy "config_$<CONFIG>.out" ${PROJECT_INFO_HEADER_PATH}
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/config_$<CONFIG>.out"
         VERBATIM
         PRE_BUILD
         OUTPUT ${PROJECT_INFO_HEADER_PATH}
