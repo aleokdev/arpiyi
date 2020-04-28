@@ -221,6 +221,10 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                 for (auto const& layer_val : layer_object.GetObject()) {
                     if (layer_val.name == lfd::name_json_key.data()) {
                         layer.name = layer_val.value.GetString();
+                        // < 0.1.4 compatibility: Blank layer names are no longer allowed
+                        if(layer.name == "") {
+                            layer.name = "<Blank name>";
+                        }
                     } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
                         layer.tileset = Handle<Tileset>(layer_val.value.GetUint64());
                         layer.regenerate_mesh();

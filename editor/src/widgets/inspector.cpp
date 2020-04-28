@@ -92,7 +92,8 @@ void draw_entity_inspector(assets::Entity& entity) {
 
     if (show_sprite_selector) {
         if (ImGui::Begin(ICON_MD_ADD "Sprite Selector", &show_sprite_selector)) {
-            show_sprite_selector = !widgets::sprite_picker::show(entity.sprite);
+            if(widgets::sprite_picker::show(entity.sprite))
+                show_sprite_selector = false;
         }
         ImGui::End();
     }

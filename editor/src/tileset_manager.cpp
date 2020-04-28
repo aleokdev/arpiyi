@@ -33,6 +33,8 @@ assets::Texture grid_texture;
 
 aml::Matrix4 proj_mat;
 
+constexpr const char* tileset_view_strid = ICON_MD_BORDER_INNER " Tileset View";
+
 TilesetSelection selection{-1, {0, 0}, {0, 0}};
 
 static void update_grid_texture() {
@@ -294,7 +296,7 @@ void init() {
 }
 
 void render(bool* p_show) {
-    if (ImGui::Begin(ICON_MD_BORDER_INNER " Tileset View", nullptr,
+    if (ImGui::Begin(tileset_view_strid, nullptr,
                      ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_HorizontalScrollbar)) {
         if (auto ts = selection.tileset.get()) {
             if (auto img = ts->texture.get()) {
@@ -439,6 +441,7 @@ void render(bool* p_show) {
                 selectable_strid += std::to_string(_id);
                 if (ImGui::Selectable(selectable_strid.c_str(),
                                       _id == selection.tileset.get_id())) {
+                    ImGui::SetWindowFocus(tileset_view_strid);
                     selection.tileset = Handle<assets::Tileset>(_id);
                     update_grid_texture();
                 }

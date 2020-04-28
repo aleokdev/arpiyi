@@ -17,6 +17,7 @@ static ImFont* code_font;
 static sol::state lua_linter;
 static Handle<assets::Script> selected_script;
 static Handle<assets::Script> startup_script;
+constexpr const char* script_editor_strid = ICON_MD_MEMORY " Lua Editor";
 
 static void check_for_errors_in_editor_script() {
     const std::string editor_text = editor.GetText();
@@ -56,7 +57,7 @@ std::string_view trigger_type_name(assets::Script::TriggerType T) {
 }
 
 void render(bool* p_show) {
-    if (ImGui::Begin(ICON_MD_MEMORY " Lua Editor", p_show, ImGuiWindowFlags_MenuBar)) {
+    if (ImGui::Begin(script_editor_strid, p_show, ImGuiWindowFlags_MenuBar)) {
         if (auto script = selected_script.get()) {
             if (ImGui::BeginMenuBar()) {
                 using TriggerType = assets::Script::TriggerType;
@@ -113,6 +114,7 @@ void render(bool* p_show) {
                         str_id = _s.name + "###" + std::to_string(_id);
                     }
                     if (ImGui::Selectable(str_id.c_str(), _id == selected_script.get_id())) {
+                        ImGui::SetWindowFocus(script_editor_strid);
                         selected_script = Handle<assets::Script>(_id);
                         editor.SetText(_s.source);
                         check_for_errors_in_editor_script();
