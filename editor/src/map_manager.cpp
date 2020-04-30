@@ -801,10 +801,6 @@ void render(bool* p_show) {
                 ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
             {
                 // Draw the map
-                static DrawMapCallbackData data;
-                data = {ImVec2{static_cast<float>(map_render_pos.x),
-                               static_cast<float>(map_render_pos.y)},
-                        abs_content_start_pos};
                 resize_map_fb(static_cast<int>(ImGui::GetWindowWidth()),
                               static_cast<int>(ImGui::GetWindowHeight()));
                 render_map(map_render_pos);
