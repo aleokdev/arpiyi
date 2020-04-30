@@ -8,6 +8,7 @@
 #include "assets/entity.hpp"
 #include "assets/shader.hpp"
 #include "assets/texture.hpp"
+#include "global_tile_size.hpp"
 #include "tileset_manager.hpp"
 #include "util/defs.hpp"
 #include "util/icons_material_design.hpp"
@@ -16,7 +17,6 @@
 #include "widgets/pickers.hpp"
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
-#include "global_tile_size.hpp"
 
 #include <anton/math/matrix4.hpp>
 #include <anton/math/transform.hpp>
@@ -27,17 +27,20 @@ namespace aml = anton::math;
 
 namespace arpiyi::map_manager {
 
-Handle<assets::Map> current_map;
-Handle<assets::Shader> tile_shader;
-Handle<assets::Shader> grid_shader;
-Handle<assets::Mesh> quad_mesh;
-aml::Matrix4 proj_mat;
-Handle<assets::Map::Layer> current_layer_selected;
-ImVec2 map_scroll{0, 0};
-std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
-int current_zoom_level = 2;
+static Handle<assets::Map> current_map;
+static Handle<assets::Shader> tile_shader;
+static Handle<assets::Shader> grid_shader;
+static Handle<assets::Mesh> quad_mesh;
+static aml::Matrix4 proj_mat;
+static Handle<assets::Map::Layer> current_layer_selected;
+/// (In pixels).
+static ImVec2 map_scroll{0, 0};
+static std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
+static int current_zoom_level = 2;
 static bool show_grid = true;
 enum class EditMode { tile, comment, entity } edit_mode = EditMode::tile;
+static unsigned int map_fb_id = static_cast<unsigned int>(-1);
+static assets::Texture map_fb_texture;
 
 constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 
@@ -348,16 +351,35 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
     }
 }
 
-struct DrawMapCallbackData {
-    ImVec2 map_render_pos;
-    ImVec2 abs_content_min_rect;
-};
-static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cmd) {
-    auto fb_size = window_manager::get_framebuf_size();
-    const auto callback_data = *static_cast<DrawMapCallbackData*>(cmd->UserCallbackData);
-    glScissor(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w,
-              cmd->ClipRect.z - callback_data.abs_content_min_rect.x,
-              cmd->ClipRect.w - callback_data.abs_content_min_rect.y);
+static void resize_map_fb(int width, int height) {
+    auto map = current_map.get();
+    if (!map)
+        return;
+
+    if (map_fb_texture.handle != assets::Texture::nohandle)
+        glDeleteTextures(1, &map_fb_texture.handle);
+    glGenTextures(1, &map_fb_texture.handle);
+    glBindTexture(GL_TEXTURE_2D, map_fb_texture.handle);
+    if (map_fb_id != static_cast<unsigned int>(-1))
+        glDeleteFramebuffers(1, &map_fb_id);
+    glCreateFramebuffers(1, &map_fb_id);
+
+    map_fb_texture.w = width;
+    map_fb_texture.h = height;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    // Disable filtering (Because it needs mipmaps, which we haven't set)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, map_fb_id);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           map_fb_texture.handle, 0);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_map(math::IVec2D map_render_pos) {
+    glBindFramebuffer(GL_FRAMEBUFFER, map_fb_id);
 
     const auto& map = *current_map.get();
     // Calculate model matrix: This is the same for the grid and all layers, so we'll calculate it
@@ -365,19 +387,18 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
     float map_total_width = map.width * global_tile_size::get() * get_map_zoom();
     float map_total_height = map.height * global_tile_size::get() * get_map_zoom();
 
-    float clip_rect_width = cmd->ClipRect.z - callback_data.abs_content_min_rect.x;
-    float clip_rect_height = cmd->ClipRect.w - callback_data.abs_content_min_rect.y;
-    glViewport(callback_data.abs_content_min_rect.x, fb_size.y - cmd->ClipRect.w, clip_rect_width,
-               clip_rect_height);
+    glViewport(0, 0, map_fb_texture.w, map_fb_texture.h);
     aml::Matrix4 model = aml::Matrix4::identity;
-    model = model * aml::translate({0, map_total_height / clip_rect_height,
-                                            0}); // Put model in left-top corner
-    model = model * aml::translate({callback_data.map_render_pos.x / clip_rect_width,
-                                            callback_data.map_render_pos.y / clip_rect_height,
-                                            0});    // Put model in given position
-    model = model * aml::scale({1, -1, 1}); // Flip model from its Y axis
-    model = model * aml::scale({map_total_width / clip_rect_width,
-                                        map_total_height / clip_rect_height, 1});
+    model *=
+        aml::translate({0, map_total_height / map_fb_texture.h, 0}); // Put model in left-top corner
+    model *= aml::translate({static_cast<float>(map_render_pos.x) / map_fb_texture.w,
+                             static_cast<float>(map_render_pos.y) / map_fb_texture.h,
+                             0}); // Put model in given position
+
+    model *= aml::scale({1, -1, 1}); // Flip model from its Y axis
+
+    model *=
+        aml::scale({map_total_width / map_fb_texture.w, map_total_height / map_fb_texture.h, 1});
 
     if (!map.layers.empty()) {
         glUseProgram(tile_shader.get()->handle);
@@ -411,6 +432,7 @@ static void draw_map_callback(const ImDrawList* parent_list, const ImDrawCmd* cm
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void place_tile_on_pos(assets::Map& map,
@@ -543,11 +565,11 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
 
         const aml::Vector2 tile_entity_square_render_pos_min = entity.get_left_corner_pos();
         ImVec2 entity_square_render_pos_min{
-            tile_entity_square_render_pos_min.x *
-                    static_cast<float>(global_tile_size::get()) * get_map_zoom() +
+            tile_entity_square_render_pos_min.x * static_cast<float>(global_tile_size::get()) *
+                    get_map_zoom() +
                 map_render_pos.x + abs_content_start_pos.x,
-            tile_entity_square_render_pos_min.y *
-                    static_cast<float>(global_tile_size::get()) * get_map_zoom() +
+            tile_entity_square_render_pos_min.y * static_cast<float>(global_tile_size::get()) *
+                    get_map_zoom() +
                 map_render_pos.y + abs_content_start_pos.y};
         ImVec2 entity_square_render_pos_max{
             entity_square_render_pos_min.x + entity_sprite_size.x * get_map_zoom(),
@@ -663,15 +685,13 @@ static void process_map_input(assets::Map& map,
                         entity.name = "Entity";
                         if (io.KeyCtrl) {
                             entity.pos = {static_cast<float>(mouse_tile_pos.x),
-                                                   static_cast<float>(mouse_tile_pos.y)};
+                                          static_cast<float>(mouse_tile_pos.y)};
                         } else {
                             entity.pos = {
                                 relative_mouse_pos.x /
-                                    (static_cast<float>(global_tile_size::get()) *
-                                     get_map_zoom()),
+                                    (static_cast<float>(global_tile_size::get()) * get_map_zoom()),
                                 relative_mouse_pos.y /
-                                    (static_cast<float>(global_tile_size::get()) *
-                                     get_map_zoom())};
+                                    (static_cast<float>(global_tile_size::get()) * get_map_zoom())};
                         }
                         map.entities.emplace_back(asset_manager::put(entity));
                     }
@@ -771,8 +791,10 @@ void render(bool* p_show) {
             }
 
             math::IVec2D map_render_pos{
-                static_cast<int>(map_scroll.x * get_map_zoom() + ImGui::GetWindowWidth() / 2.f),
-                static_cast<int>(map_scroll.y * get_map_zoom() + ImGui::GetWindowHeight() / 2.f)};
+                static_cast<int>(map_scroll.x * get_map_zoom() + ImGui::GetWindowWidth() / 2.f +
+                                 ImGui::GetCursorPos().x),
+                static_cast<int>(map_scroll.y * get_map_zoom() + ImGui::GetWindowHeight() / 2.f +
+                                 ImGui::GetCursorPos().y)};
 
             ImVec2 abs_content_start_pos = {
                 ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
@@ -783,9 +805,13 @@ void render(bool* p_show) {
                 data = {ImVec2{static_cast<float>(map_render_pos.x),
                                static_cast<float>(map_render_pos.y)},
                         abs_content_start_pos};
-                ImGui::GetWindowDrawList()->AddCallback(&draw_map_callback,
-                                                        static_cast<void*>(&data));
-                ImGui::GetWindowDrawList()->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+                resize_map_fb(static_cast<int>(ImGui::GetWindowWidth()),
+                              static_cast<int>(ImGui::GetWindowHeight()));
+                render_map(map_render_pos);
+                ImGui::Image(
+                    reinterpret_cast<ImTextureID>(map_fb_texture.handle),
+                    {static_cast<float>(map_fb_texture.w), static_cast<float>(map_fb_texture.h)},
+                    {0, 1}, {1, 0});
             }
 
             ImVec2 mouse_pos = ImGui::GetMousePos();
@@ -795,15 +821,15 @@ void render(bool* p_show) {
 
             // Snap the relative mouse position
             ImVec2 snapped_relative_mouse_pos{
-                static_cast<float>(static_cast<int>(relative_mouse_pos.x) -
-                                   static_cast<int>(std::fmod(
-                                       relative_mouse_pos.x,
-                                       (global_tile_size::get() * get_map_zoom())))),
+                static_cast<float>(
+                    static_cast<int>(relative_mouse_pos.x) -
+                    static_cast<int>(std::fmod(relative_mouse_pos.x,
+                                               (global_tile_size::get() * get_map_zoom())))),
 
-                static_cast<float>(static_cast<int>(relative_mouse_pos.y) -
-                                   static_cast<int>(std::fmod(
-                                       relative_mouse_pos.y,
-                                       (global_tile_size::get() * get_map_zoom()))))};
+                static_cast<float>(
+                    static_cast<int>(relative_mouse_pos.y) -
+                    static_cast<int>(std::fmod(relative_mouse_pos.y,
+                                               (global_tile_size::get() * get_map_zoom()))))};
             math::IVec2D mouse_tile_pos = {
                 static_cast<i32>(snapped_relative_mouse_pos.x /
                                  (global_tile_size::get() * get_map_zoom())),
