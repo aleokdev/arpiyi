@@ -13,7 +13,7 @@ enum class TexelType {
     wall = 1
 };
 
-struct [[assets::serialize]] [[meta::dir_name("depthdata")]] DepthData {
+struct [[meta::dir_name("depthdata")]] DepthData {
     DepthData();
 
     TexelType get_texel(math::IVec2D pos);

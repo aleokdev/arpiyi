@@ -110,6 +110,7 @@ constexpr std::string_view entities_json_key = "entities";
 namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view data_json_key = "data";
+constexpr std::string_view depth_data_json_key = "depth";
 constexpr std::string_view tileset_id_json_key = "tileset";
 } // namespace layer_file_definitions
 
@@ -147,6 +148,12 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
         w.StartArray();
         for (int y = 0; y < map.height; ++y) {
             for (int x = 0; x < map.width; ++x) { w.Uint(layer.get_tile({x, y}).id); }
+        }
+        w.EndArray();
+        w.Key(lfd::depth_data_json_key.data());
+        w.StartArray();
+        for (int y = 0; y < map.height; ++y) {
+            for (int x = 0; x < map.width; ++x) { w.Int(layer.get_tile({x, y}).depth); }
         }
         w.EndArray();
         w.EndObject();
@@ -222,7 +229,7 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                     if (layer_val.name == lfd::name_json_key.data()) {
                         layer.name = layer_val.value.GetString();
                         // < 0.1.4 compatibility: Blank layer names are no longer allowed
-                        if(layer.name == "") {
+                        if (layer.name == "") {
                             layer.name = "<Blank name>";
                         }
                     } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
@@ -263,4 +270,4 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
         }
     }
 }
-} // namespace arpiyi_editor::assets
+} // namespace arpiyi::assets

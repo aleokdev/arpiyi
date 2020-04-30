@@ -20,6 +20,11 @@ struct [[assets::serialize]] [[assets::load_before(Tileset)]] [[assets::load_bef
     struct Tile {
         /// ID of tile (within layer tileset) being used
         u32 id = 0;
+
+        /// Depth of the tile, also known as "terrain height".
+        /// Can be positive or negative. If depth == wall_depth, this tile is a wall.
+        i32 depth = 0;
+        constexpr static i32 wall_depth = -999;
     };
 
     class Layer {
