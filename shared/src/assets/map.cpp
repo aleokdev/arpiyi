@@ -8,9 +8,9 @@
 namespace arpiyi::assets {
 
 Mesh Map::Layer::generate_layer_split_quad() {
-    // Format: {pos.x pos.y uv.x uv.y ...}
-    // 2 because it's 2 position coords and 2 UV coords.
-    constexpr auto sizeof_vertex = 4;
+    // Format: {pos.x pos.y pos.z uv.x uv.y ...}
+    // 5 because it's 3 position coords and 2 UV coords.
+    constexpr auto sizeof_vertex = 5;
     constexpr auto sizeof_triangle = 3 * sizeof_vertex;
     constexpr auto sizeof_quad = 2 * sizeof_triangle;
     const auto sizeof_splitted_quad = height * width * sizeof_quad;
@@ -18,46 +18,70 @@ Mesh Map::Layer::generate_layer_split_quad() {
     std::vector<float> result(sizeof_splitted_quad);
     const float x_slice_size = 1.f / width;
     const float y_slice_size = 1.f / height;
+
+    const float wall_level_height = y_slice_size;
+
     assert(tileset.get());
     const auto& tl = *tileset.get();
     // Create a quad for each {x, y} position.
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            static int last_tile_height = 0;
             const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
             const float min_vertex_y_pos = static_cast<float>((int)height - y - 1) * y_slice_size;
             const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
             const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
 
-            const math::Rect2D uv_pos = tl.get_uv(get_tile({x, y}).id);
+            const Tile tile = get_tile({x, y});
+            float min_vertex_z_pos;
+            float max_vertex_z_pos;
+            if(tile.height == Tile::wall_height) {
+                min_vertex_z_pos = static_cast<float>(last_tile_height) * wall_level_height;
+                // TODO: get actual tile height of max pos
+                max_vertex_z_pos = static_cast<float>(last_tile_height) * wall_level_height;
+            } else {
+                min_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+                max_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+            }
+
+            const math::Rect2D uv_pos = tl.get_uv(tile.id);
 
             const auto quad_n = (x + y * width) * sizeof_quad;
             // First triangle //
             /* X pos 1st vertex */ result[quad_n + 0] = min_vertex_x_pos;
             /* Y pos 1st vertex */ result[quad_n + 1] = min_vertex_y_pos;
-            /* X UV 1st vertex  */ result[quad_n + 2] = uv_pos.start.x;
-            /* Y UV 1st vertex  */ result[quad_n + 3] = uv_pos.start.y;
-            /* X pos 2nd vertex */ result[quad_n + 4] = max_vertex_x_pos;
-            /* Y pos 2nd vertex */ result[quad_n + 5] = min_vertex_y_pos;
-            /* X UV 2nd vertex  */ result[quad_n + 6] = uv_pos.end.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 7] = uv_pos.start.y;
-            /* X pos 3rd vertex */ result[quad_n + 8] = min_vertex_x_pos;
-            /* Y pos 3rd vertex */ result[quad_n + 9] = max_vertex_y_pos;
-            /* X UV 2nd vertex  */ result[quad_n + 10] = uv_pos.start.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 11] = uv_pos.end.y;
+            /* Z pos 1st vertex */ result[quad_n + 2] = min_vertex_z_pos;
+            /* X UV 1st vertex  */ result[quad_n + 3] = uv_pos.start.x;
+            /* Y UV 1st vertex  */ result[quad_n + 4] = uv_pos.start.y;
+            /* X pos 2nd vertex */ result[quad_n + 5] = max_vertex_x_pos;
+            /* Y pos 2nd vertex */ result[quad_n + 6] = min_vertex_y_pos;
+            /* Z pos 2nd vertex */ result[quad_n + 7] = min_vertex_z_pos;
+            /* X UV 2nd vertex  */ result[quad_n + 8] = uv_pos.end.x;
+            /* Y UV 2nd vertex  */ result[quad_n + 9] = uv_pos.start.y;
+            /* X pos 3rd vertex */ result[quad_n + 10] = min_vertex_x_pos;
+            /* Y pos 3rd vertex */ result[quad_n + 11] = max_vertex_y_pos;
+            /* Z pos 3rd vertex */ result[quad_n + 12] = max_vertex_z_pos;
+            /* X UV 2nd vertex  */ result[quad_n + 13] = uv_pos.start.x;
+            /* Y UV 2nd vertex  */ result[quad_n + 14] = uv_pos.end.y;
 
             // Second triangle //
-            /* X pos 1st vertex */ result[quad_n + 12] = max_vertex_x_pos;
-            /* Y pos 1st vertex */ result[quad_n + 13] = min_vertex_y_pos;
-            /* X UV 1st vertex  */ result[quad_n + 14] = uv_pos.end.x;
-            /* Y UV 1st vertex  */ result[quad_n + 15] = uv_pos.start.y;
-            /* X pos 2nd vertex */ result[quad_n + 16] = max_vertex_x_pos;
-            /* Y pos 2nd vertex */ result[quad_n + 17] = max_vertex_y_pos;
-            /* X UV 2nd vertex  */ result[quad_n + 18] = uv_pos.end.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 19] = uv_pos.end.y;
-            /* X pos 3rd vertex */ result[quad_n + 20] = min_vertex_x_pos;
-            /* Y pos 3rd vertex */ result[quad_n + 21] = max_vertex_y_pos;
-            /* X UV 3rd vertex  */ result[quad_n + 22] = uv_pos.start.x;
-            /* Y UV 3rd vertex  */ result[quad_n + 23] = uv_pos.end.y;
+            /* X pos 1st vertex */ result[quad_n + 15] = max_vertex_x_pos;
+            /* Y pos 1st vertex */ result[quad_n + 16] = min_vertex_y_pos;
+            /* Z pos 1st vertex */ result[quad_n + 17] = min_vertex_z_pos;
+            /* X UV 1st vertex  */ result[quad_n + 18] = uv_pos.end.x;
+            /* Y UV 1st vertex  */ result[quad_n + 19] = uv_pos.start.y;
+            /* X pos 2nd vertex */ result[quad_n + 20] = max_vertex_x_pos;
+            /* Y pos 2nd vertex */ result[quad_n + 21] = max_vertex_y_pos;
+            /* Z pos 2nd vertex */ result[quad_n + 22] = max_vertex_z_pos;
+            /* X UV 2nd vertex  */ result[quad_n + 23] = uv_pos.end.x;
+            /* Y UV 2nd vertex  */ result[quad_n + 24] = uv_pos.end.y;
+            /* X pos 3rd vertex */ result[quad_n + 25] = min_vertex_x_pos;
+            /* Y pos 3rd vertex */ result[quad_n + 26] = max_vertex_y_pos;
+            /* Z pos 3rd vertex */ result[quad_n + 27] = max_vertex_z_pos;
+            /* X UV 3rd vertex  */ result[quad_n + 28] = uv_pos.start.x;
+            /* Y UV 3rd vertex  */ result[quad_n + 29] = uv_pos.end.y;
+
+            last_tile_height = tile.height;
         }
     }
 
@@ -74,13 +98,13 @@ Mesh Map::Layer::generate_layer_split_quad() {
     glBindVertexArray(vao);
     // Vertex Positions
     glEnableVertexAttribArray(0); // location 0
-    glVertexAttribFormat(0, 2, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, vbo, 0, 4 * sizeof(float));
+    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
+    glBindVertexBuffer(0, vbo, 0, sizeof_vertex * sizeof(float));
     glVertexAttribBinding(0, 0);
     // UV Positions
     glEnableVertexAttribArray(1); // location 1
-    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float));
-    glBindVertexBuffer(1, vbo, 0, 4 * sizeof(float));
+    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
+    glBindVertexBuffer(1, vbo, 0, sizeof_vertex * sizeof(float));
     glVertexAttribBinding(1, 1);
 
     return Mesh{vao, vbo};
@@ -153,7 +177,7 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
         w.Key(lfd::depth_data_json_key.data());
         w.StartArray();
         for (int y = 0; y < map.height; ++y) {
-            for (int x = 0; x < map.width; ++x) { w.Int(layer.get_tile({x, y}).depth); }
+            for (int x = 0; x < map.width; ++x) { w.Int(layer.get_tile({x, y}).height); }
         }
         w.EndArray();
         w.EndObject();

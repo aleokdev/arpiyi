@@ -286,9 +286,9 @@ calculate_rpgmaker_a2_auto_tileset_texture(assets::Texture const& source_tex) {
 void init() {
     glGenFramebuffers(1, &grid_framebuffer);
 
-    tile_shader = asset_manager::load<assets::Shader>({"data/basic.vert", "data/basic.frag"});
+    tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
-    uv_tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile_uv.frag"});
+    uv_tile_shader = asset_manager::load<assets::Shader>({"data/basic.vert", "data/tile_uv.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
     proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);

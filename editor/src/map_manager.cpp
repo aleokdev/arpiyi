@@ -30,6 +30,8 @@ namespace arpiyi::map_manager {
 static Handle<assets::Map> current_map;
 static Handle<assets::Shader> tile_shader;
 static Handle<assets::Shader> grid_shader;
+static Handle<assets::Shader> depth_shader;
+static Handle<assets::Shader> depth_color_shader;
 static Handle<assets::Mesh> quad_mesh;
 static aml::Matrix4 proj_mat;
 static Handle<assets::Map::Layer> current_layer_selected;
@@ -38,9 +40,11 @@ static ImVec2 map_scroll{0, 0};
 static std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 static int current_zoom_level = 2;
 static bool show_grid = true;
-enum class EditMode { tile, comment, entity } edit_mode = EditMode::tile;
+enum class EditMode { tile, comment, entity, height } edit_mode = EditMode::tile;
 static unsigned int map_fb_id = static_cast<unsigned int>(-1);
 static assets::Texture map_fb_texture;
+static unsigned int map_depth_fb_id = static_cast<unsigned int>(-1);
+static assets::Texture map_depth_fb_texture;
 
 constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 
@@ -352,6 +356,9 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
 }
 
 static void resize_map_fb(int width, int height) {
+    if (map_fb_texture.w == width && map_fb_texture.h == height)
+        return;
+
     auto map = current_map.get();
     if (!map)
         return;
@@ -375,50 +382,141 @@ static void resize_map_fb(int width, int height) {
                            map_fb_texture.handle, 0);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    if (map_depth_fb_texture.handle != assets::Texture::nohandle)
+        glDeleteTextures(1, &map_depth_fb_texture.handle);
+    glGenTextures(1, &map_depth_fb_texture.handle);
+    glBindTexture(GL_TEXTURE_2D, map_depth_fb_texture.handle);
+    if (map_depth_fb_id != static_cast<unsigned int>(-1))
+        glDeleteFramebuffers(1, &map_depth_fb_id);
+    glCreateFramebuffers(1, &map_depth_fb_id);
+
+    map_depth_fb_texture.w = width;  // Shadowmap width
+    map_depth_fb_texture.h = height; // Shadowmap height
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT,
+                 GL_FLOAT, nullptr);
+    // Disable filtering (Because it needs mipmaps, which we haven't set)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glBindFramebuffer(GL_FRAMEBUFFER, map_depth_fb_id);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                           map_depth_fb_texture.handle, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-static void render_map(math::IVec2D map_render_pos) {
-    glBindFramebuffer(GL_FRAMEBUFFER, map_fb_id);
+// TODO: Move render_map and this somewhere else
+namespace detail {
 
-    const auto& map = *current_map.get();
-    // Calculate model matrix: This is the same for the grid and all layers, so we'll calculate it
-    // first.
-    float map_total_width = map.width * global_tile_size::get() * get_map_zoom();
-    float map_total_height = map.height * global_tile_size::get() * get_map_zoom();
+static unsigned int tile_shader_tile_tex_location;
+static unsigned int tile_shader_shadow_tex_location;
 
-    glViewport(0, 0, map_fb_texture.w, map_fb_texture.h);
+static aml::Matrix4 look_at(aml::Vector3 eye, aml::Vector3 at, aml::Vector3 up) {
+    aml::Vector3 zaxis = -aml::normalize(eye - at);
+    aml::Vector3 xaxis = aml::normalize(cross(zaxis, up));
+    aml::Vector3 yaxis = aml::cross(xaxis, zaxis);
+
+    /* clang-format off */
+    return {aml::Vector4(xaxis.x, xaxis.y, xaxis.z, -dot(xaxis, eye)),
+            aml::Vector4(yaxis.x, yaxis.y, yaxis.z, -dot(yaxis, eye)),
+            aml::Vector4(zaxis.x, zaxis.y, zaxis.z, -dot(zaxis, eye)), aml::Vector4(0, 0, 0, 1)};
+    /* clang-format on */
+}
+
+static void draw_map(assets::Map const& map) {
     aml::Matrix4 model = aml::Matrix4::identity;
-    model *=
-        aml::translate({0, map_total_height / map_fb_texture.h, 0}); // Put model in left-top corner
-    model *= aml::translate({static_cast<float>(map_render_pos.x) / map_fb_texture.w,
-                             static_cast<float>(map_render_pos.y) / map_fb_texture.h,
-                             0}); // Put model in given position
+    model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height), static_cast<float>(global_tile_size::get())});
 
-    model *= aml::scale({1, -1, 1}); // Flip model from its Y axis
+    glActiveTexture(GL_TEXTURE0);
+    // Draw each layer
+    for (auto& _l : current_map.get()->layers) {
+        auto layer = _l.get();
+        if (!layer->visible)
+            continue;
 
-    model *=
-        aml::scale({map_total_width / map_fb_texture.w, map_total_height / map_fb_texture.h, 1});
+        glBindVertexArray(layer->get_mesh().get()->vao);
+        glBindTexture(GL_TEXTURE_2D, layer->tileset.get()->texture.get()->handle);
 
-    if (!map.layers.empty()) {
-        glUseProgram(tile_shader.get()->handle);
-        glActiveTexture(GL_TEXTURE0);
-        // Draw each layer
-        for (auto& _l : current_map.get()->layers) {
-            auto layer = _l.get();
-            if (!layer->visible)
-                continue;
+        glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
 
-            glBindVertexArray(layer->get_mesh().get()->vao);
-            glBindTexture(GL_TEXTURE_2D, layer->tileset.get()->texture.get()->handle);
-
-            glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-            glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
-
-            constexpr int quad_verts = 2 * 3;
-            glDrawArrays(GL_TRIANGLES, 0, map.width * map.height * quad_verts);
-        }
+        constexpr int quad_verts = 2 * 3;
+        glDrawArrays(GL_TRIANGLES, 0, map.width * map.height * quad_verts);
     }
+}
+
+} // namespace detail
+
+// TODO: Clean __ALL__ of this
+static void render_map(math::IVec2D map_render_pos) {
+    const auto& map = *current_map.get();
+
+    aml::Matrix4 t_proj_mat = aml::orthographic_rh(
+        0, static_cast<float>(map_fb_texture.w) / global_tile_size::get() / get_map_zoom(),
+        static_cast<float>(map_fb_texture.h) / global_tile_size::get() / get_map_zoom(), 0, 10, -10);
+
+    // Camera matrix, in tile units.
+    aml::Matrix4 cam_mat = aml::Matrix4::identity;
+    cam_mat *= aml::translate(
+        {-static_cast<float>(map_render_pos.x) / global_tile_size::get() / get_map_zoom(),
+         static_cast<float>(map_render_pos.y) / global_tile_size::get() / get_map_zoom() +
+             map.height,
+         0});
+    cam_mat *= aml::scale({1, -1, 1});
+    cam_mat = aml::inverse(cam_mat);
+
+    // Depth image rendering
+    glBindFramebuffer(GL_FRAMEBUFFER, map_depth_fb_id);
+    glViewport(0, 0, map_depth_fb_texture.w, map_depth_fb_texture.h);
+    // glClearDepth(0.0f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDepthFunc(GL_LEQUAL);
+    aml::Matrix4 lightProjection = aml::orthographic_rh(
+        0.0f, static_cast<float>(map_fb_texture.w) / global_tile_size::get() / get_map_zoom(),
+        static_cast<float>(map_fb_texture.h) / global_tile_size::get() / get_map_zoom(), 0.0f, -20.0f, 20.0f);
+    aml::Matrix4 lightView = aml::Matrix4::identity; // = aml::rotate_x(-M_PI / 9.f) * aml::rotate_z(M_PI / 9.f);
+    lightView*= aml::translate(
+        {-static_cast<float>(map_render_pos.x) / global_tile_size::get() / get_map_zoom(),
+         static_cast<float>(map_render_pos.y) / global_tile_size::get() / get_map_zoom() +
+         map.height,
+         0});
+    lightView *= aml::rotate_x(-M_PI / 5.f) * aml::rotate_y(M_PI / 8.f);
+    lightView *= aml::scale({1, -1, 1});
+    lightView = aml::inverse(lightView);
+    aml::Matrix4 lightSpaceMatrix = lightProjection * lightView;
+    glUseProgram(depth_shader.get()->handle);
+    glUniformMatrix4fv(2, 1, GL_FALSE, lightSpaceMatrix.get_raw());
+    detail::draw_map(map);
+
+    // Regular image rendering
+    glBindFramebuffer(GL_FRAMEBUFFER, map_fb_id);
+    glViewport(0, 0, map_fb_texture.w, map_fb_texture.h);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(tile_shader.get()->handle);
+    glUniform1i(detail::tile_shader_tile_tex_location, 0);    // Set tile sampler2D to GL_TEXTURE0
+    glUniform1i(detail::tile_shader_shadow_tex_location, 1);  // Set shadow sampler2D to GL_TEXTURE1
+    glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
+    glUniformMatrix4fv(4, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
+    glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());          // View matrix
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, map_depth_fb_texture.handle);
+    detail::draw_map(map);
+
+    // Draw debug quad
+    glUseProgram(depth_color_shader.get()->handle);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, map_depth_fb_texture.handle);
+    glBindVertexArray(quad_mesh.get()->vao);
+    aml::Matrix4 model = aml::Matrix4::identity;
+    model *= aml::scale(0.1f);
+    // glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw()); // Model matrix
+    // glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw()); // Projection matrix
+    constexpr int quad_verts = 2 * 3;
+    glDrawArrays(GL_TRIANGLES, 0, quad_verts);
+
     if (show_grid) {
         // Draw mesh grid
         glUseProgram(grid_shader.get()->handle);
@@ -426,8 +524,11 @@ static void render_map(math::IVec2D map_render_pos) {
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         glUniform2ui(4, current_map.get()->width, current_map.get()->height);
 
+        aml::Matrix4 model = aml::Matrix4::identity;
+        model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height), 0});
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-        glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
+        glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw());
+        glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());
 
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
@@ -718,7 +819,7 @@ static void process_map_input(assets::Map& map,
             }
         } break;
 
-        case EditMode::tile:
+        case EditMode::tile: {
             ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
                                      map_render_pos.y + abs_content_start_pos.y};
             ImVec2 map_render_max = {
@@ -732,17 +833,56 @@ static void process_map_input(assets::Map& map,
                     }
                 }
             }
-            break;
+        } break;
+
+        case EditMode::height: {
+            ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
+                                     map_render_pos.y + abs_content_start_pos.y};
+            ImVec2 map_render_max = {
+                map_render_min.x + map.width * global_tile_size::get() * get_map_zoom(),
+                map_render_min.y + map.height * global_tile_size::get() * get_map_zoom()};
+            if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max)) {
+                if (auto layer = current_layer_selected.get()) {
+                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                        ImGuiIO& io = ImGui::GetIO();
+                        assets::Map::Tile t = layer->get_tile(mouse_tile_pos);
+                        if (io.MouseClicked[ImGuiMouseButton_Left]) {
+                            t.height++;
+                            layer->set_tile(mouse_tile_pos, t);
+                        } else if (io.MouseClicked[ImGuiMouseButton_Right]) {
+                            t.height--;
+                            layer->set_tile(mouse_tile_pos, t);
+                        } else if (io.KeyMods & ImGuiKeyModFlags_Shift &&
+                                   io.MouseClicked[ImGuiMouseButton_Left]) {
+                            t.height = assets::Map::Tile::wall_height;
+                            layer->set_tile(mouse_tile_pos, t);
+                        }
+                    }
+                }
+            }
+        } break;
     }
 }
 
 void init() {
     tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
+    depth_shader = asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
+    depth_color_shader =
+        asset_manager::load<assets::Shader>({"data/basic.vert", "data/depth_color.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
-    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);
+    // Map projection matrix:
+    // Goes from 0 to 1 in the X axis.
+    // From 1 to 0 in the Y axis, because higher Y values means lower in arpiyi.
+    // Near value is 1 and far value is -1; We want higher terrain (More Z) to be closer to us (So
+    // near is 1) and lower terrain (Less Z) to be farther from us (So far is -1)
+    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, 1.f, -1.f);
     window_list_menu::add_entry({"Map View", &render});
+
+    detail::tile_shader_tile_tex_location = glGetUniformLocation(tile_shader.get()->handle, "tile");
+    detail::tile_shader_shadow_tex_location =
+        glGetUniformLocation(tile_shader.get()->handle, "shadow");
 }
 
 void render(bool* p_show) {
@@ -778,6 +918,9 @@ void render(bool* p_show) {
                                "your map.\nThese won't have an impact on the actual game.");
                 draw_edit_mode(EditMode::entity, ICON_MD_VIDEOGAME_ASSET,
                                "Entity editing tool.\nUse entities to give life to your maps.");
+                draw_edit_mode(
+                    EditMode::height, ICON_MD_FLIP_TO_BACK,
+                    "Height editing tool.\nUse the height brush to create realistic shadows.");
 
                 ImGui::EndMenuBar();
             }
@@ -903,7 +1046,7 @@ Handle<assets::Map> get_current_map() { return current_map; }
 
 std::vector<Handle<assets::Map>> get_maps() {
     std::vector<Handle<assets::Map>> maps;
-    for (const auto& [id, map] : detail::AssetContainer<assets::Map>::get_instance().map) {
+    for (const auto& [id, map] : arpiyi::detail::AssetContainer<assets::Map>::get_instance().map) {
         maps.emplace_back(id);
     }
     return maps;
