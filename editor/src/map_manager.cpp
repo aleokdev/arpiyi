@@ -480,7 +480,7 @@ static void draw_map(assets::Map const& map) {
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
 
         constexpr int quad_verts = 2 * 3;
-        glDrawArrays(GL_TRIANGLES, 0, map.width * map.height * quad_verts);
+        glDrawArrays(GL_TRIANGLES, 0, layer->get_mesh().get()->vertex_count);
     }
 }
 
