@@ -603,18 +603,6 @@ static void render_map() {
     glBindTexture(GL_TEXTURE_2D, map_depth_fb_texture.handle);
     detail::draw_map(map);
 
-    // Draw debug quad
-    glUseProgram(depth_color_shader.get()->handle);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, map_depth_fb_texture.handle);
-    glBindVertexArray(quad_mesh.get()->vao);
-    aml::Matrix4 model = aml::Matrix4::identity;
-    model *= aml::scale(0.1f);
-    // glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw()); // Model matrix
-    // glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw()); // Projection matrix
-    constexpr int quad_verts = 2 * 3;
-    glDrawArrays(GL_TRIANGLES, 0, quad_verts);
-
     if (show_grid) {
         // Draw mesh grid
         glUseProgram(grid_shader.get()->handle);
