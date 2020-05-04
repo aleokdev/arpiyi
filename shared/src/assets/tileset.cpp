@@ -20,9 +20,9 @@ math::Rect2D Tileset::get_uv(u32 id) const {
     std::uint32_t tile_pos_y = id / size.x;
     math::Vec2D start_uv_pos = {1.f / static_cast<float>(size.x) * static_cast<float>(tile_pos_x),
                                 1.f / static_cast<float>(size.y) *
-                                    static_cast<float>(tile_pos_y + 1)};
+                                    static_cast<float>(tile_pos_y)};
     math::Vec2D end_uv_pos = {start_uv_pos.x + 1.f / static_cast<float>(size.x),
-                              start_uv_pos.y - 1.f / static_cast<float>(size.y)};
+                              start_uv_pos.y + 1.f / static_cast<float>(size.y)};
 
     return {start_uv_pos, end_uv_pos};
 }

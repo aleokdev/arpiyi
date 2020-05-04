@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iostream>
 #include <vector>
 
 #include "assets/entity.hpp"
@@ -18,6 +19,7 @@
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
 
+#include <anton/math/matrix3.hpp>
 #include <anton/math/matrix4.hpp>
 #include <anton/math/transform.hpp>
 #include <glad/glad.h>
@@ -35,7 +37,7 @@ static Handle<assets::Shader> depth_color_shader;
 static Handle<assets::Mesh> quad_mesh;
 static aml::Matrix4 proj_mat;
 static Handle<assets::Map::Layer> current_layer_selected;
-/// (In pixels).
+/// (In tiles).
 static ImVec2 map_scroll{0, 0};
 static std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 static int current_zoom_level = 2;
@@ -45,10 +47,35 @@ static unsigned int map_fb_id = static_cast<unsigned int>(-1);
 static assets::Texture map_fb_texture;
 static unsigned int map_depth_fb_id = static_cast<unsigned int>(-1);
 static assets::Texture map_depth_fb_texture;
+static float light_x_rotation = -M_PI / 5.f, light_z_rotation = -M_PI / 5.f;
 
 constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
+
+static ImVec2 map_to_widget_pos(aml::Vector2 map_pos) {
+    aml::Vector2 window_size{ImGui::GetContentRegionMax().x - ImGui::GetWindowContentRegionMin().x,
+                             ImGui::GetContentRegionMax().y - ImGui::GetWindowContentRegionMin().y};
+    aml::Vector2 result = window_size / 2.f -
+                          aml::Vector2(current_map.get()->width, -current_map.get()->height) *
+                              global_tile_size::get() * get_map_zoom() / 2.f +
+                          aml::Vector2(map_pos.x + map_scroll.x, -map_pos.y - map_scroll.y) *
+                              global_tile_size::get() * get_map_zoom();
+    return ImVec2{result.x, result.y};
+};
+
+static aml::Vector2 widget_to_map_tile_pos(ImVec2 widget_pos) {
+    ImVec2 start_map_pos = map_to_widget_pos({0, 0});
+    ImVec2 result{(widget_pos.x - start_map_pos.x) / global_tile_size::get() / get_map_zoom(),
+                  (-widget_pos.y + start_map_pos.y) / global_tile_size::get() / get_map_zoom()};
+    return {result.x, result.y};
+};
+
+static aml::Vector2 widget_to_map_pixel_pos(ImVec2 widget_pos) {
+    ImVec2 start_map_pos = map_to_widget_pos({0, 0});
+    ImVec2 result{widget_pos.x - start_map_pos.x, -widget_pos.y + start_map_pos.y};
+    return {result.x, result.y};
+};
 
 static void show_info_tip(const char* c) {
     ImGui::SameLine();
@@ -333,7 +360,7 @@ static void show_map_list() {
     }
 }
 
-static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) {
+static void draw_pos_info_bar() {
     ImVec2 info_rect_start{ImGui::GetWindowPos().x, ImGui::GetWindowPos().y +
                                                         ImGui::GetWindowSize().y -
                                                         ImGui::GetTextLineHeightWithSpacing()};
@@ -346,11 +373,20 @@ static void draw_pos_info_bar(math::IVec2D tile_pos, ImVec2 relative_mouse_pos) 
     ImVec2 text_pos{ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                     info_rect_start.y};
     {
-        math::IVec2D mpos{static_cast<i32>(relative_mouse_pos.x),
-                          static_cast<i32>(relative_mouse_pos.y)};
-        char buf[128];
-        sprintf(buf, "Tile pos: {%i, %i} - Mouse pos: {%i, %i} - Zoom: %i%%", tile_pos.x,
-                tile_pos.y, mpos.x, mpos.y, static_cast<i32>(get_map_zoom() * 10.f) * 10);
+        ImVec2 map_start_widget_pos = map_to_widget_pos({0, 0});
+        ImVec2 map_end_widget_pos =
+            map_to_widget_pos({static_cast<float>(current_map.get()->width),
+                               static_cast<float>(current_map.get()->height)});
+        aml::Vector2 tile_pos =
+            widget_to_map_tile_pos({ImGui::GetMousePos().x - ImGui::GetWindowPos().x -
+                                        ImGui::GetWindowContentRegionMin().x,
+                                    ImGui::GetMousePos().y - ImGui::GetWindowPos().y -
+                                        ImGui::GetWindowContentRegionMin().y});
+        char buf[256];
+        sprintf(buf, "Tile pos: {%i, %i} - Zoom: %i%% - MSWP: {%.2f, %.2f} - MEWP: {%.2f, %.2f}",
+                static_cast<int>(tile_pos.x), static_cast<int>(tile_pos.y),
+                static_cast<i32>(get_map_zoom() * 10.f) * 10, map_start_widget_pos.x,
+                map_start_widget_pos.y, map_end_widget_pos.x, map_end_widget_pos.y);
         ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }
@@ -428,7 +464,8 @@ static aml::Matrix4 look_at(aml::Vector3 eye, aml::Vector3 at, aml::Vector3 up) 
 
 static void draw_map(assets::Map const& map) {
     aml::Matrix4 model = aml::Matrix4::identity;
-    model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height), static_cast<float>(global_tile_size::get())});
+    model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height),
+                         static_cast<float>(global_tile_size::get())});
 
     glActiveTexture(GL_TEXTURE0);
     // Draw each layer
@@ -450,22 +487,49 @@ static void draw_map(assets::Map const& map) {
 } // namespace detail
 
 // TODO: Clean __ALL__ of this
-static void render_map(math::IVec2D map_render_pos) {
+static void render_map() {
     const auto& map = *current_map.get();
 
-    aml::Matrix4 t_proj_mat = aml::orthographic_rh(
-        0, static_cast<float>(map_fb_texture.w) / global_tile_size::get() / get_map_zoom(),
-        static_cast<float>(map_fb_texture.h) / global_tile_size::get() / get_map_zoom(), 0, 10, -10);
+    const auto map_to_fb_tile_pos = [map](aml::Vector2 pos) -> aml::Vector2 {
+        return {pos.x -
+                    static_cast<float>(map_fb_texture.w) / global_tile_size::get() /
+                        get_map_zoom() / 2.f +
+                    map.width / 2.f,
+                pos.y -
+                    static_cast<float>(map_fb_texture.h) / global_tile_size::get() /
+                        get_map_zoom() / 2.f +
+                    map.height / 2.f};
+    };
+    const auto fb_tile_to_map_pos = [map](aml::Vector2 pos) -> aml::Vector2 {
+        return {pos.x +
+                    static_cast<float>(map_fb_texture.w) / global_tile_size::get() /
+                        get_map_zoom() / 2.f -
+                    map.width / 2.f,
+                pos.y +
+                    static_cast<float>(map_fb_texture.h) / global_tile_size::get() /
+                        get_map_zoom() / 2.f -
+                    map.height / 2.f};
+    };
 
+    aml::Matrix4 t_proj_mat = aml::orthographic_rh(
+        0, static_cast<float>(map_fb_texture.w) / global_tile_size::get() / get_map_zoom(), 0,
+        static_cast<float>(map_fb_texture.h) / global_tile_size::get() / get_map_zoom(), 10, -10);
+
+    const aml::Vector2 cam_tile_pos = map_to_fb_tile_pos({-map_scroll.x, -map_scroll.y});
     // Camera matrix, in tile units.
     aml::Matrix4 cam_mat = aml::Matrix4::identity;
-    cam_mat *= aml::translate(
-        {-static_cast<float>(map_render_pos.x) / global_tile_size::get() / get_map_zoom(),
-         static_cast<float>(map_render_pos.y) / global_tile_size::get() / get_map_zoom() +
-             map.height,
-         0});
-    cam_mat *= aml::scale({1, -1, 1});
+    cam_mat *= aml::translate({cam_tile_pos.x, cam_tile_pos.y, 0});
     cam_mat = aml::inverse(cam_mat);
+
+    aml::Vector2 cam_min_tile_viewing{aml::max(cam_tile_pos.x, 0.f), aml::max(cam_tile_pos.y, 0.f)};
+    aml::Vector2 fb_map_tile_limit{
+        static_cast<float>(map_fb_texture.w) / global_tile_size::get() / get_map_zoom(),
+        static_cast<float>(map_fb_texture.h) / global_tile_size::get() / get_map_zoom()};
+    aml::Vector2 cam_max_tile_viewing = {
+        map.width - aml::max(-fb_map_tile_limit.x - cam_tile_pos.x + map.width, 0.f),
+        map.height - aml::max(-fb_map_tile_limit.y - cam_tile_pos.y + map.height, 0.f)};
+    aml::Vector2 cam_tile_viewing_size{aml::abs(cam_max_tile_viewing.x - cam_min_tile_viewing.x),
+                                       aml::abs(cam_max_tile_viewing.y - cam_min_tile_viewing.y)};
 
     // Depth image rendering
     glBindFramebuffer(GL_FRAMEBUFFER, map_depth_fb_id);
@@ -473,17 +537,51 @@ static void render_map(math::IVec2D map_render_pos) {
     // glClearDepth(0.0f);
     glClear(GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_LEQUAL);
+
+    const auto map_to_light_coords = [](aml::Vector2 map_pos) -> aml::Vector2 {
+        if (map_pos.x == 0 && map_pos.y == 0)
+            return {0, 0};
+
+        const float distance = aml::length(map_pos);
+        const float angle =
+            light_z_rotation + std::asin(map_pos.y / distance);
+        const float x = distance * aml::cos(angle);
+        const float y = distance * aml::sin(angle) * aml::cos(light_x_rotation);
+
+        if (map_pos.x == 16 && map_pos.y == 16) {
+            std::cout << "angle: " << angle << ", {" << x << ", " << y << "}" << std::endl;
+        }
+
+        return {x, y};
+    };
+
+    //FIXME: Shadows only work with angles -pi < x < pi
+
+    // Apply Z/X rotation to projection so that the entire map is aligned with the texture.
+    const int z_rotation_quadrant = std::fmod(light_z_rotation, M_PI*2.f) / (M_PI/2.f);
+    bool rotation_case = z_rotation_quadrant == 0 || z_rotation_quadrant == 2;
+    if(light_z_rotation < 0)
+        rotation_case = !rotation_case;
+    const float most_right_y_pos = rotation_case ? 0 : map.height;
+    const float most_left_y_pos = rotation_case ? map.height : 0;
+    const float most_top_x_pos = rotation_case ? 0 : map.width;
+    const float most_bottom_x_pos = rotation_case ? map.width : 0;
+
+    const float light_proj_right =
+        map_to_light_coords({cam_max_tile_viewing.x, most_right_y_pos}).x;
+    const float light_proj_left = map_to_light_coords({cam_min_tile_viewing.x, most_left_y_pos}).x;
+    float light_proj_top =
+        map_to_light_coords({most_top_x_pos, cam_min_tile_viewing.y}).y;
+    float light_proj_bottom = map_to_light_coords({most_bottom_x_pos, cam_max_tile_viewing.y}).y;
     aml::Matrix4 lightProjection = aml::orthographic_rh(
-        0.0f, static_cast<float>(map_fb_texture.w) / global_tile_size::get() / get_map_zoom(),
-        static_cast<float>(map_fb_texture.h) / global_tile_size::get() / get_map_zoom(), 0.0f, -20.0f, 20.0f);
-    aml::Matrix4 lightView = aml::Matrix4::identity; // = aml::rotate_x(-M_PI / 9.f) * aml::rotate_z(M_PI / 9.f);
-    lightView*= aml::translate(
-        {-static_cast<float>(map_render_pos.x) / global_tile_size::get() / get_map_zoom(),
-         static_cast<float>(map_render_pos.y) / global_tile_size::get() / get_map_zoom() +
-         map.height,
-         0});
-    lightView *= aml::rotate_x(-M_PI / 5.f) * aml::rotate_y(M_PI / 8.f);
-    lightView *= aml::scale({1, -1, 1});
+        light_proj_left, light_proj_right, light_proj_bottom, light_proj_top, -20.0f, 20.0f);
+
+    // To create the light view, we position the light as if it were a camera and then invert the
+    // matrix.
+    aml::Matrix4 lightView = aml::Matrix4::identity;
+    // We want the light to be rotated on the Z and X axis to make it seem there's some
+    // directionality to it.
+    lightView *= aml::rotate_z(light_z_rotation) * aml::rotate_x(light_x_rotation);
     lightView = aml::inverse(lightView);
     aml::Matrix4 lightSpaceMatrix = lightProjection * lightView;
     glUseProgram(depth_shader.get()->handle);
@@ -553,7 +651,7 @@ static void place_tile_on_pos(assets::Map& map,
                         continue;
                     auto layer = current_layer_selected.get();
                     layer->set_tile(pos, {layer->tileset.get()->get_id({tx, ty})});
-                    pos.y++;
+                    pos.y--;
                 }
                 pos.x++;
                 pos.y = start_my;
@@ -576,7 +674,7 @@ static void place_tile_on_pos(assets::Map& map,
                     for (int ix = -1; ix <= 1; ++ix) {
                         if (ix == 0 && iy == 0)
                             continue;
-                        math::IVec2D neighbour_pos{pos.x + ix, pos.y + iy};
+                        math::IVec2D neighbour_pos{pos.x + ix, pos.y - iy};
                         if (!layer.is_pos_valid(neighbour_pos)) {
                             bit++;
                             continue;
@@ -613,48 +711,52 @@ static void place_tile_on_pos(assets::Map& map,
     }
 }
 
-static void draw_selection_on_map(assets::Map& map,
-                                  bool is_tileset_appropiate_for_layer,
-                                  ImVec2 map_render_pos,
-                                  ImVec2 relative_mouse_pos,
-                                  math::IVec2D mouse_tile_pos,
-                                  ImVec2 content_start_pos) {
+static void draw_selection_on_map(assets::Map& map, bool is_tileset_appropiate_for_layer) {
     auto selection = tileset_manager::get_selection();
     if (auto selection_tileset = selection.tileset.get()) {
-        ImVec2 selection_render_pos =
-            ImVec2(relative_mouse_pos.x + map_render_pos.x + content_start_pos.x,
-                   relative_mouse_pos.y + map_render_pos.y + content_start_pos.y);
-        ImVec2 map_selection_size =
-            ImVec2{(float)(selection.selection_end.x + 1 - selection.selection_start.x) *
-                       global_tile_size::get() * get_map_zoom(),
-                   (float)(selection.selection_end.y + 1 - selection.selection_start.y) *
-                       global_tile_size::get() * get_map_zoom()};
+        ImVec2 map_selection_size{
+            (float)(selection.selection_end.x + 1 - selection.selection_start.x) *
+                global_tile_size::get() * get_map_zoom(),
+            (float)(selection.selection_end.y + 1 - selection.selection_start.y) *
+                global_tile_size::get() * get_map_zoom()};
+        ImVec2 mouse_pos{ImGui::GetMousePos().x, ImGui::GetMousePos().y - map_selection_size.y};
+        ImVec2 relative_mouse_pos{ImGui::GetMousePos().x - ImGui::GetWindowPos().x -
+                                      ImGui::GetWindowContentRegionMin().x,
+                                  ImGui::GetMousePos().y - ImGui::GetWindowPos().y -
+                                      ImGui::GetWindowContentRegionMin().y};
         math::IVec2D tileset_size = selection_tileset->get_size_in_tiles();
         ImVec2 uv_min = ImVec2{(float)selection.selection_start.x / (float)tileset_size.x,
                                (float)selection.selection_start.y / (float)tileset_size.y};
         ImVec2 uv_max = ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
                                (float)(selection.selection_end.y + 1) / (float)tileset_size.y};
-        ImVec2 clip_rect_min = {map_render_pos.x + content_start_pos.x,
-                                map_render_pos.y + content_start_pos.y};
+        ImVec2 clip_rect_min = map_to_widget_pos({0, 0});
+        clip_rect_min.x += ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
+        clip_rect_min.y += ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y;
+        ImVec2 clip_rect_max =
+            map_to_widget_pos({static_cast<float>(map.width), static_cast<float>(map.height)});
+        clip_rect_max.x += ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
+        clip_rect_max.y += ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y;
+        aml::Vector2 mouse_tile_pos = widget_to_map_tile_pos(relative_mouse_pos);
+        ImVec2 mouse_tile_widget_pos =
+            map_to_widget_pos({std::floor(mouse_tile_pos.x), std::ceil(mouse_tile_pos.y)});
+        ImVec2 image_rect_min = {mouse_tile_widget_pos.x + ImGui::GetWindowPos().x +
+                                     ImGui::GetWindowContentRegionMin().x,
+                                 mouse_tile_widget_pos.y + ImGui::GetWindowPos().y +
+                                     ImGui::GetWindowContentRegionMin().y};
+        ImVec2 image_rect_max = ImVec2{image_rect_min.x + map_selection_size.x,
+                                       image_rect_min.y + map_selection_size.y};
 
-        ImGui::GetWindowDrawList()->PushClipRect(
-            clip_rect_min,
-            {clip_rect_min.x + map.width * global_tile_size::get() * get_map_zoom(),
-             clip_rect_min.y + map.height * global_tile_size::get() * get_map_zoom()},
-            true);
+        ImGui::GetWindowDrawList()->PushClipRect({clip_rect_min.x, clip_rect_max.y},
+                                                 {clip_rect_max.x, clip_rect_min.y}, true);
         ImGui::GetWindowDrawList()->AddImage(
-            reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle),
-            selection_render_pos,
-            {selection_render_pos.x + map_selection_size.x,
-             selection_render_pos.y + map_selection_size.y},
-            uv_min, uv_max, ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
+            reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle), image_rect_min,
+            image_rect_max, uv_min, uv_max, ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
         ImGui::GetWindowDrawList()->PopClipRect();
     }
 }
 
 /// @returns One of the entities below the cursor (if any)
-static Handle<assets::Entity>
-draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_content_start_pos) {
+static Handle<assets::Entity> draw_entities(const assets::Map& map) {
     Handle<assets::Entity> entity_hovering;
     for (const auto& e : map.entities) {
         assert(e.get());
@@ -664,30 +766,33 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
                                 : math::IVec2D{static_cast<i32>(global_tile_size::get()),
                                                static_cast<i32>(global_tile_size::get())};
 
-        const aml::Vector2 tile_entity_square_render_pos_min = entity.get_left_corner_pos();
-        ImVec2 entity_square_render_pos_min{
-            tile_entity_square_render_pos_min.x * static_cast<float>(global_tile_size::get()) *
-                    get_map_zoom() +
-                map_render_pos.x + abs_content_start_pos.x,
-            tile_entity_square_render_pos_min.y * static_cast<float>(global_tile_size::get()) *
-                    get_map_zoom() +
-                map_render_pos.y + abs_content_start_pos.y};
-        ImVec2 entity_square_render_pos_max{
-            entity_square_render_pos_min.x + entity_sprite_size.x * get_map_zoom(),
-            entity_square_render_pos_min.y + entity_sprite_size.y * get_map_zoom(),
+        const auto widget_to_absolute_window_pos = [](ImVec2 pos) -> ImVec2 {
+            return {pos.x + ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
+                    pos.y + ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
         };
 
-        ImGui::GetWindowDrawList()->AddRectFilled(entity_square_render_pos_min,
-                                                  entity_square_render_pos_max,
-                                                  ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
+        const aml::Vector2 tile_entity_square_render_pos_min = entity.get_origin_pos();
+        ImVec2 entity_square_render_pos_min =
+            widget_to_absolute_window_pos(map_to_widget_pos(tile_entity_square_render_pos_min));
+        aml::Vector2 entity_square_render_pos_max =
+            aml::Vector2(entity_square_render_pos_min.x, entity_square_render_pos_min.y) +
+            aml::Vector2{static_cast<float>(entity_sprite_size.x) * get_map_zoom(),
+                         static_cast<float>(entity_sprite_size.y) * get_map_zoom()};
+
+        ImGui::GetWindowDrawList()->AddRectFilled(
+            entity_square_render_pos_min,
+            {entity_square_render_pos_max.x, entity_square_render_pos_max.y},
+            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
         if (auto s = entity.sprite.get()) {
             ImGui::GetWindowDrawList()->AddImage(
                 reinterpret_cast<ImTextureID>(s->texture.get()->handle),
-                entity_square_render_pos_min, entity_square_render_pos_max,
+                entity_square_render_pos_min,
+                {entity_square_render_pos_max.x, entity_square_render_pos_max.y},
                 ImVec2{s->uv_min.x, s->uv_min.y}, ImVec2{s->uv_max.x, s->uv_max.y});
         }
-        if (ImGui::IsMouseHoveringRect(entity_square_render_pos_min,
-                                       entity_square_render_pos_max)) {
+        if (ImGui::IsMouseHoveringRect(
+                entity_square_render_pos_min,
+                {entity_square_render_pos_max.x, entity_square_render_pos_max.y})) {
             entity_hovering = e;
             ImGui::BeginTooltip();
             ImGui::Text("%s at {%.2f, %.2f}", entity.name.c_str(), entity.pos.x, entity.pos.y);
@@ -706,17 +811,14 @@ draw_entities(const assets::Map& map, math::IVec2D map_render_pos, ImVec2 abs_co
 }
 
 /// @returns One of the comments below the cursor (if any)
-static Handle<assets::Map::Comment>
-draw_comments(assets::Map const& map, math::IVec2D map_render_pos, ImVec2 abs_content_start_pos) {
+static Handle<assets::Map::Comment> draw_comments(assets::Map const& map) {
+    // FIXME this uses the old coordinate system
     Handle<assets::Map::Comment> comment_hovering;
     for (const auto& c : map.comments) {
         assert(c.get());
         const auto& comment = *c.get();
-        ImVec2 comment_square_render_pos_min = {
-            comment.pos.x * global_tile_size::get() * get_map_zoom() + map_render_pos.x +
-                abs_content_start_pos.x,
-            comment.pos.y * global_tile_size::get() * get_map_zoom() + map_render_pos.y +
-                abs_content_start_pos.y};
+        ImVec2 comment_square_render_pos_min = map_to_widget_pos(
+            {static_cast<float>(comment.pos.x), static_cast<float>(comment.pos.y)});
         ImVec2 comment_square_render_pos_max = {
             comment_square_render_pos_min.x + global_tile_size::get() * get_map_zoom(),
             comment_square_render_pos_min.y + global_tile_size::get() * get_map_zoom()};
@@ -738,28 +840,31 @@ draw_comments(assets::Map const& map, math::IVec2D map_render_pos, ImVec2 abs_co
 }
 
 static void process_map_input(assets::Map& map,
-                              math::IVec2D mouse_tile_pos,
-                              ImVec2 relative_mouse_pos,
-                              math::IVec2D map_render_pos,
-                              ImVec2 abs_content_start_pos,
                               Handle<assets::Entity>& entity_hovering,
                               Handle<assets::Map::Comment>& comment_hovering) {
+    ImVec2 window_mouse_pos{
+        ImGui::GetMousePos().x - ImGui::GetWindowPos().x - ImGui::GetWindowContentRegionMin().x,
+        ImGui::GetMousePos().y - ImGui::GetWindowPos().y - ImGui::GetWindowContentRegionMin().y};
+    aml::Vector2 mouse_tile_pos = widget_to_map_tile_pos(window_mouse_pos);
     // Process middle click input (Camera moving)
     if (ImGui::IsWindowHovered() && ImGui::GetIO().MouseDown[ImGuiMouseButton_Middle]) {
         ImGui::SetWindowFocus();
         ImGuiIO& io = ImGui::GetIO();
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        map_scroll = ImVec2{map_scroll.x + io.MouseDelta.x / get_map_zoom(),
-                            map_scroll.y + io.MouseDelta.y / get_map_zoom()};
+        map_scroll =
+            ImVec2{map_scroll.x + io.MouseDelta.x / global_tile_size::get() / get_map_zoom(),
+                   map_scroll.y - io.MouseDelta.y / global_tile_size::get() / get_map_zoom()};
     }
     switch (edit_mode) {
         case EditMode::comment: {
             ImGuiIO& io = ImGui::GetIO();
             if (!comment_hovering.get() && io.MouseDoubleClicked[ImGuiMouseButton_Left]) {
                 if (auto layer = current_layer_selected.get()) {
-                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                    math::IVec2D pos{static_cast<int>(mouse_tile_pos.x),
+                                     static_cast<int>(mouse_tile_pos.y)};
+                    if (layer->is_pos_valid(pos)) {
                         assets::Map::Comment comment;
-                        comment.pos = mouse_tile_pos;
+                        comment.pos = pos;
 
                         map.comments.emplace_back(asset_manager::put(comment));
                     }
@@ -779,20 +884,17 @@ static void process_map_input(assets::Map& map,
 
         case EditMode::entity: {
             ImGuiIO& io = ImGui::GetIO();
+            math::IVec2D pos{static_cast<int>(mouse_tile_pos.x),
+                             static_cast<int>(mouse_tile_pos.y)};
             if (!entity_hovering.get() && io.MouseDoubleClicked[ImGuiMouseButton_Left]) {
                 if (auto layer = current_layer_selected.get()) {
-                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                    if (layer->is_pos_valid(pos)) {
                         assets::Entity entity;
                         entity.name = "Entity";
                         if (io.KeyCtrl) {
-                            entity.pos = {static_cast<float>(mouse_tile_pos.x),
-                                          static_cast<float>(mouse_tile_pos.y)};
+                            entity.pos = {static_cast<float>(pos.x), static_cast<float>(pos.y)};
                         } else {
-                            entity.pos = {
-                                relative_mouse_pos.x /
-                                    (static_cast<float>(global_tile_size::get()) * get_map_zoom()),
-                                relative_mouse_pos.y /
-                                    (static_cast<float>(global_tile_size::get()) * get_map_zoom())};
+                            entity.pos = mouse_tile_pos;
                         }
                         map.entities.emplace_back(asset_manager::put(entity));
                     }
@@ -803,15 +905,10 @@ static void process_map_input(assets::Map& map,
 
                 if (io.MouseDown[ImGuiMouseButton_Left]) {
                     if (io.KeyCtrl) {
-                        entity->pos.x = static_cast<float>(mouse_tile_pos.x);
-                        entity->pos.y = static_cast<float>(mouse_tile_pos.y);
+                        entity->pos.x = static_cast<float>(pos.x);
+                        entity->pos.y = static_cast<float>(pos.y);
                     } else {
-                        entity->pos.x =
-                            (io.MousePos.x - map_render_pos.x - abs_content_start_pos.x) /
-                            static_cast<float>(global_tile_size::get() * get_map_zoom());
-                        entity->pos.y =
-                            (io.MousePos.y - map_render_pos.y - abs_content_start_pos.y) /
-                            static_cast<float>(global_tile_size::get() * get_map_zoom());
+                        entity->pos = mouse_tile_pos;
                     }
                 } else {
                     entity_hovering = nullptr;
@@ -820,42 +917,52 @@ static void process_map_input(assets::Map& map,
         } break;
 
         case EditMode::tile: {
-            ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
-                                     map_render_pos.y + abs_content_start_pos.y};
-            ImVec2 map_render_max = {
-                map_render_min.x + map.width * global_tile_size::get() * get_map_zoom(),
-                map_render_min.y + map.height * global_tile_size::get() * get_map_zoom()};
-            if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max) &&
+            ImVec2 map_render_min = map_to_widget_pos({0, 0});
+            map_render_min.x += ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
+            map_render_min.y += ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y;
+            ImVec2 map_render_max =
+                map_to_widget_pos({static_cast<float>(map.width), static_cast<float>(map.height)});
+            map_render_max.x += ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
+            map_render_max.y += ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y;
+            if (ImGui::IsMouseHoveringRect({map_render_min.x, map_render_max.y},
+                                           {map_render_max.x, map_render_min.y}) &&
                 ImGui::GetIO().MouseDown[ImGuiMouseButton_Left]) {
                 if (auto layer = current_layer_selected.get()) {
-                    if (layer->is_pos_valid(mouse_tile_pos)) {
-                        place_tile_on_pos(map, mouse_tile_pos, !ImGui::GetIO().KeyShift);
+                    math::IVec2D pos{static_cast<int>(mouse_tile_pos.x),
+                                     static_cast<int>(mouse_tile_pos.y)};
+                    if (layer->is_pos_valid(pos)) {
+                        place_tile_on_pos(map, pos, !ImGui::GetIO().KeyShift);
                     }
                 }
             }
         } break;
 
         case EditMode::height: {
-            ImVec2 map_render_min = {map_render_pos.x + abs_content_start_pos.x,
-                                     map_render_pos.y + abs_content_start_pos.y};
-            ImVec2 map_render_max = {
-                map_render_min.x + map.width * global_tile_size::get() * get_map_zoom(),
-                map_render_min.y + map.height * global_tile_size::get() * get_map_zoom()};
-            if (ImGui::IsMouseHoveringRect(map_render_min, map_render_max)) {
+            ImVec2 map_render_min = map_to_widget_pos({0, 0});
+            map_render_min.x += ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
+            map_render_min.y += ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y;
+            ImVec2 map_render_max =
+                map_to_widget_pos({static_cast<float>(map.width), static_cast<float>(map.height)});
+            map_render_max.x += ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
+            map_render_max.y += ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y;
+            if (ImGui::IsMouseHoveringRect({map_render_min.x, map_render_max.y},
+                                           {map_render_max.x, map_render_min.y})) {
                 if (auto layer = current_layer_selected.get()) {
-                    if (layer->is_pos_valid(mouse_tile_pos)) {
+                    math::IVec2D pos{static_cast<int>(mouse_tile_pos.x),
+                                     static_cast<int>(mouse_tile_pos.y)};
+                    if (layer->is_pos_valid(pos)) {
                         ImGuiIO& io = ImGui::GetIO();
-                        assets::Map::Tile t = layer->get_tile(mouse_tile_pos);
+                        assets::Map::Tile t = layer->get_tile(pos);
                         if (io.MouseClicked[ImGuiMouseButton_Left]) {
                             t.height++;
-                            layer->set_tile(mouse_tile_pos, t);
+                            layer->set_tile(pos, t);
                         } else if (io.MouseClicked[ImGuiMouseButton_Right]) {
                             t.height--;
-                            layer->set_tile(mouse_tile_pos, t);
+                            layer->set_tile(pos, t);
                         } else if (io.KeyMods & ImGuiKeyModFlags_Shift &&
                                    io.MouseClicked[ImGuiMouseButton_Left]) {
                             t.height = assets::Map::Tile::wall_height;
-                            layer->set_tile(mouse_tile_pos, t);
+                            layer->set_tile(pos, t);
                         }
                     }
                 }
@@ -933,47 +1040,24 @@ void render(bool* p_show) {
                     current_zoom_level -= 1;
             }
 
-            math::IVec2D map_render_pos{
-                static_cast<int>(map_scroll.x * get_map_zoom() + ImGui::GetWindowWidth() / 2.f +
-                                 ImGui::GetCursorPos().x),
-                static_cast<int>(map_scroll.y * get_map_zoom() + ImGui::GetWindowHeight() / 2.f +
-                                 ImGui::GetCursorPos().y)};
+            // Since map coordinates are Y+ -> up and the map render position is in the left top
+            // corner, we provide the map height to the map_to_widget_pos to get that corner.
+            ImVec2 map_widget_pos = map_to_widget_pos({0, static_cast<float>(map->height)});
 
             ImVec2 abs_content_start_pos = {
                 ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                 ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
             {
                 // Draw the map
-                resize_map_fb(static_cast<int>(ImGui::GetWindowWidth()),
-                              static_cast<int>(ImGui::GetWindowHeight()));
-                render_map(map_render_pos);
+                resize_map_fb(static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                              static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                               ImGui::GetWindowContentRegionMin().y));
+                render_map();
                 ImGui::Image(
                     reinterpret_cast<ImTextureID>(map_fb_texture.handle),
                     {static_cast<float>(map_fb_texture.w), static_cast<float>(map_fb_texture.h)},
                     {0, 1}, {1, 0});
             }
-
-            ImVec2 mouse_pos = ImGui::GetMousePos();
-            ImVec2 relative_mouse_pos =
-                ImVec2(mouse_pos.x - (map_render_pos.x + abs_content_start_pos.x),
-                       mouse_pos.y - (map_render_pos.y + abs_content_start_pos.y));
-
-            // Snap the relative mouse position
-            ImVec2 snapped_relative_mouse_pos{
-                static_cast<float>(
-                    static_cast<int>(relative_mouse_pos.x) -
-                    static_cast<int>(std::fmod(relative_mouse_pos.x,
-                                               (global_tile_size::get() * get_map_zoom())))),
-
-                static_cast<float>(
-                    static_cast<int>(relative_mouse_pos.y) -
-                    static_cast<int>(std::fmod(relative_mouse_pos.y,
-                                               (global_tile_size::get() * get_map_zoom()))))};
-            math::IVec2D mouse_tile_pos = {
-                static_cast<i32>(snapped_relative_mouse_pos.x /
-                                 (global_tile_size::get() * get_map_zoom())),
-                static_cast<i32>(snapped_relative_mouse_pos.y /
-                                 (global_tile_size::get() * get_map_zoom()))};
 
             bool is_tileset_appropiate_for_layer;
             if (auto layer = current_layer_selected.get())
@@ -983,29 +1067,25 @@ void render(bool* p_show) {
                 is_tileset_appropiate_for_layer = true;
 
             if (edit_mode == EditMode::tile) {
-                draw_selection_on_map(
-                    *map, is_tileset_appropiate_for_layer,
-                    {static_cast<float>(map_render_pos.x), static_cast<float>(map_render_pos.y)},
-                    snapped_relative_mouse_pos, mouse_tile_pos, abs_content_start_pos);
+                draw_selection_on_map(*map, is_tileset_appropiate_for_layer);
             }
 
             static Handle<assets::Entity> entity_hovering;
             if (!entity_hovering.get()) {
-                entity_hovering = draw_entities(*map, map_render_pos, abs_content_start_pos);
+                entity_hovering = draw_entities(*map);
             } else {
-                draw_entities(*map, map_render_pos, abs_content_start_pos);
+                draw_entities(*map);
             }
 
             static Handle<assets::Map::Comment> comment_hovering;
             if (!comment_hovering.get()) {
-                comment_hovering = draw_comments(*map, map_render_pos, abs_content_start_pos);
+                comment_hovering = draw_comments(*map);
             } else {
-                draw_comments(*map, map_render_pos, abs_content_start_pos);
+                draw_comments(*map);
             }
 
             if (is_tileset_appropiate_for_layer) {
-                process_map_input(*map, mouse_tile_pos, relative_mouse_pos, map_render_pos,
-                                  abs_content_start_pos, entity_hovering, comment_hovering);
+                process_map_input(*map, entity_hovering, comment_hovering);
             }
 
             if (!is_tileset_appropiate_for_layer) {
@@ -1025,9 +1105,15 @@ void render(bool* p_show) {
                                                     text.data());
             }
 
-            draw_pos_info_bar(mouse_tile_pos, relative_mouse_pos);
+            draw_pos_info_bar();
         } else
             ImGui::TextDisabled("No map loaded to view.");
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Light Settings")) {
+        ImGui::SliderFloat("X Rotation", &light_x_rotation, -M_PI, M_PI);
+        ImGui::SliderFloat("Z Rotation", &light_z_rotation, -M_PI, M_PI);
     }
     ImGui::End();
 

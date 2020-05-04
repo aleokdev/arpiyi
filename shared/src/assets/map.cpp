@@ -28,7 +28,7 @@ Mesh Map::Layer::generate_layer_split_quad() {
         for (int y = 0; y < height; y++) {
             static int last_tile_height = 0;
             const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
-            const float min_vertex_y_pos = static_cast<float>((int)height - y - 1) * y_slice_size;
+            const float min_vertex_y_pos = static_cast<float>(y) * y_slice_size;
             const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
             const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
 
@@ -52,34 +52,34 @@ Mesh Map::Layer::generate_layer_split_quad() {
             /* Y pos 1st vertex */ result[quad_n + 1] = min_vertex_y_pos;
             /* Z pos 1st vertex */ result[quad_n + 2] = min_vertex_z_pos;
             /* X UV 1st vertex  */ result[quad_n + 3] = uv_pos.start.x;
-            /* Y UV 1st vertex  */ result[quad_n + 4] = uv_pos.start.y;
+            /* Y UV 1st vertex  */ result[quad_n + 4] = uv_pos.end.y;
             /* X pos 2nd vertex */ result[quad_n + 5] = max_vertex_x_pos;
             /* Y pos 2nd vertex */ result[quad_n + 6] = min_vertex_y_pos;
             /* Z pos 2nd vertex */ result[quad_n + 7] = min_vertex_z_pos;
             /* X UV 2nd vertex  */ result[quad_n + 8] = uv_pos.end.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 9] = uv_pos.start.y;
+            /* Y UV 2nd vertex  */ result[quad_n + 9] = uv_pos.end.y;
             /* X pos 3rd vertex */ result[quad_n + 10] = min_vertex_x_pos;
             /* Y pos 3rd vertex */ result[quad_n + 11] = max_vertex_y_pos;
             /* Z pos 3rd vertex */ result[quad_n + 12] = max_vertex_z_pos;
             /* X UV 2nd vertex  */ result[quad_n + 13] = uv_pos.start.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 14] = uv_pos.end.y;
+            /* Y UV 2nd vertex  */ result[quad_n + 14] = uv_pos.start.y;
 
             // Second triangle //
             /* X pos 1st vertex */ result[quad_n + 15] = max_vertex_x_pos;
             /* Y pos 1st vertex */ result[quad_n + 16] = min_vertex_y_pos;
             /* Z pos 1st vertex */ result[quad_n + 17] = min_vertex_z_pos;
             /* X UV 1st vertex  */ result[quad_n + 18] = uv_pos.end.x;
-            /* Y UV 1st vertex  */ result[quad_n + 19] = uv_pos.start.y;
+            /* Y UV 1st vertex  */ result[quad_n + 19] = uv_pos.end.y;
             /* X pos 2nd vertex */ result[quad_n + 20] = max_vertex_x_pos;
             /* Y pos 2nd vertex */ result[quad_n + 21] = max_vertex_y_pos;
             /* Z pos 2nd vertex */ result[quad_n + 22] = max_vertex_z_pos;
             /* X UV 2nd vertex  */ result[quad_n + 23] = uv_pos.end.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 24] = uv_pos.end.y;
+            /* Y UV 2nd vertex  */ result[quad_n + 24] = uv_pos.start.y;
             /* X pos 3rd vertex */ result[quad_n + 25] = min_vertex_x_pos;
             /* Y pos 3rd vertex */ result[quad_n + 26] = max_vertex_y_pos;
             /* Z pos 3rd vertex */ result[quad_n + 27] = max_vertex_z_pos;
             /* X UV 3rd vertex  */ result[quad_n + 28] = uv_pos.start.x;
-            /* Y UV 3rd vertex  */ result[quad_n + 29] = uv_pos.end.y;
+            /* Y UV 3rd vertex  */ result[quad_n + 29] = uv_pos.start.y;
 
             last_tile_height = tile.height;
         }
