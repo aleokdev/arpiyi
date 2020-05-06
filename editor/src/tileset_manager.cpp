@@ -571,22 +571,7 @@ void render(bool* p_show) {
                 assets::Tileset tileset;
                 tileset.name = fs::path(path_selected).filename().generic_string();
                 tileset.auto_type = auto_type;
-                switch (auto_type) {
-                    case (assets::Tileset::AutoType::none):
-                        tileset.texture = preview_texture;
-                        break;
-
-                    case (assets::Tileset::AutoType::rpgmaker_a2): {
-                        tileset.texture =
-                            calculate_rpgmaker_a2_auto_tileset_texture(*preview_texture.get());
-                        preview_texture.unload();
-                        break;
-                    }
-
-                    default:
-                        assert(false); // not implemented, outta here
-                        break;
-                }
+                tileset.texture = preview_texture;
                 selection.tileset = asset_manager::put(tileset);
                 update_grid_texture();
                 show_new_tileset = false;

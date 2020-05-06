@@ -19,6 +19,7 @@ namespace arpiyi::assets {
 struct [[assets::serialize]] [[assets::load_before(Tileset)]] [[assets::load_before(Entity)]] [[meta::dir_name("maps")]] Map {
     struct Tile {
         /// ID of tile (within layer tileset) being used
+        /// ID meaning depends on the tileset type. For information about each ID type, go to tileset.hpp::Tileset::AutoType.
         u32 id = 0;
 
         /// Terrain height of the tile.
@@ -55,7 +56,9 @@ struct [[assets::serialize]] [[assets::load_before(Tileset)]] [[assets::load_bef
         bool visible = true;
 
     private:
-        assets::Mesh generate_layer_split_quad();
+        assets::Mesh generate_layer_mesh();
+        assets::Mesh generate_normal_mesh();
+        assets::Mesh generate_rpgmaker_a2_mesh();
 
         i64 width = 0, height = 0;
         std::vector<Tile> tiles;

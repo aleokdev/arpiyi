@@ -19,7 +19,6 @@
 #include "sprite_manager.hpp"
 #include "script_manager.hpp"
 #include "serializing_manager.hpp"
-#include "depth_manager.hpp"
 #include "window_list_menu.hpp"
 #include "widgets/inspector.hpp"
 
@@ -44,7 +43,6 @@ int main() {
     plugin_manager::init();
     script_editor::init();
     sprite_manager::init();
-    depth_manager::init();
     // plugin_manager::load_plugins("data/plugins");
     widgets::inspector::init();
     startup_dialog::init();

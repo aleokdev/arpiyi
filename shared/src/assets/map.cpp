@@ -5,10 +5,15 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include "util/defs.hpp"
+
+#include <array>
+
 namespace arpiyi::assets {
 
-Mesh Map::Layer::generate_layer_split_quad() {
-
+/// Generates a regular split quad for a layer that has a tileset of type AutoType::none attached to
+/// it.
+Mesh Map::Layer::generate_normal_mesh() {
     // Format: {pos.x pos.y pos.z uv.x uv.y ...}
     // 5 because it's 3 position coords and 2 UV coords.
     constexpr auto sizeof_vertex = 5;
@@ -22,10 +27,10 @@ Mesh Map::Layer::generate_layer_split_quad() {
     const auto add_quad = [&result](int quad_n, math::Rect2D pos_rect, float min_z, float max_z,
                                     math::Rect2D uv_rect) -> void {
         const auto tri_n = quad_n * sizeof_quad;
-      if(tri_n >= result.size()) {
-          // Allocate more size if needed
-          result.resize(result.size() + 16 * sizeof_quad);
-      }
+        if (tri_n >= result.size()) {
+            // Allocate more size if needed
+            result.resize(result.size() + 16 * sizeof_quad);
+        }
 
         // First triangle //
         /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
@@ -62,48 +67,50 @@ Mesh Map::Layer::generate_layer_split_quad() {
         /* Y UV 3rd vertex  */ result[tri_n + 29] = uv_rect.start.y;
     };
 
-    const auto add_vertical_quad = [&result](int quad_n, math::Rect2D pos_rect, float min_z, float max_z) -> void {
-      const auto tri_n = quad_n * sizeof_quad;
-      if(tri_n >= result.size()) {
-          // Allocate more size if needed
-          result.resize(result.size() + 16 * sizeof_quad);
-      }
+    const auto add_vertical_quad = [&result](int quad_n, math::Rect2D pos_rect, float min_z,
+                                             float max_z) -> void {
+        const auto tri_n = quad_n * sizeof_quad;
+        if (tri_n >= result.size()) {
+            // Allocate more size if needed
+            result.resize(result.size() + 16 * sizeof_quad);
+        }
 
-      // We zero out the UV because this quad won't even be visible by the camera: It's just used for shadows.
+        // We zero out the UV because this quad won't even be visible by the camera: It's just used
+        // for shadows.
 
-      // First triangle //
-      /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
-      /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.end.y;
-      /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
-      /* X UV 1st vertex  */ result[tri_n + 3] = 0;
-      /* Y UV 1st vertex  */ result[tri_n + 4] = 0;
-      /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
-      /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
-      /* Z pos 2nd vertex */ result[tri_n + 7] = max_z;
-      /* X UV 2nd vertex  */ result[tri_n + 8] = 0;
-      /* Y UV 2nd vertex  */ result[tri_n + 9] = 0;
-      /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.end.x;
-      /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.start.y;
-      /* Z pos 3rd vertex */ result[tri_n + 12] = min_z;
-      /* X UV 2nd vertex  */ result[tri_n + 13] = 0;
-      /* Y UV 2nd vertex  */ result[tri_n + 14] = 0;
+        // First triangle //
+        /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
+        /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.end.y;
+        /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
+        /* X UV 1st vertex  */ result[tri_n + 3] = 0;
+        /* Y UV 1st vertex  */ result[tri_n + 4] = 0;
+        /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
+        /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
+        /* Z pos 2nd vertex */ result[tri_n + 7] = max_z;
+        /* X UV 2nd vertex  */ result[tri_n + 8] = 0;
+        /* Y UV 2nd vertex  */ result[tri_n + 9] = 0;
+        /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.end.x;
+        /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.start.y;
+        /* Z pos 3rd vertex */ result[tri_n + 12] = min_z;
+        /* X UV 2nd vertex  */ result[tri_n + 13] = 0;
+        /* Y UV 2nd vertex  */ result[tri_n + 14] = 0;
 
-      // Second triangle //
-      /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.start.x;
-      /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.end.y;
-      /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
-      /* X UV 1st vertex  */ result[tri_n + 18] = 0;
-      /* Y UV 1st vertex  */ result[tri_n + 19] = 0;
-      /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.start.x;
-      /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
-      /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
-      /* X UV 2nd vertex  */ result[tri_n + 23] = 0;
-      /* Y UV 2nd vertex  */ result[tri_n + 24] = 0;
-      /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.end.x;
-      /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.start.y;
-      /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
-      /* X UV 3rd vertex  */ result[tri_n + 28] = 0;
-      /* Y UV 3rd vertex  */ result[tri_n + 29] = 0;
+        // Second triangle //
+        /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.start.x;
+        /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.end.y;
+        /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
+        /* X UV 1st vertex  */ result[tri_n + 18] = 0;
+        /* Y UV 1st vertex  */ result[tri_n + 19] = 0;
+        /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.start.x;
+        /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
+        /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
+        /* X UV 2nd vertex  */ result[tri_n + 23] = 0;
+        /* Y UV 2nd vertex  */ result[tri_n + 24] = 0;
+        /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.end.x;
+        /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.start.y;
+        /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
+        /* X UV 3rd vertex  */ result[tri_n + 28] = 0;
+        /* Y UV 3rd vertex  */ result[tri_n + 29] = 0;
     };
 
     const float wall_level_height = y_slice_size;
@@ -137,22 +144,28 @@ Mesh Map::Layer::generate_layer_split_quad() {
             add_quad(quad_n++,
                      {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
                      min_vertex_z_pos, max_vertex_z_pos, uv_pos);
-            if(max_vertex_z_pos != 0) {
+            if (max_vertex_z_pos != 0) {
                 // Create "side walls" so that shadows don't appear floating in the map.
                 // Left wall
-                add_vertical_quad(quad_n++,
-                         {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}},
-                         0, max_vertex_z_pos);
+                add_vertical_quad(
+                    quad_n++,
+                    {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}}, 0,
+                    max_vertex_z_pos);
                 // Right wall
-                add_vertical_quad(quad_n++,
-                         {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
-                         0, max_vertex_z_pos);
+                add_vertical_quad(
+                    quad_n++,
+                    {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
+                    max_vertex_z_pos);
                 // Back wall
-                add_quad(quad_n++, {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
-                    0, max_vertex_z_pos, {{0,0},{0,0}});
+                add_quad(
+                    quad_n++,
+                    {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
+                    max_vertex_z_pos, {{0, 0}, {0, 0}});
                 // Front wall
-                add_quad(quad_n++, {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}},
-                         0, max_vertex_z_pos, {{0,0},{0,0}});
+                add_quad(
+                    quad_n++,
+                    {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}}, 0,
+                    max_vertex_z_pos, {{0, 0}, {0, 0}});
             }
 
             last_tile_height = tile.height;
@@ -187,6 +200,210 @@ Mesh Map::Layer::generate_layer_split_quad() {
     return Mesh{vao, vbo, sizeof_result};
 }
 
+Mesh Map::Layer::generate_rpgmaker_a2_mesh() {
+    // Format: {pos.x pos.y pos.z uv.x uv.y ...}
+    // 5 because it's 3 position coords and 2 UV coords.
+    constexpr auto sizeof_vertex = 5;
+    constexpr auto sizeof_triangle = 3 * sizeof_vertex;
+    constexpr auto sizeof_quad = 2 * sizeof_triangle;
+
+    std::vector<float> result(sizeof_quad * width * height);
+    // RPGMaker A2 tilesets have double the resolution of normal tilemaps due to how they work.
+    // For more information, check out
+    // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
+    const float x_slice_size = 1.f / width / 2.f;
+    const float y_slice_size = 1.f / height / 2.f;
+
+    const auto add_quad = [&result](int quad_n, math::Rect2D pos_rect, float min_z, float max_z,
+                                    math::Rect2D uv_rect) -> void {
+        const auto tri_n = quad_n * sizeof_quad;
+        if (tri_n >= result.size()) {
+            // Allocate more size if needed
+            result.resize(result.size() + 16 * sizeof_quad);
+        }
+
+        // First triangle //
+        /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
+        /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.start.y;
+        /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
+        /* X UV 1st vertex  */ result[tri_n + 3] = uv_rect.start.x;
+        /* Y UV 1st vertex  */ result[tri_n + 4] = uv_rect.end.y;
+        /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
+        /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
+        /* Z pos 2nd vertex */ result[tri_n + 7] = min_z;
+        /* X UV 2nd vertex  */ result[tri_n + 8] = uv_rect.end.x;
+        /* Y UV 2nd vertex  */ result[tri_n + 9] = uv_rect.end.y;
+        /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.start.x;
+        /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.end.y;
+        /* Z pos 3rd vertex */ result[tri_n + 12] = max_z;
+        /* X UV 2nd vertex  */ result[tri_n + 13] = uv_rect.start.x;
+        /* Y UV 2nd vertex  */ result[tri_n + 14] = uv_rect.start.y;
+
+        // Second triangle //
+        /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.end.x;
+        /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.start.y;
+        /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
+        /* X UV 1st vertex  */ result[tri_n + 18] = uv_rect.end.x;
+        /* Y UV 1st vertex  */ result[tri_n + 19] = uv_rect.end.y;
+        /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.end.x;
+        /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
+        /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
+        /* X UV 2nd vertex  */ result[tri_n + 23] = uv_rect.end.x;
+        /* Y UV 2nd vertex  */ result[tri_n + 24] = uv_rect.start.y;
+        /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.start.x;
+        /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.end.y;
+        /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
+        /* X UV 3rd vertex  */ result[tri_n + 28] = uv_rect.start.x;
+        /* Y UV 3rd vertex  */ result[tri_n + 29] = uv_rect.start.y;
+    };
+
+    const auto add_vertical_quad = [&result](int quad_n, math::Rect2D pos_rect, float min_z,
+                                             float max_z) -> void {
+        const auto tri_n = quad_n * sizeof_quad;
+        if (tri_n >= result.size()) {
+            // Allocate more size if needed
+            result.resize(result.size() + 16 * sizeof_quad);
+        }
+
+        // We zero out the UV because this quad won't even be visible by the camera: It's just used
+        // for shadows.
+
+        // First triangle //
+        /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
+        /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.end.y;
+        /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
+        /* X UV 1st vertex  */ result[tri_n + 3] = 0;
+        /* Y UV 1st vertex  */ result[tri_n + 4] = 0;
+        /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
+        /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
+        /* Z pos 2nd vertex */ result[tri_n + 7] = max_z;
+        /* X UV 2nd vertex  */ result[tri_n + 8] = 0;
+        /* Y UV 2nd vertex  */ result[tri_n + 9] = 0;
+        /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.end.x;
+        /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.start.y;
+        /* Z pos 3rd vertex */ result[tri_n + 12] = min_z;
+        /* X UV 2nd vertex  */ result[tri_n + 13] = 0;
+        /* Y UV 2nd vertex  */ result[tri_n + 14] = 0;
+
+        // Second triangle //
+        /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.start.x;
+        /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.end.y;
+        /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
+        /* X UV 1st vertex  */ result[tri_n + 18] = 0;
+        /* Y UV 1st vertex  */ result[tri_n + 19] = 0;
+        /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.start.x;
+        /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
+        /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
+        /* X UV 2nd vertex  */ result[tri_n + 23] = 0;
+        /* Y UV 2nd vertex  */ result[tri_n + 24] = 0;
+        /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.end.x;
+        /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.start.y;
+        /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
+        /* X UV 3rd vertex  */ result[tri_n + 28] = 0;
+        /* Y UV 3rd vertex  */ result[tri_n + 29] = 0;
+    };
+
+    const float wall_level_height = y_slice_size;
+
+    int quad_n = 0;
+    assert(tileset.get());
+    const auto& tl = *tileset.get();
+    // Create a quad for each {x, y} position.
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            for(int minitile = 0; minitile < 4; ++minitile) {
+                static int last_tile_height = 0;
+
+                const Tile tile = get_tile({x, y});
+                const int minitile_x = minitile % 2;
+                const int minitile_y = minitile / 2;
+                const float min_vertex_x_pos = static_cast<float>(x*2 + minitile_x) * x_slice_size;
+                const float min_vertex_y_pos = static_cast<float>(y*2 + (1 - minitile_y)) * y_slice_size;
+                const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
+                const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+                float min_vertex_z_pos;
+                float max_vertex_z_pos;
+                if (tile.height == Tile::wall_height) {
+                    min_vertex_z_pos = static_cast<float>(last_tile_height) * wall_level_height;
+                    // TODO: get actual tile height of max pos
+                    max_vertex_z_pos = static_cast<float>(last_tile_height) * wall_level_height;
+                } else {
+                    min_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+                    max_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+                }
+                const u8 surroundings = tl.get_surroundings_from_auto_id(tile.id);
+
+                const math::Rect2D uv_pos = tl.get_uv(tile.id, minitile);
+
+                add_quad(quad_n++,
+                         {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
+                         min_vertex_z_pos, max_vertex_z_pos, uv_pos);
+                if (max_vertex_z_pos != 0) {
+                    // Create "side walls" so that shadows don't appear floating in the map.
+                    // Left wall
+                    add_vertical_quad(
+                        quad_n++,
+                        {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}}, 0,
+                        max_vertex_z_pos);
+                    // Right wall
+                    add_vertical_quad(
+                        quad_n++,
+                        {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
+                        max_vertex_z_pos);
+                    // Back wall
+                    add_quad(
+                        quad_n++,
+                        {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
+                        max_vertex_z_pos, {{0, 0}, {0, 0}});
+                    // Front wall
+                    add_quad(
+                        quad_n++,
+                        {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}}, 0,
+                        max_vertex_z_pos, {{0, 0}, {0, 0}});
+                }
+
+                last_tile_height = tile.height;
+            }
+        }
+    }
+
+    constexpr int quad_vertices = 2 * 3;
+    const auto sizeof_result = quad_n * quad_vertices;
+
+    unsigned int vao, vbo;
+
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    // Fill buffer
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof_result * sizeof_vertex * sizeof(float), result.data(),
+                 GL_STATIC_DRAW);
+
+    glBindVertexArray(vao);
+    // Vertex Positions
+    glEnableVertexAttribArray(0); // location 0
+    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
+    glBindVertexBuffer(0, vbo, 0, sizeof_vertex * sizeof(float));
+    glVertexAttribBinding(0, 0);
+    // UV Positions
+    glEnableVertexAttribArray(1); // location 1
+    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
+    glBindVertexBuffer(1, vbo, 0, sizeof_vertex * sizeof(float));
+    glVertexAttribBinding(1, 1);
+
+    return Mesh{vao, vbo, sizeof_result};
+}
+
+Mesh Map::Layer::generate_layer_mesh() {
+    assert(tileset.get());
+    switch (tileset.get()->auto_type) {
+        case Tileset::AutoType::none: return generate_normal_mesh();
+        case Tileset::AutoType::rpgmaker_a2: return generate_rpgmaker_a2_mesh();
+        default: ARPIYI_UNREACHABLE();
+    }
+}
+
 Map::Layer::Layer(i64 width, i64 height, Handle<assets::Tileset> t) :
     tileset(t), width(width), height(height), tiles(width * height) {
     regenerate_mesh();
@@ -195,7 +412,7 @@ Map::Layer::Layer(i64 width, i64 height, Handle<assets::Tileset> t) :
 void Map::Layer::regenerate_mesh() {
     if (tileset.get()) {
         mesh.unload();
-        mesh = asset_manager::put(generate_layer_split_quad());
+        mesh = asset_manager::put(generate_layer_mesh());
     }
 }
 

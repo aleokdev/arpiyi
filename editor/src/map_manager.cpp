@@ -548,10 +548,6 @@ static void render_map() {
         const float x = distance * aml::cos(angle);
         const float y = distance * aml::sin(angle) * aml::cos(light_x_rotation);
 
-        if (map_pos.x == 16 && map_pos.y == 16) {
-            std::cout << "angle: " << angle << ", {" << x << ", " << y << "}" << std::endl;
-        }
-
         return {x, y};
     };
 
@@ -638,7 +634,7 @@ static void place_tile_on_pos(assets::Map& map,
                     if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
                         continue;
                     auto layer = current_layer_selected.get();
-                    layer->set_tile(pos, {layer->tileset.get()->get_id({tx, ty})});
+                    layer->set_tile(pos, {layer->tileset.get()->get_id_autotype_none({tx, ty})});
                     pos.y--;
                 }
                 pos.x++;
@@ -650,8 +646,8 @@ static void place_tile_on_pos(assets::Map& map,
             auto& layer = *current_layer_selected.get();
             const auto& tileset = *selection.tileset.get();
             const auto are_tiles_of_same_type = [&tileset](u32 id1, u32 id2) -> bool {
-                return tileset.get_x_index_from_auto_id(id1) ==
-                       tileset.get_x_index_from_auto_id(id2);
+                return tileset.get_auto_tile_index_from_auto_id(id1) ==
+                       tileset.get_auto_tile_index_from_auto_id(id2);
             };
 
             const auto update_auto_id = [&](math::IVec2D pos) {
@@ -675,12 +671,12 @@ static void place_tile_on_pos(assets::Map& map,
                     }
                 }
                 layer.set_tile(pos,
-                               {tileset.get_id_auto(tileset.get_x_index_from_auto_id(self_tile.id),
+                               {tileset.get_id_autotype_rpgmaker_a2(tileset.get_auto_tile_index_from_auto_id(self_tile.id),
                                                     surroundings)});
             };
             // Set the tile below the cursor and don't worry about the surroundings; we'll update
             // them later
-            layer.set_tile(pos, {tileset.get_id_auto(selection.selection_start.x, 0)});
+            layer.set_tile(pos, {tileset.get_id_autotype_rpgmaker_a2(selection.selection_start.x, 0)});
             // Update autoID of tile placed and all others near it
             for (int iy = -1; iy <= 1; ++iy) {
                 for (int ix = -1; ix <= 1; ++ix) {
