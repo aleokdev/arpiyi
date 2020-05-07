@@ -4,7 +4,6 @@
 #include "asset_manager.hpp"
 #include "util/math.hpp"
 #include <anton/math/vector2.hpp>
-#include <experimental/propagate_const>
 
 namespace aml = anton::math;
 
@@ -33,7 +32,7 @@ public:
 private:
     friend class Renderer;
     struct impl;
-    std::experimental::propagate_const<std::unique_ptr<impl>> p_impl;
+    std::unique_ptr<impl> p_impl;
 };
 
 class RenderMapContext {
@@ -66,7 +65,7 @@ public:
 private:
     friend class Renderer;
     struct impl;
-    std::experimental::propagate_const<std::unique_ptr<impl>> p_impl;
+    std::unique_ptr<impl> p_impl;
 };
 
 class Renderer {
@@ -82,7 +81,7 @@ public:
 private:
     GLFWwindow* const window;
     struct impl;
-    std::experimental::propagate_const<std::unique_ptr<impl>> p_impl;
+    std::unique_ptr<impl> p_impl;
 };
 
 }

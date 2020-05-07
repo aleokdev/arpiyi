@@ -30,5 +30,6 @@ elseif(NOT MSVC)
     # any sane compiler
     target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
 endif()
+target_compile_definitions(arpiyi-shared PUBLIC _USE_MATH_DEFINES) # For M_PI on some platforms such as MSVC
 
 add_dependencies(arpiyi-shared run-arpiyi-codegen)
