@@ -1,12 +1,5 @@
-/* clang-format off */
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-/* clang-format on */
-#include <iostream>
-
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
 
 #include "editor/editor_style.hpp"
 #include "editor/editor_renderer.hpp"
@@ -18,7 +11,6 @@
 #include "startup_dialog.hpp"
 #include "sprite_manager.hpp"
 #include "script_manager.hpp"
-#include "serializing_manager.hpp"
 #include "window_list_menu.hpp"
 #include "widgets/inspector.hpp"
 
@@ -51,16 +43,7 @@ int main() {
     while (!glfwWindowShouldClose(window_manager::get_window())) {
         glfwPollEvents();
 
-        // Start the ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        int display_w, display_h;
-        glfwGetFramebufferSize(window_manager::get_window(), &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0, 0, 0, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
+        window_manager::get_renderer().start_frame();
 
         editor::renderer::render();
         window_list_menu::render_entries();
@@ -68,10 +51,7 @@ int main() {
             ImGui::ShowDemoWindow(&show_demo_window);
         }
 
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        glfwSwapBuffers(window_manager::get_window());
+        window_manager::get_renderer().finish_frame();
     }
 
     ImGui::SaveIniSettingsToDisk("imgui.ini");

@@ -8,6 +8,7 @@
 #include <anton/math/matrix4.hpp>
 
 #include "util/math.hpp"
+#include "renderer/renderer.hpp"
 
 namespace aml = anton::math;
 
@@ -15,6 +16,7 @@ namespace arpiyi::window_manager {
 
 bool init();
 
+renderer::Renderer& get_renderer();
 GLFWwindow* get_window();
 aml::Matrix4 get_projection();
 math::IVec2D get_framebuf_size();

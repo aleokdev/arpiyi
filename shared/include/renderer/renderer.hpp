@@ -57,6 +57,10 @@ public:
     /// The rotation of the light on the Z axis (Horizontal distortion), measured in radians.
     float z_light_rotation;
 
+    // Misc settings
+    /// Should a tile grid be drawn over the map?
+    bool draw_grid;
+
 private:
     friend class Renderer;
     struct impl;
@@ -64,7 +68,9 @@ private:
 };
 
 class Renderer {
+public:
     explicit Renderer(GLFWwindow*);
+    ~Renderer();
 
     void draw_map(RenderMapContext const&);
 

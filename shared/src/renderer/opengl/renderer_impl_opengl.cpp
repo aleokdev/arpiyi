@@ -18,6 +18,32 @@
 
 namespace arpiyi::renderer {
 
+struct Renderer::impl { Handle<assets::Mesh> quad_mesh; };
+
+Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()) {
+    p_impl->quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
+}
+Renderer::~Renderer() = default;
+
+void Renderer::start_frame() {
+    // Start the ImGui frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    int display_w, display_h;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+void Renderer::finish_frame() {
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    glfwSwapBuffers(window);
+}
+
 struct Framebuffer::impl {
     unsigned int handle;
     assets::Texture tex;
@@ -69,6 +95,7 @@ struct RenderMapContext::impl {
     // TODO: Move shaders & locations to renderer impl
     Handle<assets::Shader> tile_shader;
     Handle<assets::Shader> depth_shader;
+    Handle<assets::Shader> grid_shader;
     unsigned int tile_shader_tile_tex_location;
     unsigned int tile_shader_shadow_tex_location;
 };
@@ -77,6 +104,8 @@ RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) {
     set_shadow_resolution(shadow_resolution);
     p_impl->tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     p_impl->depth_shader =
+        asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
+    p_impl->grid_shader =
         asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
 }
 
@@ -223,6 +252,22 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.handle);
     detail::draw_map(map);
 
+    if (data.draw_grid) {
+        // Draw mesh grid
+        glUseProgram(data.p_impl->grid_shader.get()->handle);
+        glBindVertexArray(p_impl->quad_mesh.get()->vao);
+        glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
+        glUniform2ui(4, map.width, map.height);
+
+        aml::Matrix4 model = aml::Matrix4::identity;
+        model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height), 0});
+        glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+        glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw());
+        glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());
+
+        constexpr int quad_verts = 2 * 3;
+        glDrawArrays(GL_TRIANGLES, 0, quad_verts);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -249,28 +294,5 @@ static void draw_map(assets::Map const& map) {
     }
 }
 } // namespace detail
-
-struct Renderer::impl {};
-
-Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()) {}
-
-void Renderer::start_frame() {
-    // Start the ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    int display_w, display_h;
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
-}
-void Renderer::finish_frame() {
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    glfwSwapBuffers(window);
-}
 
 } // namespace arpiyi::renderer

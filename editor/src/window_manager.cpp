@@ -12,7 +12,8 @@
 
 namespace arpiyi::window_manager {
 
-GLFWwindow* window;
+static GLFWwindow* window;
+static std::unique_ptr<renderer::Renderer> renderer;
 
 static void debug_callback(GLenum const source,
                            GLenum const type,
@@ -103,10 +104,13 @@ bool init() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+    renderer = std::make_unique<renderer::Renderer>(window);
     return true;
 }
 
 GLFWwindow* get_window() { return window; }
+renderer::Renderer& get_renderer() { return *renderer; }
 
 aml::Matrix4 get_projection() {
     int fb_w, fb_h;
