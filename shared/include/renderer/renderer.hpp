@@ -39,6 +39,8 @@ private:
 class RenderMapContext {
 public:
     explicit RenderMapContext(math::IVec2D shadow_resolution);
+    ~RenderMapContext();
+
     void set_shadow_resolution(math::IVec2D);
     [[nodiscard]] math::IVec2D get_shadow_resolution() const;
 

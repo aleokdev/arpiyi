@@ -18,12 +18,29 @@
 
 namespace arpiyi::renderer {
 
-struct Renderer::impl { Handle<assets::Mesh> quad_mesh; };
+struct Renderer::impl {
+    Handle<assets::Mesh> quad_mesh;
+    Handle<assets::Shader> tile_shader;
+    Handle<assets::Shader> depth_shader;
+    Handle<assets::Shader> grid_shader;
+    unsigned int tile_shader_tile_tex_location;
+    unsigned int tile_shader_shadow_tex_location;
+};
+
+Renderer::~Renderer() = default;
 
 Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()) {
     p_impl->quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
+
+    p_impl->tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
+    p_impl->depth_shader =
+        asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
+    p_impl->grid_shader =
+        asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
+    p_impl->tile_shader_tile_tex_location = glGetUniformLocation(p_impl->tile_shader.get()->handle, "tile");
+    p_impl->tile_shader_shadow_tex_location =
+        glGetUniformLocation(p_impl->tile_shader.get()->handle, "shadow");
 }
-Renderer::~Renderer() = default;
 
 void Renderer::start_frame() {
     // Start the ImGui frame
@@ -38,6 +55,7 @@ void Renderer::start_frame() {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 void Renderer::finish_frame() {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -58,6 +76,10 @@ Framebuffer::Framebuffer(math::IVec2D size) : p_impl(std::make_unique<impl>()) {
 void Framebuffer::set_size(math::IVec2D size) {
     auto& handle = p_impl->handle;
     auto& tex = p_impl->tex;
+    if(tex.handle != assets::Texture::nohandle)
+        glDeleteTextures(1, &tex.handle);
+    if(handle != assets::Texture::nohandle)
+        glDeleteFramebuffers(1, &handle);
     glGenTextures(1, &tex.handle);
     glBindTexture(GL_TEXTURE_2D, tex.handle);
     glCreateFramebuffers(1, &handle);
@@ -79,10 +101,11 @@ math::IVec2D Framebuffer::get_size() const {
 }
 
 ImTextureID Framebuffer::get_imgui_id() const {
-    return reinterpret_cast<ImTextureID>(p_impl->handle);
+    return reinterpret_cast<ImTextureID>(p_impl->tex.handle);
 }
 
 Framebuffer::~Framebuffer() {
+    if(glfwGetCurrentContext() == nullptr) return;
     if (p_impl->tex.handle == assets::Texture::nohandle)
         glDeleteTextures(1, &p_impl->tex.handle);
     if (p_impl->handle != static_cast<unsigned int>(-1))
@@ -92,21 +115,14 @@ Framebuffer::~Framebuffer() {
 struct RenderMapContext::impl {
     unsigned int raw_depth_fb;
     assets::Texture depth_tex;
-    // TODO: Move shaders & locations to renderer impl
-    Handle<assets::Shader> tile_shader;
-    Handle<assets::Shader> depth_shader;
-    Handle<assets::Shader> grid_shader;
-    unsigned int tile_shader_tile_tex_location;
-    unsigned int tile_shader_shadow_tex_location;
 };
 
-RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) {
+RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) : p_impl(std::make_unique<impl>()) {
     set_shadow_resolution(shadow_resolution);
-    p_impl->tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
-    p_impl->depth_shader =
-        asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
-    p_impl->grid_shader =
-        asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
+}
+RenderMapContext::~RenderMapContext() {
+    //glDeleteTextures(1, &p_impl->depth_tex.handle);
+    //glDeleteFramebuffers(1, &p_impl->raw_depth_fb);
 }
 
 namespace detail {
@@ -144,6 +160,7 @@ math::IVec2D RenderMapContext::get_shadow_resolution() const {
 }
 
 void Renderer::draw_map(RenderMapContext const& data) {
+    assert(data.map.get());
     const auto& map = *data.map.get();
     const auto map_to_fb_tile_pos = [&data, map](aml::Vector2 pos) -> aml::Vector2 {
         return {pos.x -
@@ -153,16 +170,6 @@ void Renderer::draw_map(RenderMapContext const& data) {
                 pos.y -
                     static_cast<float>(data.output_fb.get_size().y) / global_tile_size::get() /
                         data.zoom / 2.f +
-                    map.height / 2.f};
-    };
-    const auto fb_tile_to_map_pos = [&data, map](aml::Vector2 pos) -> aml::Vector2 {
-        return {pos.x +
-                    static_cast<float>(data.output_fb.get_size().x) / global_tile_size::get() /
-                        data.zoom / 2.f -
-                    map.width / 2.f,
-                pos.y +
-                    static_cast<float>(data.output_fb.get_size().y) / global_tile_size::get() /
-                        data.zoom / 2.f -
                     map.height / 2.f};
     };
 
@@ -232,7 +239,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     lightView *= aml::rotate_z(data.z_light_rotation) * aml::rotate_x(data.x_light_rotation);
     lightView = aml::inverse(lightView);
     aml::Matrix4 lightSpaceMatrix = lightProjection * lightView;
-    glUseProgram(data.p_impl->depth_shader.get()->handle);
+    glUseProgram(p_impl->depth_shader.get()->handle);
     glUniformMatrix4fv(2, 1, GL_FALSE, lightSpaceMatrix.get_raw());
     detail::draw_map(map);
 
@@ -241,9 +248,9 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glViewport(0, 0, data.output_fb.get_size().x, data.output_fb.get_size().y);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(data.p_impl->tile_shader.get()->handle);
-    glUniform1i(data.p_impl->tile_shader_tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
-    glUniform1i(data.p_impl->tile_shader_shadow_tex_location,
+    glUseProgram(p_impl->tile_shader.get()->handle);
+    glUniform1i(p_impl->tile_shader_tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
+    glUniform1i(p_impl->tile_shader_shadow_tex_location,
                 1);                                           // Set shadow sampler2D to GL_TEXTURE1
     glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
     glUniformMatrix4fv(4, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
@@ -254,7 +261,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
 
     if (data.draw_grid) {
         // Draw mesh grid
-        glUseProgram(data.p_impl->grid_shader.get()->handle);
+        glUseProgram(p_impl->grid_shader.get()->handle);
         glBindVertexArray(p_impl->quad_mesh.get()->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         glUniform2ui(4, map.width, map.height);
