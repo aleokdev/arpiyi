@@ -3,11 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <iostream>
 #include <vector>
 
 #include "assets/entity.hpp"
-#include "assets/shader.hpp"
 #include "assets/texture.hpp"
 #include "global_tile_size.hpp"
 #include "tileset_manager.hpp"
@@ -19,10 +17,7 @@
 #include "window_list_menu.hpp"
 #include "window_manager.hpp"
 
-#include <anton/math/matrix3.hpp>
-#include <anton/math/matrix4.hpp>
-#include <anton/math/transform.hpp>
-#include <glad/glad.h>
+#include <anton/math/vector2.hpp>
 #include <imgui.h>
 
 namespace aml = anton::math;
@@ -30,12 +25,6 @@ namespace aml = anton::math;
 namespace arpiyi::map_manager {
 
 static Handle<assets::Map> current_map;
-static Handle<assets::Shader> tile_shader;
-static Handle<assets::Shader> grid_shader;
-static Handle<assets::Shader> depth_shader;
-static Handle<assets::Shader> depth_color_shader;
-static Handle<assets::Mesh> quad_mesh;
-static aml::Matrix4 proj_mat;
 static Handle<assets::Map::Layer> current_layer_selected;
 /// (In tiles).
 /// TODO: Remove map_scroll & directly modify render map context
@@ -738,20 +727,7 @@ static void process_map_input(assets::Map& map,
 }
 
 void init() {
-    tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
-    grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
-    depth_shader = asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
-    depth_color_shader =
-        asset_manager::load<assets::Shader>({"data/basic.vert", "data/depth_color.frag"});
-    quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
     render_map_context = std::make_unique<renderer::RenderMapContext>(math::IVec2D{1, 1});
-
-    // Map projection matrix:
-    // Goes from 0 to 1 in the X axis.
-    // From 1 to 0 in the Y axis, because higher Y values means lower in arpiyi.
-    // Near value is 1 and far value is -1; We want higher terrain (More Z) to be closer to us (So
-    // near is 1) and lower terrain (Less Z) to be farther from us (So far is -1)
-    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, 1.f, -1.f);
     window_list_menu::add_entry({"Map View", &render});
 }
 
