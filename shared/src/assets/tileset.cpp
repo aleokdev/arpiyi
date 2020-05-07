@@ -29,6 +29,7 @@ math::Rect2D Tileset::get_uv(u32 id) const {
     return {start_uv_pos, end_uv_pos};
 }
 
+// TODO: Document this
 math::Rect2D Tileset::get_uv(u32 id, u8 minitile) const {
     // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
     // Check if minitile given is valid

@@ -71,12 +71,6 @@ static aml::Vector2 widget_to_map_tile_pos(ImVec2 widget_pos) {
     return {result.x, result.y};
 };
 
-static aml::Vector2 widget_to_map_pixel_pos(ImVec2 widget_pos) {
-    ImVec2 start_map_pos = map_to_widget_pos({0, 0});
-    ImVec2 result{widget_pos.x - start_map_pos.x, -widget_pos.y + start_map_pos.y};
-    return {result.x, result.y};
-};
-
 static void show_info_tip(const char* c) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
@@ -450,18 +444,6 @@ namespace detail {
 static unsigned int tile_shader_tile_tex_location;
 static unsigned int tile_shader_shadow_tex_location;
 
-static aml::Matrix4 look_at(aml::Vector3 eye, aml::Vector3 at, aml::Vector3 up) {
-    aml::Vector3 zaxis = -aml::normalize(eye - at);
-    aml::Vector3 xaxis = aml::normalize(cross(zaxis, up));
-    aml::Vector3 yaxis = aml::cross(xaxis, zaxis);
-
-    /* clang-format off */
-    return {aml::Vector4(xaxis.x, xaxis.y, xaxis.z, -dot(xaxis, eye)),
-            aml::Vector4(yaxis.x, yaxis.y, yaxis.z, -dot(yaxis, eye)),
-            aml::Vector4(zaxis.x, zaxis.y, zaxis.z, -dot(zaxis, eye)), aml::Vector4(0, 0, 0, 1)};
-    /* clang-format on */
-}
-
 static void draw_map(assets::Map const& map) {
     aml::Matrix4 model = aml::Matrix4::identity;
     model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height),
@@ -534,7 +516,6 @@ static void render_map() {
     // Depth image rendering
     glBindFramebuffer(GL_FRAMEBUFFER, map_depth_fb_id);
     glViewport(0, 0, map_depth_fb_texture.w, map_depth_fb_texture.h);
-    // glClearDepth(0.0f);
     glClear(GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_LEQUAL);
 
@@ -554,7 +535,7 @@ static void render_map() {
     //FIXME: Shadows only work with angles -pi < x < pi
 
     // Apply Z/X rotation to projection so that the entire map is aligned with the texture.
-    const int z_rotation_quadrant = std::fmod(light_z_rotation, M_PI*2.f) / (M_PI/2.f);
+    const int z_rotation_quadrant = static_cast<int>(std::fmod(light_z_rotation, M_PI*2.f) / (M_PI/2.f));
     bool rotation_case = z_rotation_quadrant == 0 || z_rotation_quadrant == 2;
     if(light_z_rotation < 0)
         rotation_case = !rotation_case;
