@@ -23,9 +23,7 @@ namespace aml = anton::math;
 
 namespace arpiyi::tileset_manager {
 
-Handle<assets::Shader> tile_shader;
 Handle<assets::Shader> grid_shader;
-Handle<assets::Shader> uv_tile_shader;
 Handle<assets::Mesh> quad_mesh;
 
 unsigned int grid_framebuffer;
@@ -80,9 +78,7 @@ static void update_grid_texture() {
 void init() {
     glGenFramebuffers(1, &grid_framebuffer);
 
-    tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
-    uv_tile_shader = asset_manager::load<assets::Shader>({"data/basic.vert", "data/tile_uv.frag"});
     quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
 
     proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);

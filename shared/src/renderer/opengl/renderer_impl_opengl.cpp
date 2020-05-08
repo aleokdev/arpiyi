@@ -21,10 +21,13 @@ namespace arpiyi::renderer {
 struct Renderer::impl {
     Handle<assets::Mesh> quad_mesh;
     Handle<assets::Shader> tile_shader;
+    Handle<assets::Shader> entity_shader;
     Handle<assets::Shader> depth_shader;
     Handle<assets::Shader> grid_shader;
     unsigned int tile_shader_tile_tex_location;
     unsigned int tile_shader_shadow_tex_location;
+    unsigned int entity_shader_tile_tex_location;
+    unsigned int entity_shader_shadow_tex_location;
 };
 
 Renderer::~Renderer() = default;
@@ -35,11 +38,17 @@ Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()
     p_impl->tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     p_impl->depth_shader =
         asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
-    p_impl->grid_shader =
-        asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
-    p_impl->tile_shader_tile_tex_location = glGetUniformLocation(p_impl->tile_shader.get()->handle, "tile");
+    p_impl->entity_shader =
+        asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile_uv.frag"});
+    p_impl->grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
+    p_impl->tile_shader_tile_tex_location =
+        glGetUniformLocation(p_impl->tile_shader.get()->handle, "tile");
     p_impl->tile_shader_shadow_tex_location =
         glGetUniformLocation(p_impl->tile_shader.get()->handle, "shadow");
+    p_impl->entity_shader_tile_tex_location =
+        glGetUniformLocation(p_impl->entity_shader.get()->handle, "tile");
+    p_impl->entity_shader_shadow_tex_location =
+        glGetUniformLocation(p_impl->entity_shader.get()->handle, "shadow");
 }
 
 void Renderer::start_frame() {
@@ -76,9 +85,9 @@ Framebuffer::Framebuffer(math::IVec2D size) : p_impl(std::make_unique<impl>()) {
 void Framebuffer::set_size(math::IVec2D size) {
     auto& handle = p_impl->handle;
     auto& tex = p_impl->tex;
-    if(tex.handle != assets::Texture::nohandle)
+    if (tex.handle != assets::Texture::nohandle)
         glDeleteTextures(1, &tex.handle);
-    if(handle != assets::Texture::nohandle)
+    if (handle != assets::Texture::nohandle)
         glDeleteFramebuffers(1, &handle);
     glGenTextures(1, &tex.handle);
     glBindTexture(GL_TEXTURE_2D, tex.handle);
@@ -105,7 +114,8 @@ ImTextureID Framebuffer::get_imgui_id() const {
 }
 
 Framebuffer::~Framebuffer() {
-    if(glfwGetCurrentContext() == nullptr) return;
+    if (glfwGetCurrentContext() == nullptr)
+        return;
     if (p_impl->tex.handle == assets::Texture::nohandle)
         glDeleteTextures(1, &p_impl->tex.handle);
     if (p_impl->handle != static_cast<unsigned int>(-1))
@@ -117,12 +127,13 @@ struct RenderMapContext::impl {
     assets::Texture depth_tex;
 };
 
-RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) : p_impl(std::make_unique<impl>()) {
+RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) :
+    p_impl(std::make_unique<impl>()) {
     set_shadow_resolution(shadow_resolution);
 }
 RenderMapContext::~RenderMapContext() {
-    //glDeleteTextures(1, &p_impl->depth_tex.handle);
-    //glDeleteFramebuffers(1, &p_impl->raw_depth_fb);
+    // glDeleteTextures(1, &p_impl->depth_tex.handle);
+    // glDeleteFramebuffers(1, &p_impl->raw_depth_fb);
 }
 
 namespace detail {
@@ -275,6 +286,53 @@ void Renderer::draw_map(RenderMapContext const& data) {
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
     }
+    if (data.draw_entities) {
+        glUseProgram(p_impl->entity_shader.get()->handle);
+        glUniform1i(p_impl->entity_shader_tile_tex_location,
+                    0); // Set tile sampler2D to GL_TEXTURE0
+        glUniform1i(p_impl->entity_shader_shadow_tex_location,
+                    1); // Set shadow sampler2D to GL_TEXTURE1
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.handle);
+        for (const auto& entity_handle : map.entities) {
+            assert(entity_handle.get());
+            if (auto entity = entity_handle.get()) {
+                if (auto sprite = entity->sprite.get()) {
+                    assert(sprite->texture.get());
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, sprite->texture.get()->handle);
+
+                    glBindVertexArray(p_impl->quad_mesh.get()->vao);
+
+                    const auto size_in_pixels = sprite->get_size_in_pixels();
+                    const auto size_in_tiles = aml::Vector2{
+                        static_cast<float>(size_in_pixels.x) / global_tile_size::get(),
+                        static_cast<float>(size_in_pixels.y) / global_tile_size::get()};
+
+                    aml::Matrix4 model = aml::Matrix4::identity;
+
+                    // Apply sprite pivot
+                    model *= aml::translate(aml::Vector3(-sprite->pivot, 1));
+                    // Translate by position of entity
+                    model *= aml::translate(aml::Vector3(entity->pos));
+                    // Scale accordingly
+                    model *= aml::scale(aml::Vector3{size_in_tiles, 1});
+
+                    glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+                    glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
+                    glUniformMatrix4fv(4, 1, GL_FALSE,
+                                       lightSpaceMatrix.get_raw());        // Light space matrix
+                    glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
+                    glUniform2f(6, sprite->uv_min.x, sprite->uv_min.y);
+                    glUniform2f(7, sprite->uv_max.x, sprite->uv_max.y);
+
+                    constexpr int quad_verts = 2 * 3;
+                    glDrawArrays(GL_TRIANGLES, 0, quad_verts);
+                }
+            }
+        }
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -296,7 +354,6 @@ static void draw_map(assets::Map const& map) {
 
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
 
-        constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, layer->get_mesh().get()->vertex_count);
     }
 }

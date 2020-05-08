@@ -35,8 +35,6 @@ math::Rect2D Tileset::get_uv(u32 id, u8 minitile) const {
     // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
     // Check if minitile given is valid
     assert(minitile >= 0 && minitile < 4);
-    const u8 minitile_x = minitile % 2u;
-    const u8 minitile_y = minitile / 2u;
 
     const u32 auto_tile_index = get_auto_tile_index_from_auto_id(id);
     const u8 surroundings = get_surroundings_from_auto_id(id);
@@ -183,7 +181,6 @@ u8 Tileset::get_surroundings_from_auto_id(u32 id) const { return id & 0xFFu; }
 u32 Tileset::get_auto_tile_index_from_auto_id(u32 id) const { return id >> 8u; }
 
 u32 Tileset::get_auto_tile_count() const {
-    assert(auto_type != AutoType::none);
     switch (auto_type) {
         case (AutoType::rpgmaker_a2): {
             math::IVec2D size_in_tiles = get_size_in_tiles();
@@ -192,6 +189,8 @@ u32 Tileset::get_auto_tile_count() const {
             int y_auto_tiles = size_in_tiles.y / 3;
             return x_auto_tiles * y_auto_tiles;
         }
+        default:
+            return 0;
     }
 }
 

@@ -48,19 +48,21 @@ public:
 
     // Camera settings
     /// The camera position, in tiles.
-    aml::Vector2 cam_pos;
+    aml::Vector2 cam_pos = {0,0};
     /// The zoom of the camera. Output tilesize will be multiplied by this value.
-    float zoom;
+    float zoom = 1;
 
     // Light settings
     /// The rotation of the light on the X axis (Vertical distortion), measured in radians.
-    float x_light_rotation;
+    float x_light_rotation = -0.5f;
     /// The rotation of the light on the Z axis (Horizontal distortion), measured in radians.
-    float z_light_rotation;
+    float z_light_rotation = -0.5f;
 
     // Misc settings
     /// Should a tile grid be drawn over the map?
-    bool draw_grid;
+    bool draw_grid = false;
+    /// Should the entities be drawn over the map?
+    bool draw_entities = true;
 
 private:
     friend class Renderer;

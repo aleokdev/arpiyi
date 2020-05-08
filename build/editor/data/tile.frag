@@ -2,8 +2,8 @@
 
 in vec2 TexCoords;
 
-uniform sampler2D tile;// Hardcoded in map_manager.cpp. TODO: Add constexpr variable in separate file
-uniform sampler2D shadow;// Hardcoded in map_manager.cpp. TODO: Add constexpr variable in separate file
+uniform sampler2D tile;// Name hardcoded in renderer_impl_x.cpp. TODO: Add constexpr variable in separate file
+uniform sampler2D shadow;// Name hardcoded in renderer_impl_x.cpp. TODO: Add constexpr variable in separate file
 
 in VS_OUT {
     vec3 FragPos;

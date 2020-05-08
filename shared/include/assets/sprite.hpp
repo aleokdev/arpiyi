@@ -21,8 +21,8 @@ struct [[assets::serialize]] [[meta::dir_name("sprites")]] Sprite {
     aml::Vector2 uv_min;
     aml::Vector2 uv_max;
     std::string name;
-    /// Where this sprite originates from. Goes from {0,0} (Upper left) to {1,1} (Lower right).
-    aml::Vector2 pivot;
+    /// Where this sprite originates from. Goes from {0,0} (Bottom left) to {1,1} (Upper right).
+    aml::Vector2 pivot = {0,0};
 
     [[nodiscard]] math::IVec2D get_size_in_pixels() const {
         const auto tex = *texture.get();

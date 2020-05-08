@@ -378,7 +378,7 @@ static void resize_map_fb(int width, int height) {
 }
 
 static void render_map() {
-    if(auto m = current_map.get()) {
+    if (auto m = current_map.get()) {
         render_map_context->draw_grid = show_grid;
         render_map_context->x_light_rotation = light_x_rotation;
         render_map_context->z_light_rotation = light_z_rotation;
@@ -441,13 +441,14 @@ static void place_tile_on_pos(assets::Map& map,
                         bit++;
                     }
                 }
-                layer.set_tile(pos,
-                               {tileset.get_id_autotype_rpgmaker_a2(tileset.get_auto_tile_index_from_auto_id(self_tile.id),
-                                                    surroundings)});
+                layer.set_tile(pos, {tileset.get_id_autotype_rpgmaker_a2(
+                                        tileset.get_auto_tile_index_from_auto_id(self_tile.id),
+                                        surroundings)});
             };
             // Set the tile below the cursor and don't worry about the surroundings; we'll update
             // them later
-            layer.set_tile(pos, {tileset.get_id_autotype_rpgmaker_a2(selection.selection_start.x, 0)});
+            layer.set_tile(pos,
+                           {tileset.get_id_autotype_rpgmaker_a2(selection.selection_start.x, 0)});
             // Update autoID of tile placed and all others near it
             for (int iy = -1; iy <= 1; ++iy) {
                 for (int ix = -1; ix <= 1; ++ix) {
@@ -532,34 +533,31 @@ static Handle<assets::Entity> draw_entities(const assets::Map& map) {
         aml::Vector2 entity_square_render_pos_max =
             aml::Vector2(entity_square_render_pos_min.x, entity_square_render_pos_min.y) +
             aml::Vector2{static_cast<float>(entity_sprite_size.x) * get_map_zoom(),
-                         static_cast<float>(entity_sprite_size.y) * get_map_zoom()};
+                         -static_cast<float>(entity_sprite_size.y) * get_map_zoom()};
 
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            entity_square_render_pos_min,
-            {entity_square_render_pos_max.x, entity_square_render_pos_max.y},
-            ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
-        if (auto s = entity.sprite.get()) {
-            ImGui::GetWindowDrawList()->AddImage(
-                reinterpret_cast<ImTextureID>(s->texture.get()->handle),
-                entity_square_render_pos_min,
-                {entity_square_render_pos_max.x, entity_square_render_pos_max.y},
-                ImVec2{s->uv_min.x, s->uv_min.y}, ImVec2{s->uv_max.x, s->uv_max.y});
+        if (edit_mode == EditMode::entity) {
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                {entity_square_render_pos_min.x, entity_square_render_pos_max.y},
+                {entity_square_render_pos_max.x, entity_square_render_pos_min.y},
+                ImGui::GetColorU32({0.1f, 0.8f, 0.9f, 0.6f}));
         }
         if (ImGui::IsMouseHoveringRect(
-                entity_square_render_pos_min,
-                {entity_square_render_pos_max.x, entity_square_render_pos_max.y})) {
+            {entity_square_render_pos_min.x, entity_square_render_pos_max.y},
+            {entity_square_render_pos_max.x, entity_square_render_pos_min.y})) {
             entity_hovering = e;
-            ImGui::BeginTooltip();
-            ImGui::Text("%s at {%.2f, %.2f}", entity.name.c_str(), entity.pos.x, entity.pos.y);
-            ImGui::Separator();
-            ImGui::TextDisabled("Scripts:");
-            ImGui::BeginChild("##ent_scripts");
-            for (const auto& script : entity.scripts) {
-                assert(script.get());
-                ImGui::TextUnformatted(script.get()->name.c_str());
+            if (edit_mode == EditMode::entity) {
+                ImGui::BeginTooltip();
+                ImGui::Text("%s at {%.2f, %.2f}", entity.name.c_str(), entity.pos.x, entity.pos.y);
+                ImGui::Separator();
+                ImGui::TextDisabled("Scripts:");
+                ImGui::BeginChild("##ent_scripts");
+                for (const auto& script : entity.scripts) {
+                    assert(script.get());
+                    ImGui::TextUnformatted(script.get()->name.c_str());
+                }
+                ImGui::EndChild();
+                ImGui::EndTooltip();
             }
-            ImGui::EndChild();
-            ImGui::EndTooltip();
         }
     }
     return entity_hovering;
@@ -608,7 +606,7 @@ static void process_map_input(assets::Map& map,
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         map_scroll =
             aml::Vector2{map_scroll.x + io.MouseDelta.x / global_tile_size::get() / get_map_zoom(),
-                   map_scroll.y - io.MouseDelta.y / global_tile_size::get() / get_map_zoom()};
+                         map_scroll.y - io.MouseDelta.y / global_tile_size::get() / get_map_zoom()};
     }
     switch (edit_mode) {
         case EditMode::comment: {
@@ -779,17 +777,14 @@ void render(bool* p_show) {
                     current_zoom_level -= 1;
             }
 
-            // Since map coordinates are Y+ -> up and the map render position is in the left top
-            // corner, we provide the map height to the map_to_widget_pos to get that corner.
-            ImVec2 map_widget_pos = map_to_widget_pos({0, static_cast<float>(map->height)});
-
             ImVec2 abs_content_start_pos = {
                 ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                 ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
             {
                 static ImVec2 last_window_size;
                 // Draw the map
-                if(ImGui::GetWindowSize().x != last_window_size.x || ImGui::GetWindowSize().y != last_window_size.y) {
+                if (ImGui::GetWindowSize().x != last_window_size.x ||
+                    ImGui::GetWindowSize().y != last_window_size.y) {
                     resize_map_fb(static_cast<int>(ImGui::GetWindowContentRegionWidth()),
                                   static_cast<int>(ImGui::GetWindowContentRegionMax().y -
                                                    ImGui::GetWindowContentRegionMin().y));

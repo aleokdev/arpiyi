@@ -78,7 +78,6 @@ void DrawLuaStateInspector(sol::state_view const& state, bool* p_open) {
 namespace detail::project_file_definitions {
 
 /// Path for storing files containing asset IDs and their location.
-constexpr std::string_view metadata_path = "meta";
 
 constexpr std::string_view tile_size_json_key = "tile_size";
 constexpr std::string_view editor_version_json_key = "editor_version";
