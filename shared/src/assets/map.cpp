@@ -7,9 +7,11 @@
 
 #include "util/defs.hpp"
 
-#include <array>
+#include <vector>
 
 namespace arpiyi::assets {
+
+// TODO: Move OpenGL code elsewhere
 
 /// Generates a regular split quad for a layer that has a tileset of type AutoType::none attached to
 /// it.

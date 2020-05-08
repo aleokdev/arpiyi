@@ -5,6 +5,7 @@
 #include <rapidjson/document.h>
 #include <set>
 #include <iostream>
+#include <array>
 
 #include "util/defs.hpp"
 #include "util/intdef.hpp"
