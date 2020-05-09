@@ -28,6 +28,13 @@ struct Renderer::impl {
     unsigned int tile_shader_shadow_tex_location;
     unsigned int entity_shader_tile_tex_location;
     unsigned int entity_shader_shadow_tex_location;
+
+    Framebuffer window_framebuffer;
+};
+
+struct Framebuffer::impl {
+    unsigned int handle;
+    assets::Texture tex;
 };
 
 Renderer::~Renderer() = default;
@@ -49,6 +56,8 @@ Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()
         glGetUniformLocation(p_impl->entity_shader.get()->handle, "tile");
     p_impl->entity_shader_shadow_tex_location =
         glGetUniformLocation(p_impl->entity_shader.get()->handle, "shadow");
+
+    p_impl->window_framebuffer.p_impl->handle = 0;
 }
 
 void Renderer::start_frame() {
@@ -63,6 +72,7 @@ void Renderer::start_frame() {
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 }
+
 void Renderer::finish_frame() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ImGui::Render();
@@ -71,16 +81,31 @@ void Renderer::finish_frame() {
     glfwSwapBuffers(window);
 }
 
-struct Framebuffer::impl {
-    unsigned int handle;
-    assets::Texture tex;
-};
+Framebuffer const& Renderer::get_window_framebuffer() {
+    int display_w, display_h;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    p_impl->window_framebuffer.p_impl->tex = {static_cast<u32>(display_w), static_cast<u32>(display_h), static_cast<unsigned int>(-1)};
+    return p_impl->window_framebuffer;
+}
 
 Framebuffer::Framebuffer() : p_impl(std::make_unique<impl>()) {
     p_impl->handle = static_cast<unsigned int>(-1);
 }
 
 Framebuffer::Framebuffer(math::IVec2D size) : p_impl(std::make_unique<impl>()) { set_size(size); }
+
+Framebuffer::Framebuffer(Framebuffer const& other) : p_impl(std::make_unique<impl>()){
+    p_impl->handle = other.p_impl->handle;
+    p_impl->tex = other.p_impl->tex;
+}
+Framebuffer& Framebuffer::operator=(Framebuffer const& other) {
+    if(&other == this) return *this;
+
+    p_impl->handle = other.p_impl->handle;
+    p_impl->tex = other.p_impl->tex;
+
+    return *this;
+}
 
 void Framebuffer::set_size(math::IVec2D size) {
     auto& handle = p_impl->handle;
@@ -113,7 +138,9 @@ ImTextureID Framebuffer::get_imgui_id() const {
     return reinterpret_cast<ImTextureID>(p_impl->tex.handle);
 }
 
-Framebuffer::~Framebuffer() {
+Framebuffer::~Framebuffer() = default;
+
+void Framebuffer::destroy() {
     if (glfwGetCurrentContext() == nullptr)
         return;
     if (p_impl->tex.handle == assets::Texture::nohandle)
@@ -132,8 +159,7 @@ RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) :
     set_shadow_resolution(shadow_resolution);
 }
 RenderMapContext::~RenderMapContext() {
-    // glDeleteTextures(1, &p_impl->depth_tex.handle);
-    // glDeleteFramebuffers(1, &p_impl->raw_depth_fb);
+    output_fb.destroy();
 }
 
 namespace detail {

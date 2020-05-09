@@ -183,16 +183,7 @@ int main(int argc, const char* argv[]) {
     while (!glfwWindowShouldClose(window_manager::get_window())) {
         glfwPollEvents();
 
-        // Start the ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        int display_w, display_h;
-        glfwGetFramebufferSize(window_manager::get_window(), &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0, 0, 0, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
+        window_manager::get_renderer().start_frame();
 
         main_coroutine();
         if (main_coroutine.status() == sol::call_status::ok) {
@@ -244,10 +235,7 @@ int main(int argc, const char* argv[]) {
         if (show_state_inspector)
             DrawLuaStateInspector(lua.lua_state(), &show_state_inspector);
 
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        glfwSwapBuffers(window_manager::get_window());
+        window_manager::get_renderer().finish_frame();
     }
 
     glfwTerminate();

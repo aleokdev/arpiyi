@@ -11,9 +11,9 @@ struct GLFWwindow;
 typedef void* ImTextureID;
 
 namespace arpiyi::assets {
-    struct Map;
-    struct Texture;
-}
+struct Map;
+struct Texture;
+} // namespace arpiyi::assets
 
 namespace arpiyi::renderer {
 
@@ -23,14 +23,21 @@ class Framebuffer {
 public:
     Framebuffer();
     explicit Framebuffer(math::IVec2D size);
+    /// The destructor should NOT destroy the underlying framebuffer/handle. It is just put here so
+    /// that the implementation links correctly.
     ~Framebuffer();
+    Framebuffer(Framebuffer const&);
+    Framebuffer& operator=(Framebuffer const&);
 
     [[nodiscard]] math::IVec2D get_size() const;
     void set_size(math::IVec2D);
     [[nodiscard]] ImTextureID get_imgui_id() const;
 
 private:
+    void destroy();
+
     friend class Renderer;
+    friend class RenderMapContext;
     struct impl;
     std::unique_ptr<impl> p_impl;
 };
@@ -48,7 +55,7 @@ public:
 
     // Camera settings
     /// The camera position, in tiles.
-    aml::Vector2 cam_pos = {0,0};
+    aml::Vector2 cam_pos = {0, 0};
     /// The zoom of the camera. Output tilesize will be multiplied by this value.
     float zoom = 1;
 
@@ -77,6 +84,8 @@ public:
 
     void draw_map(RenderMapContext const&);
 
+    Framebuffer const& get_window_framebuffer();
+
     void start_frame();
     void finish_frame();
 
@@ -86,6 +95,6 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
-}
+} // namespace arpiyi::renderer
 
 #endif // ARPIYI_RENDERER_HPP
