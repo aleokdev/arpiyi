@@ -4,89 +4,194 @@
 #include <algorithm>
 #include <rapidjson/document.h>
 #include <set>
+#include <iostream>
+#include <array>
 
+#include "util/defs.hpp"
 #include "util/intdef.hpp"
 
 namespace arpiyi::assets {
 
 math::IVec2D Tileset::get_size_in_tiles() const {
     auto tex = texture.get();
-    return math::IVec2D{static_cast<i32>(tex->w / global_tile_size::get()), static_cast<i32>(tex->h / global_tile_size::get())};
+    return math::IVec2D{static_cast<i32>(tex->w / global_tile_size::get()),
+                        static_cast<i32>(tex->h / global_tile_size::get())};
 }
 
 math::Rect2D Tileset::get_uv(u32 id) const {
     math::IVec2D size = get_size_in_tiles();
     std::uint32_t tile_pos_x = id % size.x;
     std::uint32_t tile_pos_y = id / size.x;
-    math::Vec2D start_uv_pos = {1.f / static_cast<float>(size.x) * static_cast<float>(tile_pos_x),
-                                1.f / static_cast<float>(size.y) *
-                                    static_cast<float>(tile_pos_y + 1)};
-    math::Vec2D end_uv_pos = {start_uv_pos.x + 1.f / static_cast<float>(size.x),
-                              start_uv_pos.y - 1.f / static_cast<float>(size.y)};
+    aml::Vector2 start_uv_pos = {1.f / static_cast<float>(size.x) * static_cast<float>(tile_pos_x),
+                                 1.f / static_cast<float>(size.y) * static_cast<float>(tile_pos_y)};
+    aml::Vector2 end_uv_pos = {start_uv_pos.x + 1.f / static_cast<float>(size.x),
+                               start_uv_pos.y + 1.f / static_cast<float>(size.y)};
 
     return {start_uv_pos, end_uv_pos};
 }
 
-u32 Tileset::get_id(math::IVec2D pos) const {
+// TODO: Document this
+math::Rect2D Tileset::get_uv(u32 id, u8 minitile) const {
+    // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
+    // Check if minitile given is valid
+    assert(minitile >= 0 && minitile < 4);
+
+    const u32 auto_tile_index = get_auto_tile_index_from_auto_id(id);
+    const u8 surroundings = get_surroundings_from_auto_id(id);
+    u8 vertical_flag;
+    u8 horizontal_flag;
+    u8 corner_flag;
+    switch (minitile) {
+        case (0): {
+            // Upper-left minitile.
+            // In bits:
+            // c v -
+            // h x -
+            // - - -
+            // Where c = corner, v = vertical & h = horizontal flag.
+            vertical_flag = 0b00000010;
+            horizontal_flag = 0b00001000;
+            corner_flag = 0b00000001;
+        } break;
+
+        case (1): {
+            // Upper-right minitile.
+            // In bits:
+            // - v c
+            // - x h
+            // - - -
+            // Where c = corner, v = vertical & h = horizontal flag.
+            vertical_flag = 0b00000010;
+            horizontal_flag = 0b00010000;
+            corner_flag = 0b00000100;
+        } break;
+
+        case (2): {
+            // Lower-left minitile.
+            // In bits:
+            // - - -
+            // h x -
+            // c v -
+            // Where c = corner, v = vertical & h = horizontal flag.
+            vertical_flag = 0b01000000;
+            horizontal_flag = 0b00001000;
+            corner_flag = 0b00100000;
+        } break;
+
+        case (3): {
+            // Lower-left minitile.
+            // In bits:
+            // - - -
+            // - x h
+            // - v c
+            // Where c = corner, v = vertical & h = horizontal flag.
+            vertical_flag = 0b01000000;
+            horizontal_flag = 0b00010000;
+            corner_flag = 0b10000000;
+        } break;
+
+        default: ARPIYI_UNREACHABLE(); throw;
+    }
+
+    constexpr math::IVec2D rpgmaker_a2_auto_tile_size_in_tiles{2, 3};
+    const math::IVec2D size_of_tileset_in_tiles = get_size_in_tiles();
+    const math::IVec2D size_of_tileset_in_auto_tiles{
+        size_of_tileset_in_tiles.x / rpgmaker_a2_auto_tile_size_in_tiles.x,
+        size_of_tileset_in_tiles.y / rpgmaker_a2_auto_tile_size_in_tiles.y};
+    const aml::Vector2 tile_uv_size{1.f / static_cast<float>(size_of_tileset_in_tiles.x),
+                                    1.f / static_cast<float>(size_of_tileset_in_tiles.y)};
+    const aml::Vector2 auto_tile_start_uv_pos{
+        static_cast<float>(auto_tile_index % size_of_tileset_in_auto_tiles.x) *
+            rpgmaker_a2_auto_tile_size_in_tiles.x * tile_uv_size.x,
+        static_cast<float>(auto_tile_index / size_of_tileset_in_auto_tiles.x) *
+            rpgmaker_a2_auto_tile_size_in_tiles.y * tile_uv_size.y};
+
+    /* clang-format off */
+    /// Where each minitile is located locally in the RPGMaker A2 layout.
+    const std::array<math::IVec2D, 20> rpgmaker_a2_layout = {
+        /* A1 */ math::IVec2D{2, 0},
+        /* A2 */ math::IVec2D{0, 2},
+        /* A3 */ math::IVec2D{2, 4},
+        /* A4 */ math::IVec2D{2, 2},
+        /* A5 */ math::IVec2D{0, 4},
+        /* B1 */ math::IVec2D{3, 0},
+        /* B2 */ math::IVec2D{3, 2},
+        /* B3 */ math::IVec2D{1, 4},
+        /* B4 */ math::IVec2D{1, 2},
+        /* B5 */ math::IVec2D{3, 4},
+        /* C1 */ math::IVec2D{2, 1},
+        /* C2 */ math::IVec2D{0, 5},
+        /* C3 */ math::IVec2D{2, 3},
+        /* C4 */ math::IVec2D{2, 5},
+        /* C5 */ math::IVec2D{0, 3},
+        /* D1 */ math::IVec2D{3, 1},
+        /* D2 */ math::IVec2D{3, 5},
+        /* D3 */ math::IVec2D{1, 3},
+        /* D4 */ math::IVec2D{1, 5},
+        /* D5 */ math::IVec2D{3, 3}
+    };
+    /* clang-format on */
+
+    // A2 Autotile Format: https://imgur.com/a/vlRJ9cY
+    u8 layout_index = minitile * 5;
+    const bool connects_horizontally = !(horizontal_flag & surroundings);
+    const bool connects_vertically = !(vertical_flag & surroundings);
+    const bool connects_via_corner = !(corner_flag & surroundings);
+    // Minitile/Corner-edge Relation: https://imgur.com/a/Fb58R2E
+    switch ((connects_via_corner << 2u) | (connects_vertically << 1u) | (connects_horizontally)) {
+        case (0b100):
+        case (0b000): {
+            layout_index += 1; // X2; No connections
+        } break;
+        case (0b110):
+        case (0b010): {
+            layout_index += 4; // X5; Horizontal connection
+        } break;
+        case (0b101):
+        case (0b001): {
+            layout_index += 3; // X4; Vertical connection
+        } break;
+        case (0b111): {
+            layout_index += 2; // X3; All connected
+        } break;
+        case (0b011): {
+            /* layout_index += 0; */ // X1; All connected except corner
+        } break;
+    }
+
+    const aml::Vector2 uv_start =
+        auto_tile_start_uv_pos +
+        aml::Vector2{static_cast<float>(rpgmaker_a2_layout[layout_index].x) * tile_uv_size.x / 2.f,
+                     static_cast<float>(rpgmaker_a2_layout[layout_index].y) * tile_uv_size.y / 2.f};
+    const aml::Vector2 uv_end = uv_start + tile_uv_size / 2.f;
+    return math::Rect2D{uv_start, uv_end};
+}
+
+u32 Tileset::get_id_autotype_none(math::IVec2D pos) const {
     auto tex = texture.get();
     return pos.x + pos.y * static_cast<u32>(tex->w / global_tile_size::get());
 }
 
-static const std::set<u8> tile_table = {
-    0b00000000, 0b00000001, 0b00000010, 0b00000100, 0b00000101,
-
-    0b00001000, 0b00001010, 0b00001100,
-
-    0b00010000, 0b00010001, 0b00010010, 0b00011000, 0b00011010,
-
-    0b00010000, 0b00010001, 0b00010010, 0b00011000, 0b00011010,
-
-    0b00100000, 0b00100001, 0b00100010, 0b00100100, 0b00100101, 0b00110000, 0b00110001, 0b00110010,
-
-    0b01000000, 0b01000001, 0b01000010, 0b01000100, 0b01000101, 0b01001000, 0b01001010, 0b01001100,
-    0b01010000, 0b01010001, 0b01010010, 0b01011000, 0b01011010,
-
-    0b10000000, 0b10000001, 0b10000010, 0b10000100, 0b10000101, 0b10001000, 0b10001010, 0b10001100,
-    0b10100000, 0b10100001, 0b10100010, 0b10100100, 0b10100101};
-
-u32 Tileset::get_id_auto(u32 x_index, u32 surroundings) const {
-    enum tile_sides {
-        upper_left_corner = 1 << 0,
-        upper_middle_side = 1 << 1,
-        upper_right_corner = 1 << 2,
-        middle_left_side = 1 << 3,
-        middle_right_side = 1 << 4,
-        lower_left_corner = 1 << 5,
-        lower_middle_side = 1 << 6,
-        lower_right_corner = 1 << 7
-    };
-    // Delete corners if there's a side next to them (since those cases are not covered by the tile
-    // table)
-    if (surroundings & upper_middle_side)
-        surroundings &= (0xFF ^ upper_left_corner ^ upper_right_corner);
-    if (surroundings & middle_left_side)
-        surroundings &= (0xFF ^ upper_left_corner ^ lower_left_corner);
-    if (surroundings & middle_right_side)
-        surroundings &= (0xFF ^ upper_right_corner ^ lower_right_corner);
-    if (surroundings & lower_middle_side)
-        surroundings &= (0xFF ^ lower_left_corner ^ lower_right_corner);
-
-    const auto it = tile_table.find(surroundings);
-    if (it == tile_table.end())
-        assert(false);
-    return x_index + get_size_in_tiles().x *
-                         static_cast<u8>(std::distance(tile_table.begin(), it));
+u32 Tileset::get_id_autotype_rpgmaker_a2(u32 auto_tile_index, u8 surroundings) const {
+    return (auto_tile_index << 8u) + surroundings;
 }
 
-u32 Tileset::get_surroundings_from_auto_id(u32 id) const {
-    const auto tileset_size_in_tiles{get_size_in_tiles()};
-    const u32 auto_tiletable_index =
-        (id - (id % tileset_size_in_tiles.x)) / tileset_size_in_tiles.x;
-    return *std::next(tile_table.begin(), auto_tiletable_index);
-}
-u32 Tileset::get_x_index_from_auto_id(u32 id) const {
-    const auto tileset_size_in_tiles{get_size_in_tiles()};
-    return (id % tileset_size_in_tiles.x);
+u8 Tileset::get_surroundings_from_auto_id(u32 id) const { return id & 0xFFu; }
+
+u32 Tileset::get_auto_tile_index_from_auto_id(u32 id) const { return id >> 8u; }
+
+u32 Tileset::get_auto_tile_count() const {
+    switch (auto_type) {
+        case (AutoType::rpgmaker_a2): {
+            math::IVec2D size_in_tiles = get_size_in_tiles();
+            // The RPGMaker A2 format uses a 2x3 tile area for storing each autotile.
+            int x_auto_tiles = size_in_tiles.x / 2;
+            int y_auto_tiles = size_in_tiles.y / 3;
+            return x_auto_tiles * y_auto_tiles;
+        }
+        default:
+            return 0;
+    }
 }
 
 namespace tileset_file_definitions {
@@ -150,4 +255,4 @@ template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& p
     }
 }
 
-} // namespace arpiyi_editor::assets
+} // namespace arpiyi::assets

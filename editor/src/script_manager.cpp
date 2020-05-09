@@ -2,6 +2,7 @@
 #include "assets/script.hpp"
 #include "util/icons_material_design.hpp"
 #include "window_list_menu.hpp"
+#include "util/defs.hpp"
 
 #include <TextEditor.h>
 #include <sol/sol.hpp>
@@ -53,6 +54,7 @@ std::string_view trigger_type_name(assets::Script::TriggerType T) {
         case (TriggerType::t_lp_auto): return "LP Auto";
         case (TriggerType::t_parallel_auto): return "Parallel Auto";
         case (TriggerType::t_parallel_triggered): return "Parallel Triggered";
+        default: ARPIYI_UNREACHABLE(); throw;
     }
 }
 

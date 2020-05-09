@@ -25,21 +25,11 @@ namespace arpiyi::serializing_manager {
 
 namespace detail::project_file_definitions {
 
-/// Path for storing files containing asset IDs and their location.
-constexpr std::string_view metadata_path = "meta";
-
 constexpr std::string_view tile_size_json_key = "tile_size";
 constexpr std::string_view editor_version_json_key = "editor_version";
 constexpr std::string_view startup_script_id_key = "startup_script_id";
 
 } // namespace detail::project_file_definitions
-
-namespace detail::meta_file_definitions {
-
-constexpr std::string_view id_json_key = "id";
-constexpr std::string_view path_json_key = "path";
-
-} // namespace detail::meta_file_definitions
 
 static void save_project_file(fs::path base_dir) {
     project_manager::set_project_path(base_dir);
