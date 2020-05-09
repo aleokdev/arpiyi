@@ -30,7 +30,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     endif()
 elseif(NOT MSVC)
     # any sane compiler
-    target_compile_options(arpiyi-shared PUBLIC -Wno-attributes)
+    target_compile_options(arpiyi-shared PUBLIC -Wno-attributes -Wall)
 endif()
 target_compile_definitions(arpiyi-shared PUBLIC _USE_MATH_DEFINES) # For M_PI on some platforms such as MSVC
 
