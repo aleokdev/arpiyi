@@ -10,6 +10,9 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include <anton/math/vector4.hpp>
+
+namespace aml = anton::math;
 namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
@@ -49,8 +52,10 @@ template<> inline void raw_load(Texture& texture, LoadParams<Texture> const& par
             glGenerateMipmap(GL_TEXTURE_2D);
             break;
     }
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float border_color[4] = {1,1,1,1};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
 
     stbi_image_free(data);
     texture.handle = tex;

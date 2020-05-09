@@ -37,7 +37,7 @@ Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()
 
     p_impl->tile_shader = asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile.frag"});
     p_impl->depth_shader =
-        asset_manager::load<assets::Shader>({"data/depth.vert", "data/empty.frag"});
+        asset_manager::load<assets::Shader>({"data/depth.vert", "data/depth.frag"});
     p_impl->entity_shader =
         asset_manager::load<assets::Shader>({"data/tile.vert", "data/tile_uv.frag"});
     p_impl->grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
@@ -294,15 +294,19 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     1); // Set shadow sampler2D to GL_TEXTURE1
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.handle);
+        glBindVertexArray(p_impl->quad_mesh.get()->vao);
+        glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
+        glUniformMatrix4fv(4, 1, GL_FALSE,
+                           lightSpaceMatrix.get_raw());        // Light space matrix
+        glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
+        glActiveTexture(GL_TEXTURE0);
+
         for (const auto& entity_handle : map.entities) {
             assert(entity_handle.get());
             if (auto entity = entity_handle.get()) {
                 if (auto sprite = entity->sprite.get()) {
                     assert(sprite->texture.get());
-                    glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, sprite->texture.get()->handle);
-
-                    glBindVertexArray(p_impl->quad_mesh.get()->vao);
 
                     const auto size_in_pixels = sprite->get_size_in_pixels();
                     const auto size_in_tiles = aml::Vector2{
@@ -319,10 +323,6 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     model *= aml::scale(aml::Vector3{size_in_tiles, 1});
 
                     glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-                    glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
-                    glUniformMatrix4fv(4, 1, GL_FALSE,
-                                       lightSpaceMatrix.get_raw());        // Light space matrix
-                    glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
                     glUniform2f(6, sprite->uv_min.x, sprite->uv_min.y);
                     glUniform2f(7, sprite->uv_max.x, sprite->uv_max.y);
 

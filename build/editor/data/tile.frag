@@ -24,6 +24,8 @@ float ShadowCalculation(vec4 fragPosLightSpace)
     float currentDepth = projCoords.z;
     float bias = 0.005;
 
+    if(currentDepth == 0) return 0.0;
+
     float f_shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadow, 0);
     for(int x = -1; x <= 1; ++x)
@@ -42,8 +44,4 @@ void main() {
     float f_shadow = ShadowCalculation(fs_in.FragPosLightSpace);
     float shadow_force = 0.2;
     FragColor = texture(tile, fs_in.TexCoords).rgba - vec4(vec3(f_shadow), 0) * shadow_force;
-
-    //vec3 projCoords = fs_in.FragPosLightSpace.xyz / fs_in.FragPosLightSpace.w;
-    //projCoords = projCoords * 0.5 + 0.5;
-    //FragColor = vec4(vec3(texture(shadow, projCoords.xy).r), 1);
 }
