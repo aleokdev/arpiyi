@@ -11,7 +11,6 @@ add_library(arpiyi-shared STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/mesh.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/map.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/tileset.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/texture.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/script.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/entity.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/sprite.cpp

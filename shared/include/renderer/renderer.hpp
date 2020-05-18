@@ -38,6 +38,7 @@ private:
 
     friend class Renderer;
     friend class RenderMapContext;
+    friend class RenderTilesetContext;
     struct impl;
     std::unique_ptr<impl> p_impl;
 };
@@ -77,12 +78,37 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
+class RenderTilesetContext {
+public:
+    RenderTilesetContext();
+    ~RenderTilesetContext();
+
+    Handle<assets::Tileset> tileset;
+    Framebuffer output_fb;
+
+    // Camera settings
+    /// The camera position, in tiles.
+    aml::Vector2 cam_pos = {0, 0};
+    /// The zoom of the camera. Output tilesize will be multiplied by this value.
+    float zoom = 1;
+
+    // Misc settings
+    /// Should a tile grid be drawn over the tileset?
+    bool draw_grid = true;
+
+private:
+    friend class Renderer;
+    struct impl;
+    std::unique_ptr<impl> p_impl;
+};
+
 class Renderer {
 public:
     explicit Renderer(GLFWwindow*);
     ~Renderer();
 
     void draw_map(RenderMapContext const&);
+    void draw_tileset(RenderTilesetContext const&);
 
     Framebuffer const& get_window_framebuffer();
 

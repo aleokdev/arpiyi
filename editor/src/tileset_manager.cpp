@@ -23,65 +23,15 @@ namespace aml = anton::math;
 
 namespace arpiyi::tileset_manager {
 
-Handle<assets::Shader> grid_shader;
-Handle<assets::Mesh> quad_mesh;
-
-unsigned int grid_framebuffer;
-assets::Texture grid_texture;
-
-aml::Matrix4 proj_mat;
+std::unique_ptr<renderer::RenderTilesetContext> render_ctx;
 
 constexpr const char* tileset_view_strid = ICON_MD_BORDER_INNER " Tileset View";
 
 TilesetSelection selection{-1, {0, 0}, {0, 0}};
 
-static void update_grid_texture() {
-    auto tileset = selection.tileset.get();
-    if (!tileset)
-        return;
-
-    if (grid_texture.handle == assets::Texture::nohandle)
-        glDeleteTextures(1, &grid_texture.handle);
-    glGenTextures(1, &grid_texture.handle);
-    glBindTexture(GL_TEXTURE_2D, grid_texture.handle);
-
-    const auto tileset_size = tileset->get_size_in_tiles();
-    grid_texture.w = tileset_size.x * global_tile_size::get();
-    grid_texture.h = tileset_size.y * global_tile_size::get();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, grid_texture.w, grid_texture.h, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
-    // Disable filtering (Because it needs mipmaps, which we haven't set)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, grid_framebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, grid_texture.handle,
-                           0);
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    // Draw grid
-    glUseProgram(grid_shader.get()->handle);
-    glBindVertexArray(quad_mesh.get()->vao);
-    ImVec4 bg_color = ImGui::ColorConvertU32ToFloat4(ImGui::GetColorU32(ImGuiCol_WindowBg));
-    glUniform4f(3, bg_color.x, bg_color.y, bg_color.z, 1.f); // Grid color
-    glUniform2ui(4, tileset_size.x, tileset_size.y);
-    glViewport(0.f, 0.f, grid_texture.w, grid_texture.h);
-    aml::Matrix4 model = aml::Matrix4::identity;
-    glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-    glUniformMatrix4fv(2, 1, GL_FALSE, proj_mat.get_raw());
-
-    constexpr int quad_verts = 2 * 3;
-    glDrawArrays(GL_TRIANGLES, 0, quad_verts);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
 void init() {
-    glGenFramebuffers(1, &grid_framebuffer);
+    render_ctx = std::make_unique<renderer::RenderTilesetContext>();
 
-    grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
-    quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
-
-    proj_mat = aml::orthographic_rh(0.0f, 1.0f, 1.0f, 0.0f, -10000.f, 10000.f);
     window_list_menu::add_entry({"Tileset view", &render});
 }
 
@@ -109,12 +59,26 @@ void render(bool* p_show) {
                                    relative_mouse_pos.y + tileset_render_pos.y);
                 ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
+                static ImVec2 last_window_size;
+                // Draw the map
+                if (ImGui::GetWindowSize().x != last_window_size.x ||
+                    ImGui::GetWindowSize().y != last_window_size.y) {
+                    render_ctx->output_fb.set_size({static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                                  static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                                   ImGui::GetWindowContentRegionMin().y)});
+                    last_window_size = ImGui::GetWindowSize();
+                }
                 // Draw the tileset
-                ImGui::Image(reinterpret_cast<ImTextureID>(img->handle),
-                             ImVec2{(float)img->w, (float)img->h});
-                ImGui::SetCursorScreenPos(tileset_render_pos);
-                ImGui::Image(reinterpret_cast<ImTextureID>(grid_texture.handle),
-                             ImVec2{(float)img->w, (float)img->h});
+                render_ctx->tileset = selection.tileset;
+                render_ctx->cam_pos = {
+                    ImGui::GetScrollX() / global_tile_size::get() / render_ctx->zoom,
+                    ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom
+                };
+                window_manager::get_renderer().draw_tileset(*render_ctx);
+                ImGui::Dummy(ImVec2{(float)img->w, (float)img->h});
+                ImGui::SetCursorScreenPos({tileset_render_pos.x + ImGui::GetScrollX(), tileset_render_pos.y + ImGui::GetScrollY()});
+                ImGui::Image(render_ctx->output_fb.get_imgui_id(),
+                             ImVec2{(float)render_ctx->output_fb.get_size().x, (float)render_ctx->output_fb.get_size().y});
 
                 // Clip anything that is outside the tileset rect
                 draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
@@ -233,7 +197,6 @@ void render(bool* p_show) {
                                       _id == selection.tileset.get_id())) {
                     ImGui::SetWindowFocus(tileset_view_strid);
                     selection.tileset = Handle<assets::Tileset>(_id);
-                    update_grid_texture();
                 }
                 if (ImGui::BeginPopupContextItem()) {
                     if (ImGui::Selectable("Delete")) {
@@ -370,7 +333,6 @@ void render(bool* p_show) {
                 tileset.auto_type = auto_type;
                 tileset.texture = preview_texture;
                 selection.tileset = asset_manager::put(tileset);
-                update_grid_texture();
                 show_new_tileset = false;
             }
             if (!valid) {
@@ -395,8 +357,6 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
     selection.tileset = tileset;
     selection.selection_start = {0, 0};
     selection.selection_end = {0, 0};
-
-    update_grid_texture();
 }
 
 } // namespace arpiyi::tileset_manager

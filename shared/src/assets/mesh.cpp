@@ -225,7 +225,7 @@ Mesh Mesh::generate_quad() {
     glBindVertexBuffer(1, vbo, 0, 4 * sizeof(float));
     glVertexAttribBinding(1, 1);
 
-    return Mesh{vao, vbo};
+    return Mesh{vao, vbo, 6};
 }
 
 }
