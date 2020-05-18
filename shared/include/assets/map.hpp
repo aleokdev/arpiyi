@@ -80,8 +80,7 @@ struct
 
     private:
         assets::Mesh generate_layer_mesh();
-        assets::Mesh generate_normal_mesh();
-        assets::Mesh generate_rpgmaker_a2_mesh();
+        template<bool is_auto> Mesh generate_mesh();
 
         i64 width = 0, height = 0;
         std::vector<Tile> tiles;

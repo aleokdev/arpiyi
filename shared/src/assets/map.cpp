@@ -111,113 +111,7 @@ void add_vertical_quad(
     /* Y UV 3rd vertex  */ result[tri_n + 29] = 1;
 };
 
-// TODO: Compress generate_normal_mesh and generate_rpgmaker_a2_mesh into a single function, they're
-// almost identical
-
-/// Generates a regular split quad for a layer that has a tileset of type AutoType::none attached to
-/// it.
-Mesh Map::Layer::generate_normal_mesh() {
-    // Format: {pos.x pos.y pos.z uv.x uv.y ...}
-    // 5 because it's 3 position coords and 2 UV coords.
-
-    std::vector<float> result(sizeof_quad * width * height);
-    const float x_slice_size = 1.f / width;
-    const float y_slice_size = 1.f / height;
-
-    const float wall_level_height = y_slice_size;
-
-    int quad_n = 0;
-    assert(tileset.get());
-    const auto& tl = *tileset.get();
-    // Create a quad for each {x, y} position.
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
-            const float min_vertex_y_pos = static_cast<float>(y) * y_slice_size;
-            const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
-            const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
-
-            const Tile tile = get_tile({x, y});
-            float min_vertex_z_pos;
-            float max_vertex_z_pos;
-            switch (tile.slope_type) {
-                case (Map::Tile::SlopeType::none):
-                    min_vertex_z_pos = max_vertex_z_pos =
-                        static_cast<float>(tile.height) * wall_level_height;
-                    break;
-
-                case (Map::Tile::SlopeType::lower_y_means_higher_z):
-                    min_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
-                    max_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
-                    break;
-
-                case (Map::Tile::SlopeType::higher_y_means_higher_z):
-                    min_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
-                    max_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
-                    break;
-            }
-
-            const math::Rect2D uv_pos = tl.get_uv(tile.id);
-
-            add_quad(result, quad_n++,
-                     {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
-                     min_vertex_z_pos, max_vertex_z_pos, uv_pos);
-            if (tile.has_side_walls && max_vertex_z_pos != 0) {
-                // Create "side walls" so that shadows don't appear floating in the map.
-                // Left wall
-                add_vertical_quad(
-                    result, quad_n++,
-                    {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}}, 0,
-                    max_vertex_z_pos);
-                // Right wall
-                add_vertical_quad(
-                    result, quad_n++,
-                    {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
-                    max_vertex_z_pos);
-                // FIXME: this will cause "floating shadows" if the side walls have a transparent
-                // texture (aka if UV 1~1.1 is transparent) Back wall
-                add_quad(
-                    result, quad_n++,
-                    {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
-                    max_vertex_z_pos, {{1, 1}, {1.1, 1.1}});
-                // Front wall
-                add_quad(
-                    result, quad_n++,
-                    {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}}, 0,
-                    max_vertex_z_pos, {{1, 1}, {1.1, 1.1}});
-            }
-        }
-    }
-
-    constexpr int quad_vertices = 2 * 3;
-    const auto sizeof_result = quad_n * quad_vertices;
-
-    unsigned int vao, vbo;
-
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-
-    // Fill buffer
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof_result * sizeof_vertex * sizeof(float), result.data(),
-                 GL_STATIC_DRAW);
-
-    glBindVertexArray(vao);
-    // Vertex Positions
-    glEnableVertexAttribArray(0); // location 0
-    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, vbo, 0, sizeof_vertex * sizeof(float));
-    glVertexAttribBinding(0, 0);
-    // UV Positions
-    glEnableVertexAttribArray(1); // location 1
-    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
-    glBindVertexBuffer(1, vbo, 0, sizeof_vertex * sizeof(float));
-    glVertexAttribBinding(1, 1);
-
-    return Mesh{vao, vbo, sizeof_result};
-}
-
-Mesh Map::Layer::generate_rpgmaker_a2_mesh() {
+template<bool is_auto> Mesh Map::Layer::generate_mesh() {
     // Format: {pos.x pos.y pos.z uv.x uv.y ...}
     // 5 because it's 3 position coords and 2 UV coords.
 
@@ -225,29 +119,96 @@ Mesh Map::Layer::generate_rpgmaker_a2_mesh() {
     // RPGMaker A2 tilesets have double the resolution of normal tilemaps due to how they work.
     // For more information, check out
     // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
-    const float x_slice_size = 1.f / width / 2.f;
-    const float y_slice_size = 1.f / height / 2.f;
+    const float x_slice_size = 1.f / width / (is_auto ? 2.f : 1.f);
+    const float y_slice_size = 1.f / height / (is_auto ? 2.f : 1.f);
 
     const float wall_level_height = y_slice_size;
 
     int quad_n = 0;
+
     assert(tileset.get());
     const auto& tl = *tileset.get();
+    const auto generate_tile = [&result, &quad_n, &tl, x_slice_size,
+                                y_slice_size](Tile tile, int minitile, float min_vertex_x_pos,
+                                              float min_vertex_y_pos, float min_vertex_z_pos,
+                                              float max_vertex_z_pos) {
+        const math::Rect2D uv_pos = is_auto ? tl.get_uv(tile.id, minitile) : tl.get_uv(tile.id);
+        const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
+        const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+
+        add_quad(result, quad_n++,
+                 {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
+                 min_vertex_z_pos, max_vertex_z_pos, uv_pos);
+        if (tile.has_side_walls && max_vertex_z_pos != 0) {
+            // Create "side walls" so that shadows don't appear floating in the map.
+            // Left wall
+            add_vertical_quad(
+                result, quad_n++,
+                {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}}, 0,
+                max_vertex_z_pos);
+            // Right wall
+            add_vertical_quad(
+                result, quad_n++,
+                {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
+                max_vertex_z_pos);
+            // Back wall
+            add_quad(result, quad_n++,
+                     {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
+                     0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
+            // Front wall
+            add_quad(result, quad_n++,
+                     {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}},
+                     0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
+        }
+    };
+
     // Create a quad for each {x, y} position.
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
-            for (int minitile = 0; minitile < 4; ++minitile) {
-                static int last_tile_height = 0;
+            if constexpr (is_auto) {
+                for (int minitile = 0; minitile < 4; ++minitile) {
+                    const Tile tile = get_tile({x, y});
+                    const int minitile_x = minitile % 2;
+                    const int minitile_y = minitile / 2;
+                    const float min_vertex_x_pos =
+                        static_cast<float>(x * 2 + minitile_x) * x_slice_size;
+                    const float min_vertex_y_pos =
+                        static_cast<float>(y * 2 + (1 - minitile_y)) * y_slice_size;
+                    const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
+                    const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+                    float min_vertex_z_pos;
+                    float max_vertex_z_pos;
+                    switch (tile.slope_type) {
+                        case (Map::Tile::SlopeType::none):
+                            min_vertex_z_pos = max_vertex_z_pos =
+                                static_cast<float>(tile.height) * wall_level_height;
+                            break;
+
+                        case (Map::Tile::SlopeType::lower_y_means_higher_z):
+                            min_vertex_z_pos =
+                                static_cast<float>(tile.height + 1 + (1 - minitile_y)) *
+                                wall_level_height;
+                            max_vertex_z_pos = static_cast<float>(tile.height + (1 - minitile_y)) *
+                                               wall_level_height;
+                            break;
+
+                        case (Map::Tile::SlopeType::higher_y_means_higher_z):
+                            min_vertex_z_pos = static_cast<float>(tile.height + (1 - minitile_y)) *
+                                               wall_level_height;
+                            max_vertex_z_pos =
+                                static_cast<float>(tile.height + 1 + (1 - minitile_y)) *
+                                wall_level_height;
+                            break;
+                    }
+
+                    generate_tile(tile, minitile, min_vertex_x_pos, min_vertex_y_pos, min_vertex_z_pos,
+                                  max_vertex_z_pos);
+                }
+            } else {
+                const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
+                const float min_vertex_y_pos = static_cast<float>(y) * y_slice_size;
 
                 const Tile tile = get_tile({x, y});
-                const int minitile_x = minitile % 2;
-                const int minitile_y = minitile / 2;
-                const float min_vertex_x_pos =
-                    static_cast<float>(x * 2 + minitile_x) * x_slice_size;
-                const float min_vertex_y_pos =
-                    static_cast<float>(y * 2 + (1 - minitile_y)) * y_slice_size;
-                const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
-                const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
                 float min_vertex_z_pos;
                 float max_vertex_z_pos;
                 switch (tile.slope_type) {
@@ -257,47 +218,20 @@ Mesh Map::Layer::generate_rpgmaker_a2_mesh() {
                         break;
 
                     case (Map::Tile::SlopeType::lower_y_means_higher_z):
-                        min_vertex_z_pos = static_cast<float>(tile.height + 1+ (1 - minitile_y)) * wall_level_height;
-                        max_vertex_z_pos = static_cast<float>(tile.height+ (1 - minitile_y)) * wall_level_height;
+                        min_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
+                        max_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
                         break;
 
                     case (Map::Tile::SlopeType::higher_y_means_higher_z):
-                        min_vertex_z_pos = static_cast<float>(tile.height+ (1 - minitile_y)) * wall_level_height;
-                        max_vertex_z_pos = static_cast<float>(tile.height + 1+ (1 - minitile_y)) * wall_level_height;
+                        min_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+                        max_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
                         break;
+
+                    default: ARPIYI_UNREACHABLE(); return {};
                 }
 
-                const math::Rect2D uv_pos = tl.get_uv(tile.id, minitile);
-
-                add_quad(
-                    result, quad_n++,
-                    {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
-                    min_vertex_z_pos, max_vertex_z_pos, uv_pos);
-                if (tile.has_side_walls && max_vertex_z_pos != 0) {
-                    // Create "side walls" so that shadows don't appear floating in the map.
-                    // Left wall
-                    add_vertical_quad(result, quad_n++,
-                                      {{min_vertex_x_pos, min_vertex_y_pos},
-                                       {min_vertex_x_pos, max_vertex_y_pos}},
-                                      0, max_vertex_z_pos);
-                    // Right wall
-                    add_vertical_quad(result, quad_n++,
-                                      {{max_vertex_x_pos, min_vertex_y_pos},
-                                       {max_vertex_x_pos, max_vertex_y_pos}},
-                                      0, max_vertex_z_pos);
-                    // Back wall
-                    add_quad(result, quad_n++,
-                             {{min_vertex_x_pos, max_vertex_y_pos},
-                              {max_vertex_x_pos, max_vertex_y_pos}},
-                             0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
-                    // Front wall
-                    add_quad(result, quad_n++,
-                             {{min_vertex_x_pos, min_vertex_y_pos},
-                              {max_vertex_x_pos, min_vertex_y_pos}},
-                             0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
-                }
-
-                last_tile_height = tile.height;
+                generate_tile(tile, 0, min_vertex_x_pos, min_vertex_y_pos, min_vertex_z_pos,
+                              max_vertex_z_pos);
             }
         }
     }
@@ -333,8 +267,8 @@ Mesh Map::Layer::generate_rpgmaker_a2_mesh() {
 Mesh Map::Layer::generate_layer_mesh() {
     assert(tileset.get());
     switch (tileset.get()->auto_type) {
-        case Tileset::AutoType::none: return generate_normal_mesh();
-        case Tileset::AutoType::rpgmaker_a2: return generate_rpgmaker_a2_mesh();
+        case Tileset::AutoType::none: return generate_mesh<false>();
+        case Tileset::AutoType::rpgmaker_a2: return generate_mesh<true>();
         default: ARPIYI_UNREACHABLE();
     }
 }
