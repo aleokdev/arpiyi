@@ -12,23 +12,8 @@
 
 namespace arpiyi::assets {
 
-math::IVec2D Tileset::get_size_in_tiles() const {
-    auto tex = texture.get();
-    return math::IVec2D{static_cast<i32>(tex->w / global_tile_size::get()),
-                        static_cast<i32>(tex->h / global_tile_size::get())};
-}
+// TODO: Codegenize this
 
-math::Rect2D Tileset::get_uv(u32 id) const {
-    math::IVec2D size = get_size_in_tiles();
-    std::uint32_t tile_pos_x = id % size.x;
-    std::uint32_t tile_pos_y = id / size.x;
-    aml::Vector2 start_uv_pos = {1.f / static_cast<float>(size.x) * static_cast<float>(tile_pos_x),
-                                 1.f / static_cast<float>(size.y) * static_cast<float>(tile_pos_y)};
-    aml::Vector2 end_uv_pos = {start_uv_pos.x + 1.f / static_cast<float>(size.x),
-                               start_uv_pos.y + 1.f / static_cast<float>(size.y)};
-
-    return {start_uv_pos, end_uv_pos};
-}
 
 // TODO: Document this
 math::Rect2D Tileset::get_uv(u32 id, u8 minitile) const {
@@ -165,33 +150,6 @@ math::Rect2D Tileset::get_uv(u32 id, u8 minitile) const {
                      static_cast<float>(rpgmaker_a2_layout[layout_index].y) * tile_uv_size.y / 2.f};
     const aml::Vector2 uv_end = uv_start + tile_uv_size / 2.f;
     return math::Rect2D{uv_start, uv_end};
-}
-
-u32 Tileset::get_id_autotype_none(math::IVec2D pos) const {
-    auto tex = texture.get();
-    return pos.x + pos.y * static_cast<u32>(tex->w / global_tile_size::get());
-}
-
-u32 Tileset::get_id_autotype_rpgmaker_a2(u32 auto_tile_index, u8 surroundings) const {
-    return (auto_tile_index << 8u) + surroundings;
-}
-
-u8 Tileset::get_surroundings_from_auto_id(u32 id) const { return id & 0xFFu; }
-
-u32 Tileset::get_auto_tile_index_from_auto_id(u32 id) const { return id >> 8u; }
-
-u32 Tileset::get_auto_tile_count() const {
-    switch (auto_type) {
-        case (AutoType::rpgmaker_a2): {
-            math::IVec2D size_in_tiles = get_size_in_tiles();
-            // The RPGMaker A2 format uses a 2x3 tile area for storing each autotile.
-            int x_auto_tiles = size_in_tiles.x / 2;
-            int y_auto_tiles = size_in_tiles.y / 3;
-            return x_auto_tiles * y_auto_tiles;
-        }
-        default:
-            return 0;
-    }
 }
 
 namespace tileset_file_definitions {

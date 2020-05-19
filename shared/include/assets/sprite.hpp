@@ -8,6 +8,7 @@
 
 #include <anton/math/vector2.hpp>
 #include <filesystem>
+#include <vector>
 
 namespace fs = std::filesystem;
 // Anton math library
@@ -37,6 +38,22 @@ template<> struct LoadParams<Sprite> {
 
 template<> RawSaveData raw_get_save_data(Sprite const&);
 template<> void raw_load(Sprite&, LoadParams<Sprite> const&);
+
+struct Mesh;
+struct PiecedSprite {
+    /// Texture of the sprite. Not owned by it
+    Handle<assets::Texture> texture;
+
+    struct Piece {
+        /// Where this piece is gathering texture data from, in UV coordinates.
+        math::Rect2D source;
+        /// The destination of the source texture. Measured in tiles.
+        math::Rect2D destination;
+    };
+    std::vector<Piece> pieces;
+
+    Handle<Mesh> create_mesh();
+};
 
 }
 
