@@ -11,6 +11,51 @@
 
 namespace arpiyi::assets {
 
+// TODO: Codegenize this
+PiecedSprite Map::Tile::sprite(TileSurroundings const& surroundings) const {
+    assert(parent.tileset.get());
+    switch (parent.tileset.get()->tile_type) {
+        case TileType::normal: return impl_sprite<TileType::normal>(surroundings);
+            //case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(surroundings);
+        default: assert(false && "Unknown tileset type"); return {};
+    }
+}
+
+Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& surroundings) const {
+    if (override_connections)
+        return custom_connections;
+    /* clang-format off */
+    return {
+        surroundings.down.tileset == parent.tileset && surroundings.down.tile_index == parent.tile_index,
+        surroundings.down_right.tileset == parent.tileset && surroundings.down_right.tile_index == parent.tile_index,
+        surroundings.right.tileset == parent.tileset && surroundings.right.tile_index == parent.tile_index,
+        surroundings.up_right.tileset == parent.tileset && surroundings.up_right.tile_index == parent.tile_index,
+        surroundings.up.tileset == parent.tileset && surroundings.up.tile_index == parent.tile_index,
+        surroundings.up_left.tileset == parent.tileset && surroundings.up_left.tile_index == parent.tile_index,
+        surroundings.left.tileset == parent.tileset && surroundings.left.tile_index == parent.tile_index,
+        surroundings.down_left.tileset == parent.tileset && surroundings.down_left.tile_index == parent.tile_index
+    };
+    /* clang-format on */
+}
+
+[[nodiscard]] Map::TileSurroundings Map::Layer::get_surroundings(math::IVec2D pos) {
+    Map::TileSurroundings surroundings;
+    const auto get_or_null = [this](math::IVec2D pos) -> Tileset::Tile* {
+        return is_pos_valid(pos) ? &get_tile(pos).parent : nullptr;
+    };
+
+    surroundings.down = get_or_null({pos.x, pos.y - 1});
+    surroundings.down_right = get_or_null({pos.x + 1, pos.y - 1});
+    surroundings.right = get_or_null({pos.x + 1, pos.y});
+    surroundings.up_right = get_or_null({pos.x + 1, pos.y + 1});
+    surroundings.up = get_or_null({pos.x, pos.y + 1});
+    surroundings.up_left = get_or_null({pos.x - 1, pos.y + 1});
+    surroundings.left = get_or_null({pos.x - 1, pos.y});
+    surroundings.down_left = get_or_null({pos.x - 1, pos.y - 1});
+
+    return surroundings;
+}
+
 constexpr auto sizeof_vertex = 5;
 constexpr auto sizeof_triangle = 3 * sizeof_vertex;
 constexpr auto sizeof_quad = 2 * sizeof_triangle;
@@ -111,128 +156,14 @@ void add_vertical_quad(
     /* Y UV 3rd vertex  */ result[tri_n + 29] = 1;
 };
 
-template<bool is_auto> Mesh Map::Layer::generate_mesh() {
-    // Format: {pos.x pos.y pos.z uv.x uv.y ...}
-    // 5 because it's 3 position coords and 2 UV coords.
+Mesh Map::Layer::generate_mesh() {
+    MeshBuilder builder;
 
-    std::vector<float> result(sizeof_quad * width * height);
-    // RPGMaker A2 tilesets have double the resolution of normal tilemaps due to how they work.
-    // For more information, check out
-    // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
-    const float x_slice_size = 1.f / width / (is_auto ? 2.f : 1.f);
-    const float y_slice_size = 1.f / height / (is_auto ? 2.f : 1.f);
-
-    const float wall_level_height = y_slice_size;
-
-    int quad_n = 0;
-
-    assert(tileset.get());
-    const auto& tl = *tileset.get();
-    const auto generate_tile = [&result, &quad_n, &tl, x_slice_size,
-                                y_slice_size](Tile tile, int minitile, float min_vertex_x_pos,
-                                              float min_vertex_y_pos, float min_vertex_z_pos,
-                                              float max_vertex_z_pos) {
-        const math::Rect2D uv_pos = is_auto ? tl.get_uv(tile.id, minitile) : tl.get_uv(tile.id);
-        const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
-        const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
-
-        add_quad(result, quad_n++,
-                 {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
-                 min_vertex_z_pos, max_vertex_z_pos, uv_pos);
-        if (tile.has_side_walls && max_vertex_z_pos != 0) {
-            // Create "side walls" so that shadows don't appear floating in the map.
-            // Left wall
-            add_vertical_quad(
-                result, quad_n++,
-                {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}}, 0,
-                max_vertex_z_pos);
-            // Right wall
-            add_vertical_quad(
-                result, quad_n++,
-                {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
-                max_vertex_z_pos);
-            // Back wall
-            add_quad(result, quad_n++,
-                     {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
-                     0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
-            // Front wall
-            add_quad(result, quad_n++,
-                     {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}},
-                     0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
-        }
-    };
-
-    // Create a quad for each {x, y} position.
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            if constexpr (is_auto) {
-                for (int minitile = 0; minitile < 4; ++minitile) {
-                    const Tile tile = get_tile({x, y});
-                    const int minitile_x = minitile % 2;
-                    const int minitile_y = minitile / 2;
-                    const float min_vertex_x_pos =
-                        static_cast<float>(x * 2 + minitile_x) * x_slice_size;
-                    const float min_vertex_y_pos =
-                        static_cast<float>(y * 2 + (1 - minitile_y)) * y_slice_size;
-                    const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
-                    const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
-                    float min_vertex_z_pos;
-                    float max_vertex_z_pos;
-                    switch (tile.slope_type) {
-                        case (Map::Tile::SlopeType::none):
-                            min_vertex_z_pos = max_vertex_z_pos =
-                                static_cast<float>(tile.height) * wall_level_height;
-                            break;
-
-                        case (Map::Tile::SlopeType::lower_y_means_higher_z):
-                            min_vertex_z_pos =
-                                static_cast<float>(tile.height + 1 + (1 - minitile_y)) *
-                                wall_level_height;
-                            max_vertex_z_pos = static_cast<float>(tile.height + (1 - minitile_y)) *
-                                               wall_level_height;
-                            break;
-
-                        case (Map::Tile::SlopeType::higher_y_means_higher_z):
-                            min_vertex_z_pos = static_cast<float>(tile.height + (1 - minitile_y)) *
-                                               wall_level_height;
-                            max_vertex_z_pos =
-                                static_cast<float>(tile.height + 1 + (1 - minitile_y)) *
-                                wall_level_height;
-                            break;
-                    }
-
-                    generate_tile(tile, minitile, min_vertex_x_pos, min_vertex_y_pos, min_vertex_z_pos,
-                                  max_vertex_z_pos);
-                }
-            } else {
-                const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
-                const float min_vertex_y_pos = static_cast<float>(y) * y_slice_size;
-
-                const Tile tile = get_tile({x, y});
-                float min_vertex_z_pos;
-                float max_vertex_z_pos;
-                switch (tile.slope_type) {
-                    case (Map::Tile::SlopeType::none):
-                        min_vertex_z_pos = max_vertex_z_pos =
-                            static_cast<float>(tile.height) * wall_level_height;
-                        break;
-
-                    case (Map::Tile::SlopeType::lower_y_means_higher_z):
-                        min_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
-                        max_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
-                        break;
-
-                    case (Map::Tile::SlopeType::higher_y_means_higher_z):
-                        min_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
-                        max_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
-                        break;
-
-                    default: ARPIYI_UNREACHABLE(); return {};
-                }
-
-                generate_tile(tile, 0, min_vertex_x_pos, min_vertex_y_pos, min_vertex_z_pos,
-                              max_vertex_z_pos);
-            }
+    for(int y = 0; y < height; ++y) {
+        for(int x = 0; x < width; ++x) {
+            const auto tile = get_tile({x,y});
+            // TODO: Implement slopes (Set y_min_z and y_max_z accordingly)
+            builder.add_pieced_sprite(tile.sprite(get_surroundings({x, y})), {x, y, tile.height}, 0, 0);
         }
     }
 

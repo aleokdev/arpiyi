@@ -23,22 +23,27 @@ struct
 [[assets::load_before(Entity)]]
 [[meta::dir_name("maps")]] Map {
     /* clang-format on */
-    struct Tile {
-        /// ID of tile (within layer tileset) being used
-        /// ID meaning depends on the tileset type. For information about each ID type, go to
-        /// tileset.hpp::Tileset::AutoType.
-        u32 id = 0;
+    struct TileConnections {
+        /// All the neighbours this tile has. Set to true for letting the tile connect to that
+        /// direction, false otherwise.
+        bool down, down_right, right, up_right, up, up_left, left, down_left;
+    };
+    struct TileSurroundings {
+        Tileset::Tile *down, *down_right, *right, *up_right, *up, *up_left, *left, *down_left;
+    };
 
-        /// Terrain height of the tile.
+    /// An instance of Tileset::Tile that also contains other information such as height, slope
+    /// type, etc.
+    struct Tile {
+        Tileset::Tile parent;
+        bool override_connections = false;
+        TileConnections custom_connections;
+
+        // Terrain height of the tile.
         /// Can be positive or negative.
         i32 height = 0;
 
-        enum class SlopeType : u8 {
-            none,
-            higher_y_means_higher_z,
-            lower_y_means_higher_z,
-            count
-        };
+        enum class SlopeType : u8 { none, higher_y_means_higher_z, lower_y_means_higher_z, count };
         /// The direction this tile has higher Z in, if any.
         /// This is normally used to simulate stairs, walls, and basically anything that is
         /// vertical.
@@ -49,6 +54,16 @@ struct
         /// & solid terrain.
         /// Objects like furniture & semi-transparent tiles should normally set this to false.
         bool has_side_walls = true;
+
+        /// Returns a pieced sprite with the tile that corresponds the surroundings given. If
+        /// override_connections is set, the given surroundings will be completely ignored and
+        /// custom_connections will be used instead.
+        [[nodiscard]] PiecedSprite sprite(TileSurroundings const& surroundings) const;
+
+    private:
+        /// This will return custom_connections if override_connections is set to true.
+        TileConnections calculate_connections(TileSurroundings const& surroundings) const;
+        template<TileType T> PiecedSprite impl_sprite(TileSurroundings const& surroundings) const;
     };
 
     class Layer {
@@ -60,6 +75,8 @@ struct
             assert(is_pos_valid(pos));
             return tiles[pos.x + pos.y * width];
         }
+
+        [[nodiscard]] TileSurroundings get_surroundings(math::IVec2D pos);
 
         [[nodiscard]] Tile const& get_tile(math::IVec2D pos) const {
             assert(is_pos_valid(pos));
@@ -79,8 +96,7 @@ struct
         bool visible = true;
 
     private:
-        assets::Mesh generate_layer_mesh();
-        template<bool is_auto> Mesh generate_mesh();
+        assets::Mesh generate_mesh();
 
         i64 width = 0, height = 0;
         std::vector<Tile> tiles;

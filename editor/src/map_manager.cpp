@@ -390,9 +390,7 @@ static void render_map() {
 }
 
 static void place_tile_on_pos(assets::Map& map,
-                              math::IVec2D pos,
-                              bool update_neighbours_of_different_type = true,
-                              bool join_with_neighbours_of_different_type = false) {
+                              math::IVec2D pos) {
     if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
         return;
 
@@ -400,76 +398,11 @@ static void place_tile_on_pos(assets::Map& map,
     assert(current_layer_selected.get());
     auto& layer = *current_layer_selected.get();
 
-    switch (selection.tileset.get()->auto_type) {
-        case (assets::Tileset::AutoType::none): {
-            int start_my = pos.y;
-            for (int tx = selection.selection_start.x; tx <= selection.selection_end.x; tx++) {
-                for (int ty = selection.selection_start.y; ty <= selection.selection_end.y; ty++) {
-                    if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
-                        continue;
-                    layer.get_tile(pos).id = layer.tileset.get()->get_id_autotype_none({tx, ty});
-                    pos.y--;
-                }
-                pos.x++;
-                pos.y = start_my;
-            }
-        } break;
-
-        case (assets::Tileset::AutoType::rpgmaker_a2): {
-            const auto& tileset = *selection.tileset.get();
-            const auto are_tiles_of_same_type = [&tileset](u32 id1, u32 id2) -> bool {
-                return tileset.get_auto_tile_index_from_auto_id(id1) ==
-                       tileset.get_auto_tile_index_from_auto_id(id2);
-            };
-            const auto selected_auto_tile = tileset.get_id_autotype_rpgmaker_a2(selection.selection_start.x, 0);
-
-            const auto update_auto_id = [&](math::IVec2D pos) {
-                u8 surroundings = 0xFF;
-                u8 bit = 0;
-                const assets::Map::Tile self_tile = layer.get_tile(pos);
-                for (int iy = -1; iy <= 1; ++iy) {
-                    for (int ix = -1; ix <= 1; ++ix) {
-                        if (ix == 0 && iy == 0)
-                            continue;
-                        math::IVec2D neighbour_pos{pos.x + ix, pos.y - iy};
-                        if (!layer.is_pos_valid(neighbour_pos)) {
-                            bit++;
-                            continue;
-                        }
-                        assets::Map::Tile neighbour = layer.get_tile(neighbour_pos);
-                        bool is_neighbour_of_same_type;
-                        if (join_with_neighbours_of_different_type)
-                            is_neighbour_of_same_type =
-                                are_tiles_of_same_type(neighbour.id, self_tile.id) ||
-                                are_tiles_of_same_type(neighbour.id, selected_auto_tile);
-                        else
-                            is_neighbour_of_same_type =
-                                are_tiles_of_same_type(neighbour.id, self_tile.id);
-                        surroundings ^= is_neighbour_of_same_type << bit;
-                        bit++;
-                    }
-                }
-                layer.get_tile(pos).id = tileset.get_id_autotype_rpgmaker_a2(
-                    tileset.get_auto_tile_index_from_auto_id(self_tile.id), surroundings);
-            };
-            // Set the tile below the cursor and don't worry about the surroundings; we'll update
-            // them later
-            layer.get_tile(pos).id =selected_auto_tile;
-            // Update autoID of tile placed and all others near it
-            for (int iy = -1; iy <= 1; ++iy) {
-                for (int ix = -1; ix <= 1; ++ix) {
-                    const math::IVec2D ipos = {pos.x + ix, pos.y + iy};
-                    if (!layer.is_pos_valid(ipos))
-                        continue;
-                    if (!update_neighbours_of_different_type &&
-                        !are_tiles_of_same_type(layer.get_tile(pos).id, layer.get_tile(ipos).id))
-                        continue;
-                    update_auto_id(ipos);
-                }
-            }
-        } break;
-
-        default: ARPIYI_UNREACHABLE(); break;
+    for(const auto& tile : tileset_manager::get_selection().tiles_selected()) {
+        math::IVec2D t_pos{pos.x + tile.tileset_offset.x - tileset_manager::get_selection().selection_start.x,
+                           pos.y + tile.tileset_offset.y - tileset_manager::get_selection().selection_start.y};
+        if(layer.is_pos_valid(t_pos))
+            layer.get_tile(t_pos) = tile.tile_ref;
     }
 
     layer.regenerate_mesh();
@@ -692,8 +625,7 @@ static void process_map_input(assets::Map& map,
                     math::IVec2D pos{static_cast<int>(mouse_tile_pos.x),
                                      static_cast<int>(mouse_tile_pos.y)};
                     if (layer->is_pos_valid(pos)) {
-                        place_tile_on_pos(map, pos, !ImGui::GetIO().KeyShift,
-                                          ImGui::GetIO().KeyCtrl);
+                        place_tile_on_pos(map, pos);
                     }
                 }
             }

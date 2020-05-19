@@ -40,14 +40,9 @@ enum class TileType {
     /// 0 | 0 | 0\neighbour_bitfield
     /// Where x is the ID owner (the tile) and the zeros are the neighbours/bits of the
     /// neighbour_bitfield.
-    rpgmaker_a2,
+    // TODO: Reimplement RPGMaker A2 tilesets
+    // rpgmaker_a2,
     count
-};
-
-template<TileType T> struct TileTypeData;
-
-template<> struct TileTypeData<TileType::normal> {
-    static constexpr aml::Vector2 tiles_per_represented_tile{1.f, 1.f};
 };
 
 struct [[assets::serialize]] [[meta::dir_name("tilesets")]] Tileset {
@@ -56,7 +51,7 @@ struct [[assets::serialize]] [[meta::dir_name("tilesets")]] Tileset {
     Handle<assets::Texture> texture;
     std::string name;
 
-    class Tile {
+    struct Tile {
         Handle<Tileset> tileset;
         u64 tile_index;
 
@@ -69,32 +64,15 @@ struct [[assets::serialize]] [[meta::dir_name("tilesets")]] Tileset {
         template<TileType T> Sprite impl_full_sprite() const;
         template<TileType T> PiecedSprite impl_preview_sprite() const;
     };
-    std::vector<Tile> all_tiles();
+    /// Returns how many Tileset::Tiles are present in this tileset.
+    [[nodiscard]] std::size_t tile_count() const;
 
-    math::IVec2D get_size_in_tiles();
-};
+    /// Returns the size in *actual* tiles, not Tileset::Tile tiles. This is literally just dividing
+    /// the texture size by the global tile size.
+    [[nodiscard]] math::IVec2D size_in_tile_units() const;
 
-struct TileInstance;
-struct TileCustomSurroundings {
-    bool override = false;
-    /// All the neighbours this tile has. Set to true for letting the tile connect to that
-    /// direction, false otherwise.
-    bool down, down_right, right, up_right, up, up_left, left, down_left;
-};
-struct TileSurroundings {
-    Tileset::Tile down, down_right, right, up_right, up, up_left, left, down_left;
-};
-
-/// An instance of Tileset::Tile. Can be serialized easily, as you only have to worry about its
-/// surroundings and its parent TilesetTile.
-struct TileInstance {
-    Tileset::Tile parent;
-    TileCustomSurroundings custom_surroundings;
-
-    /// Returns a pieced sprite with the tile that corresponds the surroundings given. If
-    /// custom_surroundings.override is set, the given surroundings will be completely ignored and
-    /// the custom surroundings will be used instead.
-    [[nodiscard]] PiecedSprite sprite(TileSurroundings const& surroundings) const;
+private:
+    template<TileType T>[[nodiscard]] std::size_t impl_tile_count() const;
 };
 
 template<> inline void raw_unload<Tileset>(Tileset& tileset) { tileset.texture.unload(); }

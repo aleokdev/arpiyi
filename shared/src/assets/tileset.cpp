@@ -2,10 +2,10 @@
 #include "global_tile_size.hpp"
 
 #include <algorithm>
+#include <array>
+#include <iostream>
 #include <rapidjson/document.h>
 #include <set>
-#include <iostream>
-#include <array>
 
 #include "util/defs.hpp"
 #include "util/intdef.hpp"
@@ -13,7 +13,40 @@
 namespace arpiyi::assets {
 
 // TODO: Codegenize this
+Sprite Tileset::Tile::full_sprite() const {
+    assert(tileset.get());
+    switch (tileset.get()->tile_type) {
+        case TileType::normal: return impl_full_sprite<TileType::normal>();
+        //case TileType::rpgmaker_a2: return impl_full_sprite<TileType::rpgmaker_a2>();
+        default: assert(false && "Unknown tileset type"); return {};
+    }
+};
 
+// TODO: Codegenize this
+PiecedSprite Tileset::Tile::preview_sprite() const {
+    assert(tileset.get());
+    switch (tileset.get()->tile_type) {
+        case TileType::normal: return impl_preview_sprite<TileType::normal>();
+        //case TileType::rpgmaker_a2: return impl_preview_sprite<TileType::rpgmaker_a2>();
+        default: assert(false && "Unknown tileset type"); return {};
+    }
+};
+
+// TODO: Codegenize this
+std::size_t Tileset::tile_count() const {
+    switch (tile_type) {
+        case TileType::normal: return impl_tile_count<TileType::normal>();
+        //case TileType::rpgmaker_a2: return impl_tile_count<TileType::rpgmaker_a2>();
+        default: assert(false && "Unknown tileset type"); return {};
+    }
+}
+
+math::IVec2D Tileset::size_in_tile_units() const {
+    assert(texture.get());
+    const auto& tex = *texture.get();
+    return {static_cast<i32>(tex.w / global_tile_size::get()),
+            static_cast<i32>(tex.h / global_tile_size::get())};
+}
 
 // TODO: Document this
 math::Rect2D Tileset::get_uv(u32 id, u8 minitile) const {
@@ -172,7 +205,7 @@ template<> RawSaveData raw_get_save_data<Tileset>(Tileset const& tileset) {
         w.String(tileset.name.data());
 
         w.Key(autotype_json_key.data());
-        w.Uint64(static_cast<u64>(tileset.auto_type));
+        w.Uint64(static_cast<u64>(tileset.tile_type));
 
         w.Key(texture_id_json_key.data());
         w.Uint64(tileset.texture.get_id());
@@ -202,10 +235,10 @@ template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& p
             u32 auto_type = obj.value.GetUint();
 
             // TODO: Move check to load_tilesets and throw a proper exception
-            assert(auto_type >= static_cast<u32>(assets::Tileset::AutoType::none) &&
-                   auto_type < static_cast<u32>(assets::Tileset::AutoType::count));
+            assert(auto_type >= static_cast<u32>(assets::TileType::normal) &&
+                   auto_type < static_cast<u32>(assets::TileType::count));
 
-            tileset.auto_type = static_cast<assets::Tileset::AutoType>(auto_type);
+            tileset.tile_type = static_cast<assets::TileType>(auto_type);
         } else if (obj.name == texture_id_json_key.data()) {
             tileset.texture = Handle<assets::Texture>(obj.value.GetUint64());
         } else

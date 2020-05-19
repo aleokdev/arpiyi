@@ -7,10 +7,14 @@
 /* clang-format on */
 
 #include "asset.hpp"
+#include "sprite.hpp"
 
 #include <cstdint>
 
 #include "util/intdef.hpp"
+#include <anton/math/vector3.hpp>
+
+namespace aml = anton::math;
 
 namespace arpiyi::assets {
 
@@ -29,6 +33,14 @@ struct Mesh {
     unsigned int vbo = -1;
     i32 vertex_count = 0;
     constexpr static auto noobj = static_cast<decltype(vao)>(-1);
+};
+
+class MeshBuilder {
+public:
+    void add_sprite(Sprite const& spr, aml::Vector3 offset, float y_max_z_offset);
+    void add_pieced_sprite(PiecedSprite const& spr, aml::Vector3 offset, float y_max_z_offset);
+
+    Mesh finish();
 };
 
 template<> inline void raw_unload(Mesh& mesh) {

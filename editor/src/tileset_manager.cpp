@@ -63,22 +63,24 @@ void render(bool* p_show) {
                 // Draw the map
                 if (ImGui::GetWindowSize().x != last_window_size.x ||
                     ImGui::GetWindowSize().y != last_window_size.y) {
-                    render_ctx->output_fb.set_size({static_cast<int>(ImGui::GetWindowContentRegionWidth()),
-                                  static_cast<int>(ImGui::GetWindowContentRegionMax().y -
-                                                   ImGui::GetWindowContentRegionMin().y)});
+                    render_ctx->output_fb.set_size(
+                        {static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                         static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                          ImGui::GetWindowContentRegionMin().y)});
                     last_window_size = ImGui::GetWindowSize();
                 }
                 // Draw the tileset
                 render_ctx->tileset = selection.tileset;
                 render_ctx->cam_pos = {
                     ImGui::GetScrollX() / global_tile_size::get() / render_ctx->zoom,
-                    ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom
-                };
+                    ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom};
                 window_manager::get_renderer().draw_tileset(*render_ctx);
                 ImGui::Dummy(ImVec2{(float)img->w, (float)img->h});
-                ImGui::SetCursorScreenPos({tileset_render_pos.x + ImGui::GetScrollX(), tileset_render_pos.y + ImGui::GetScrollY()});
+                ImGui::SetCursorScreenPos({tileset_render_pos.x + ImGui::GetScrollX(),
+                                           tileset_render_pos.y + ImGui::GetScrollY()});
                 ImGui::Image(render_ctx->output_fb.get_imgui_id(),
-                             ImVec2{(float)render_ctx->output_fb.get_size().x, (float)render_ctx->output_fb.get_size().y});
+                             ImVec2{(float)render_ctx->output_fb.get_size().x,
+                                    (float)render_ctx->output_fb.get_size().y});
 
                 // Clip anything that is outside the tileset rect
                 draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
@@ -311,7 +313,8 @@ void render(bool* p_show) {
             }
 
             if (auto tex = preview_texture.get()) {
-                ImGui::BeginChild("preview_texture", {0, -ImGui::GetTextLineHeightWithSpacing() - 10});
+                ImGui::BeginChild("preview_texture",
+                                  {0, -ImGui::GetTextLineHeightWithSpacing() - 10});
                 ImGui::Image(reinterpret_cast<ImTextureID>(tex->handle),
                              ImVec2{static_cast<float>(tex->w), static_cast<float>(tex->h)});
                 ImGui::EndChild();
@@ -359,4 +362,17 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
     selection.selection_end = {0, 0};
 }
 
+std::vector<TilesetSelection::Tile> TilesetSelection::tiles_selected() const {
+    std::vector<TilesetSelection::Tile> sel;
+    for (int y = selection_start.y; y < selection_end.y; ++y) {
+        for (int x = selection_start.x; x < selection_end.x; ++x) {
+            sel.emplace_back(TilesetSelection::Tile{
+                {x, y},
+                assets::Tileset::Tile{
+                    selection.tileset,
+                    static_cast<u64>(x + y * selection.tileset.get()->size_in_tile_units().x)}});
+        }
+    }
+    return sel;
+}
 } // namespace arpiyi::tileset_manager
