@@ -375,36 +375,33 @@ void Renderer::draw_map(RenderMapContext const& data) {
     const auto& map = *data.map.get();
 
     // TODO: Update map mesh on tile place
-    if(data.map != data.p_impl->last_map || data.force_mesh_regeneration) {
+    if (data.map != data.p_impl->last_map || data.force_mesh_regeneration) {
         auto& meshes = data.p_impl->meshes;
-        for(auto& [_, mesh] : meshes) {
-            assets::raw_unload(mesh);
-        }
+        for (auto& [_, mesh] : meshes) { assets::raw_unload(mesh); }
         meshes.clear();
         // u64 is a texture handle.
         std::unordered_map<u64, renderer::MeshBuilder> builders;
 
-        for(const auto& l : map.layers) {
+        for (const auto& l : map.layers) {
             assert(l.get());
             const auto& layer = *l.get();
             for (int y = 0; y < map.height; ++y) {
                 for (int x = 0; x < map.width; ++x) {
                     const auto tile = layer.get_tile({x, y});
                     // TODO: Implement slopes (Set vertical_slope and horizontal_slope)
-                    if(tile.exists) {
+                    if (tile.exists) {
                         assert(tile.parent.tileset.get());
                         builders[tile.parent.tileset.get()->texture.get_id()].add_sprite(
                             tile.sprite(layer.get_surroundings({x, y})),
-                            {static_cast<float>(x), static_cast<float>(y), static_cast<float>(tile.height)}, 0,
-                            0);
+                            {static_cast<float>(x), static_cast<float>(y),
+                             static_cast<float>(tile.height)},
+                            0, 0);
                     }
                 }
             }
         }
 
-        for(const auto& [tex_id, builder] : builders) {
-            meshes[tex_id] = builder.finish();
-        }
+        for (const auto& [tex_id, builder] : builders) { meshes[tex_id] = builder.finish(); }
         data.p_impl->last_map = data.map;
         data.force_mesh_regeneration = false;
     }
@@ -609,7 +606,6 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(p_impl->basic_tile_shader.get()->handle);
-    math::IVec2D tileset_size = tileset.size_in_tile_units();
     aml::Matrix4 model = aml::Matrix4::identity;
     glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());      // Model matrix
     glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
@@ -624,11 +620,14 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
         glUseProgram(p_impl->grid_shader.get()->handle);
         glBindVertexArray(p_impl->quad_mesh.get()->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
-        glUniform2ui(4, tileset_size.x, tileset_size.y);
+        const math::IVec2D tileset_size_tile_units = tileset.size_in_tile_units();
+        const math::IVec2D tileset_size_actual_tile_size = {
+            tileset_size_tile_units.x, static_cast<i32>(tileset.tile_count() / tileset_size_tile_units.x)};
+        glUniform2ui(4, tileset_size_actual_tile_size.x, tileset_size_actual_tile_size.y);
 
         aml::Matrix4 model = aml::Matrix4::identity;
         model *= aml::scale(
-            {static_cast<float>(tileset_size.x), -static_cast<float>(tileset_size.y), 0});
+            {static_cast<float>(tileset_size_actual_tile_size.x), -static_cast<float>(tileset_size_actual_tile_size.y), 0});
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
         glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw());
         glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());

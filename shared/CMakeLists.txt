@@ -16,7 +16,7 @@ add_library(arpiyi-shared STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/sprite.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/global_tile_size.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/api/api.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/opengl/renderer_impl_opengl.cpp src/assets/tileset_types/impl_normal.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/opengl/renderer_impl_opengl.cpp src/assets/tileset_types/impl_normal.cpp src/assets/tileset_types/impl_rpgmaker_a2.cpp)
 
 target_link_libraries(arpiyi-shared PUBLIC extlibs)
 target_include_directories(arpiyi-shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

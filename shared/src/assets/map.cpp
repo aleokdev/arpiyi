@@ -14,14 +14,13 @@ namespace arpiyi::assets {
 
 // TODO: Codegenize this
 Sprite Map::Tile::sprite(TileSurroundings const& surroundings) const {
-    if(!exists) {
+    if (!exists) {
         return Sprite{{Handle<assets::Texture>::noid}};
     }
     assert(parent.tileset.get());
     switch (parent.tileset.get()->tile_type) {
-        case TileType::normal:
-            return impl_sprite<TileType::normal>(surroundings);
-            // case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(surroundings);
+        case TileType::normal: return impl_sprite<TileType::normal>(surroundings);
+        case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(surroundings);
         default: assert(false && "Unknown tileset type"); return {};
     }
 }
@@ -29,16 +28,21 @@ Sprite Map::Tile::sprite(TileSurroundings const& surroundings) const {
 Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& surroundings) const {
     if (override_connections)
         return custom_connections;
+    const auto compare_or_false = [this](const assets::Tileset::Tile* tile) -> bool {
+        if(tile == nullptr)
+            return false;
+        return tile->tileset == parent.tileset && tile->tile_index == parent.tile_index;
+    };
     /* clang-format off */
     return {
-        surroundings.down->tileset == parent.tileset && surroundings.down->tile_index == parent.tile_index,
-        surroundings.down_right->tileset == parent.tileset && surroundings.down_right->tile_index == parent.tile_index,
-        surroundings.right->tileset == parent.tileset && surroundings.right->tile_index == parent.tile_index,
-        surroundings.up_right->tileset == parent.tileset && surroundings.up_right->tile_index == parent.tile_index,
-        surroundings.up->tileset == parent.tileset && surroundings.up->tile_index == parent.tile_index,
-        surroundings.up_left->tileset == parent.tileset && surroundings.up_left->tile_index == parent.tile_index,
-        surroundings.left->tileset == parent.tileset && surroundings.left->tile_index == parent.tile_index,
-        surroundings.down_left->tileset == parent.tileset && surroundings.down_left->tile_index == parent.tile_index
+        compare_or_false(surroundings.down),
+        compare_or_false(surroundings.down_right),
+        compare_or_false(surroundings.right),
+        compare_or_false(surroundings.up_right),
+        compare_or_false(surroundings.up),
+        compare_or_false(surroundings.up_left),
+        compare_or_false(surroundings.left),
+        compare_or_false(surroundings.down_left)
     };
     /* clang-format on */
 }
@@ -61,9 +65,7 @@ Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& su
     return surroundings;
 }
 
-Map::Layer::Layer(i64 width, i64 height) :
-     width(width), height(height), tiles(width * height) {
-}
+Map::Layer::Layer(i64 width, i64 height) : width(width), height(height), tiles(width * height) {}
 
 namespace map_file_definitions {
 
@@ -114,7 +116,7 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
             for (int x = 0; x < map.width; ++x) {
                 const auto& tile = layer.get_tile({x, y});
                 w.StartObject();
-                if(!tile.exists) {
+                if (!tile.exists) {
                     w.Key("exists");
                     w.Bool(false);
                 } else {

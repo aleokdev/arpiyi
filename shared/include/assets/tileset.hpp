@@ -22,26 +22,14 @@ namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
+/// To create a new TileType, you must specialize the following functions:
+/// Sprite Tileset::Tile::impl_full_sprite<T>() const;
+/// Sprite Tileset::Tile::impl_preview_sprite<T>() const;
+/// std::size_t Tileset::impl_tile_count<T>() const;
+/// Sprite Map::Tile::impl_sprite<T>(TileSurroundings const& surroundings) const;
 enum class TileType {
-    /// The ID of a tile in a layer with a tileset using the normal AutoType is:
-    /// tileset_tile.x + tileset_tile.y * tileset.width.
     normal,
-    /// Used for RPGMaker A2 tilesets (Those that only contain floor / floor details).
-    /// i.e. Inside_A2
-    /// This will also work with A1 tilesets, but those are meant to be animated.
-    ///
-    /// The ID of a tile in a layer with a tileset using the rpgmaker_a2 AutoType is:
-    /// neighbour_bitfield + auto_tile_index << 8.
-    /// Where neighbour_bitfield is an 8-bit integer describing the connection with the tile's
-    /// neighbours:
-    /// \neighbour_bitfield
-    /// 0 | 0 | 0\neighbour_bitfield
-    /// 0 | x | 0\neighbour_bitfield
-    /// 0 | 0 | 0\neighbour_bitfield
-    /// Where x is the ID owner (the tile) and the zeros are the neighbours/bits of the
-    /// neighbour_bitfield.
-    // TODO: Reimplement RPGMaker A2 tilesets
-    // rpgmaker_a2,
+    rpgmaker_a2,
     count
 };
 

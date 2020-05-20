@@ -42,8 +42,15 @@ void render(bool* p_show) {
             if (auto img = ts->texture.get()) {
                 const ImVec2 tileset_render_pos = {ImGui::GetCursorScreenPos().x,
                                                    ImGui::GetCursorScreenPos().y};
+                const math::IVec2D tileset_size_tile_units = ts->size_in_tile_units();
+                const math::IVec2D tileset_size_actual_tile_size = {
+                    tileset_size_tile_units.x,
+                    static_cast<i32>(ts->tile_count() / tileset_size_tile_units.x)};
                 const ImVec2 tileset_render_pos_max =
-                    ImVec2(tileset_render_pos.x + img->w, tileset_render_pos.y + img->h);
+                    ImVec2(tileset_render_pos.x +
+                               tileset_size_actual_tile_size.x * global_tile_size::get(),
+                           tileset_render_pos.y +
+                               tileset_size_actual_tile_size.y * global_tile_size::get());
 
                 const auto& io = ImGui::GetIO();
                 ImVec2 mouse_pos = io.MousePos;
@@ -80,7 +87,8 @@ void render(bool* p_show) {
                                            tileset_render_pos.y + ImGui::GetScrollY()});
                 ImGui::Image(render_ctx->output_fb.get_imgui_id(),
                              ImVec2{(float)render_ctx->output_fb.get_size().x,
-                                    (float)render_ctx->output_fb.get_size().y}, {0, 1}, {1, 0});
+                                    (float)render_ctx->output_fb.get_size().y},
+                             {0, 1}, {1, 0});
 
                 // Clip anything that is outside the tileset rect
                 draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
@@ -161,7 +169,8 @@ void render(bool* p_show) {
                         ImGui::SameLine();
                         static std::size_t tile_id;
                         if (update_tooltip_info)
-                            tile_id = tile_hovering.x + tile_hovering.y * ts->size_in_tile_units().x;
+                            tile_id =
+                                tile_hovering.x + tile_hovering.y * ts->size_in_tile_units().x;
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
                         ImGui::Text("ID %zu", tile_id);
                         ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x,
@@ -243,8 +252,8 @@ void render(bool* p_show) {
             bool valid = preview_texture.get();
 
             static auto auto_type = assets::TileType::normal;
-            static const char* auto_type_bindings[] = {"Normal"};
-            constexpr u32 auto_type_bindings_count = 1;
+            static const char* auto_type_bindings[] = {"Normal", "RPGMaker A2 Tileset"};
+            constexpr u32 auto_type_bindings_count = 2;
             static_assert(auto_type_bindings_count == (u32)assets::TileType::count);
             if (ImGui::BeginCombo("Type", auto_type_bindings[static_cast<u32>(auto_type)])) {
                 for (u32 i = 0; i < auto_type_bindings_count; i++) {
@@ -291,8 +300,6 @@ void render(bool* p_show) {
                     ImGui::PopStyleColor();
                     valid = false;
                 }
-                // TODO: Readd this check when reimplementing RPGMaker A2 tilesets
-                /*
                 if (auto_type == assets::TileType::rpgmaker_a2) {
                     if (tex->w % (2 * input_tile_size) != 0 ||
                         tex->h % (3 * input_tile_size) != 0) {
@@ -305,7 +312,7 @@ void render(bool* p_show) {
                         ImGui::PopStyleColor();
                         valid = false;
                     }
-                }*/
+                }
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
                 ImGui::TextWrapped(ICON_MD_ERROR
