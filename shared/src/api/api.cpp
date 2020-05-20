@@ -100,9 +100,7 @@ void define_sprite(sol::state_view& s) {
     /* clang-format off */
     sol::table game_table = s["game"];
     game_table.new_usertype<assets::Sprite>("Sprite",
-                                          "pivot", &assets::Sprite::pivot,
-                                          "name", sol::readonly(&assets::Sprite::name),
-                                          "pixel_size", sol::readonly_property(&assets::Sprite::get_size_in_pixels)
+                                          "pivot", &assets::Sprite::pivot
     );
     /* clang-format on */
 }

@@ -60,7 +60,7 @@ void render(bool* p_show) {
                 ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
                 static ImVec2 last_window_size;
-                // Draw the map
+                // Update the framebuffer if the window has changed size
                 if (ImGui::GetWindowSize().x != last_window_size.x ||
                     ImGui::GetWindowSize().y != last_window_size.y) {
                     render_ctx->output_fb.set_size(
@@ -73,14 +73,14 @@ void render(bool* p_show) {
                 render_ctx->tileset = selection.tileset;
                 render_ctx->cam_pos = {
                     ImGui::GetScrollX() / global_tile_size::get() / render_ctx->zoom,
-                    ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom};
+                    -ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom};
                 window_manager::get_renderer().draw_tileset(*render_ctx);
                 ImGui::Dummy(ImVec2{(float)img->w, (float)img->h});
                 ImGui::SetCursorScreenPos({tileset_render_pos.x + ImGui::GetScrollX(),
                                            tileset_render_pos.y + ImGui::GetScrollY()});
                 ImGui::Image(render_ctx->output_fb.get_imgui_id(),
                              ImVec2{(float)render_ctx->output_fb.get_size().x,
-                                    (float)render_ctx->output_fb.get_size().y});
+                                    (float)render_ctx->output_fb.get_size().y}, {0, 1}, {1, 0});
 
                 // Clip anything that is outside the tileset rect
                 draw_list->PushClipRect(tileset_render_pos, tileset_render_pos_max, true);
@@ -151,7 +151,7 @@ void render(bool* p_show) {
                             (int)(relative_mouse_pos.x / global_tile_size::get()),
                             (int)(relative_mouse_pos.y / global_tile_size::get())};
                         const ImVec2 img_size{64, 64};
-                        const math::IVec2D size_in_tiles = ts->get_size_in_tiles();
+                        const math::IVec2D size_in_tiles = ts->size_in_tile_units();
                         const ImVec2 uv_min{(float)tile_hovering.x / (float)size_in_tiles.x,
                                             (float)tile_hovering.y / (float)size_in_tiles.y};
                         const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
@@ -161,7 +161,7 @@ void render(bool* p_show) {
                         ImGui::SameLine();
                         static std::size_t tile_id;
                         if (update_tooltip_info)
-                            tile_id = tile_hovering.x + tile_hovering.y * ts->get_size_in_tiles().x;
+                            tile_id = tile_hovering.x + tile_hovering.y * ts->size_in_tile_units().x;
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{.8f, .8f, .8f, tooltip_alpha});
                         ImGui::Text("ID %zu", tile_id);
                         ImGui::Text("UV coords: {%.2f~%.2f, %.2f~%.2f}", uv_min.x, uv_max.x,
@@ -242,15 +242,15 @@ void render(bool* p_show) {
             }
             bool valid = preview_texture.get();
 
-            static auto auto_type = assets::Tileset::AutoType::none;
-            static const char* auto_type_bindings[] = {"Normal", "RPGMaker A2 Tileset"};
-            constexpr u32 auto_type_bindings_count = 2;
-            static_assert(auto_type_bindings_count == (u32)assets::Tileset::AutoType::count);
+            static auto auto_type = assets::TileType::normal;
+            static const char* auto_type_bindings[] = {"Normal"};
+            constexpr u32 auto_type_bindings_count = 1;
+            static_assert(auto_type_bindings_count == (u32)assets::TileType::count);
             if (ImGui::BeginCombo("Type", auto_type_bindings[static_cast<u32>(auto_type)])) {
                 for (u32 i = 0; i < auto_type_bindings_count; i++) {
                     if (ImGui::Selectable(auto_type_bindings[i]))
-                        auto_type = static_cast<assets::Tileset::AutoType>(i);
-                    if (static_cast<assets::Tileset::AutoType>(i) == auto_type)
+                        auto_type = static_cast<assets::TileType>(i);
+                    if (static_cast<assets::TileType>(i) == auto_type)
                         ImGui::SetItemDefaultFocus();
                 }
                 ImGui::EndCombo();
@@ -291,7 +291,9 @@ void render(bool* p_show) {
                     ImGui::PopStyleColor();
                     valid = false;
                 }
-                if (auto_type == assets::Tileset::AutoType::rpgmaker_a2) {
+                // TODO: Readd this check when reimplementing RPGMaker A2 tilesets
+                /*
+                if (auto_type == assets::TileType::rpgmaker_a2) {
                     if (tex->w % (2 * input_tile_size) != 0 ||
                         tex->h % (3 * input_tile_size) != 0) {
                         ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
@@ -303,7 +305,7 @@ void render(bool* p_show) {
                         ImGui::PopStyleColor();
                         valid = false;
                     }
-                }
+                }*/
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
                 ImGui::TextWrapped(ICON_MD_ERROR
@@ -333,8 +335,9 @@ void render(bool* p_show) {
 
                 assets::Tileset tileset;
                 tileset.name = fs::path(path_selected).filename().generic_string();
-                tileset.auto_type = auto_type;
-                tileset.texture = preview_texture;
+                tileset.tile_type = auto_type;
+                // We don't want to pass in preview_texture because it might be deleted any time
+                tileset.texture = asset_manager::load<assets::Texture>({path_selected});
                 selection.tileset = asset_manager::put(tileset);
                 show_new_tileset = false;
             }
@@ -364,8 +367,8 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
 
 std::vector<TilesetSelection::Tile> TilesetSelection::tiles_selected() const {
     std::vector<TilesetSelection::Tile> sel;
-    for (int y = selection_start.y; y < selection_end.y; ++y) {
-        for (int x = selection_start.x; x < selection_end.x; ++x) {
+    for (int y = selection_start.y; y <= selection_end.y; ++y) {
+        for (int x = selection_start.x; x <= selection_end.x; ++x) {
             sel.emplace_back(TilesetSelection::Tile{
                 {x, y},
                 assets::Tileset::Tile{

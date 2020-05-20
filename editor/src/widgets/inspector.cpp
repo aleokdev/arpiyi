@@ -25,6 +25,8 @@ void draw_entity_inspector(assets::Entity& entity) {
 
     ImVec2 img_size = {ImGui::GetContentRegionAvailWidth() / 4.f,
                              ImGui::GetContentRegionAvailWidth() / 4.f};
+    // TODO: Reimplement this
+    /*
     if (auto s = entity.sprite.get()) {
         auto size_in_pixels = s->get_size_in_pixels();
         float max_axis_size = std::max(size_in_pixels.x, size_in_pixels.y);
@@ -39,7 +41,7 @@ void draw_entity_inspector(assets::Entity& entity) {
         if (ImGui::ImageButton(nullptr, img_size, {}, {}, 1)) {
             show_sprite_selector = true;
         }
-    }
+    }*/
     ImGui::SameLine();
     ImGui::TextUnformatted("Sprite");
 

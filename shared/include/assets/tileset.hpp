@@ -58,11 +58,11 @@ struct [[assets::serialize]] [[meta::dir_name("tilesets")]] Tileset {
         /// Returns a sprite with the full TilesetTile texture (Sized
         /// TileTypeData::tiles_per_represented_tile)
         [[nodiscard]] Sprite full_sprite() const;
-        [[nodiscard]] PiecedSprite preview_sprite() const;
+        [[nodiscard]] Sprite preview_sprite() const;
 
     private:
         template<TileType T> Sprite impl_full_sprite() const;
-        template<TileType T> PiecedSprite impl_preview_sprite() const;
+        template<TileType T> Sprite impl_preview_sprite() const;
     };
     /// Returns how many Tileset::Tiles are present in this tileset.
     [[nodiscard]] std::size_t tile_count() const;
@@ -75,7 +75,7 @@ private:
     template<TileType T>[[nodiscard]] std::size_t impl_tile_count() const;
 };
 
-template<> inline void raw_unload<Tileset>(Tileset& tileset) { tileset.texture.unload(); }
+template<> inline void raw_unload<Tileset>(Tileset& tileset) { }
 
 template<> struct LoadParams<Tileset> { fs::path path; };
 

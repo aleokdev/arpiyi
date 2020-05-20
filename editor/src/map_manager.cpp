@@ -71,20 +71,17 @@ static void show_info_tip(const char* c) {
 static void show_add_layer_window(bool* p_open) {
     if (ImGui::Begin(ICON_MD_ADD_BOX " New Map Layer", p_open)) {
         static char name[32];
-        static Handle<assets::Tileset> tileset;
-        bool valid = tileset.get() && strlen(name) > 0;
+        bool valid = strlen(name) > 0;
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
-
-        widgets::tileset_picker::show(tileset);
 
         if (ImGui::Button("Cancel")) {
             *p_open = false;
         }
         ImGui::SameLine();
         if (ImGui::Button("OK", valid)) {
-            assets::Map::Layer layer{current_map.get()->width, current_map.get()->height, tileset};
+            assets::Map::Layer layer{current_map.get()->width, current_map.get()->height};
             layer.name = name;
             current_map.get()->layers.emplace_back(asset_manager::put(layer));
             *p_open = false;
@@ -99,19 +96,15 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
 
     if (ImGui::Begin(ICON_MD_SETTINGS " Edit Map Layer", p_open)) {
         static char name[32];
-        static Handle<assets::Tileset> tileset;
         if (ImGui::IsWindowAppearing()) {
             assert(layer.name.size() < 32);
             strcpy(name, layer.name.c_str());
-            tileset = layer.tileset;
         }
-        bool valid = tileset.get() && strlen(name) > 0;
+        bool valid = strlen(name) > 0;
 
         ImGui::InputText("Internal Name", name, 32);
         show_info_tip("The name given to the layer internally. This won't appear in the "
                       "game unless you specify so. Can be changed later.");
-
-        widgets::tileset_picker::show(tileset);
 
         if (ImGui::Button("Cancel")) {
             *p_open = false;
@@ -119,7 +112,6 @@ static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) 
         ImGui::SameLine();
         if (ImGui::Button("OK", valid)) {
             layer.name = name;
-            layer.tileset = tileset;
             *p_open = false;
         }
     }
@@ -134,7 +126,6 @@ static void show_add_map_window(bool* p_open) {
         static i32 map_size[2] = {16, 16};
         static bool create_default_layer = true;
         static char layer_name[32] = "Base Layer";
-        static Handle<assets::Tileset> layer_tileset = Handle<assets::Tileset>::noid;
         bool valid = true;
 
         ImGui::InputText("Internal Name", name, 32);
@@ -151,10 +142,8 @@ static void show_add_map_window(bool* p_open) {
             ImGui::BeginChild("Default layer options", {0, -ImGui::GetTextLineHeightWithSpacing()},
                               true, ImGuiWindowFlags_AlwaysAutoResize);
             ImGui::InputText("Name", layer_name, 32);
-            widgets::tileset_picker::show(layer_tileset);
             ImGui::EndChild();
             ImGui::PopStyleVar();
-            valid &= layer_tileset.get();
         }
 
         if (ImGui::Button("Cancel")) {
@@ -168,7 +157,7 @@ static void show_add_map_window(bool* p_open) {
             map.name = name;
             if (create_default_layer) {
                 map.layers.emplace_back(
-                    asset_manager::put(assets::Map::Layer(map.width, map.height, layer_tileset)));
+                    asset_manager::put(assets::Map::Layer(map.width, map.height)));
                 map.layers[0].get()->name = layer_name;
                 current_layer_selected = map.layers[0];
             }
@@ -254,7 +243,6 @@ static void show_map_layer_list() {
                         ImGui::IsItemClicked()) {
                         ImGui::SetWindowFocus(map_view_strid);
                         current_layer_selected = l;
-                        tileset_manager::set_selection_tileset(layer.tileset);
                     }
 
                     {
@@ -316,8 +304,6 @@ static void show_map_list() {
                     current_map = Handle<assets::Map>(_id);
                     if (!current_map.get()->layers.empty()) {
                         current_layer_selected = current_map.get()->layers[0];
-                        tileset_manager::set_selection_tileset(
-                            current_layer_selected.get()->tileset);
                     }
                 }
                 if (ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
@@ -394,21 +380,22 @@ static void place_tile_on_pos(assets::Map& map,
     if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
         return;
 
-    const auto selection = tileset_manager::get_selection();
+    const auto& selection = tileset_manager::get_selection();
     assert(current_layer_selected.get());
     auto& layer = *current_layer_selected.get();
 
-    for(const auto& tile : tileset_manager::get_selection().tiles_selected()) {
-        math::IVec2D t_pos{pos.x + tile.tileset_offset.x - tileset_manager::get_selection().selection_start.x,
-                           pos.y + tile.tileset_offset.y - tileset_manager::get_selection().selection_start.y};
-        if(layer.is_pos_valid(t_pos))
-            layer.get_tile(t_pos) = tile.tile_ref;
+    for(const auto& tile : selection.tiles_selected()) {
+        math::IVec2D t_pos{pos.x + tile.tileset_offset.x - selection.selection_start.x,
+                           pos.y - (tile.tileset_offset.y - selection.selection_start.y)};
+        if(layer.is_pos_valid(t_pos)) {
+            layer.get_tile(t_pos).exists = true;
+            layer.get_tile(t_pos).parent = tile.tile_ref;
+        }
     }
-
-    layer.regenerate_mesh();
+    render_map_context->force_mesh_regeneration = true;
 }
 
-static void draw_selection_on_map(assets::Map& map, bool is_tileset_appropiate_for_layer) {
+static void draw_selection_on_map(assets::Map& map) {
     auto selection = tileset_manager::get_selection();
     if (auto selection_tileset = selection.tileset.get()) {
         ImVec2 map_selection_size{
@@ -421,7 +408,7 @@ static void draw_selection_on_map(assets::Map& map, bool is_tileset_appropiate_f
                                       ImGui::GetWindowContentRegionMin().x,
                                   ImGui::GetMousePos().y - ImGui::GetWindowPos().y -
                                       ImGui::GetWindowContentRegionMin().y};
-        math::IVec2D tileset_size = selection_tileset->get_size_in_tiles();
+        math::IVec2D tileset_size = selection_tileset->size_in_tile_units();
         ImVec2 uv_min = ImVec2{(float)selection.selection_start.x / (float)tileset_size.x,
                                (float)selection.selection_start.y / (float)tileset_size.y};
         ImVec2 uv_max = ImVec2{(float)(selection.selection_end.x + 1) / (float)tileset_size.x,
@@ -458,23 +445,19 @@ static Handle<assets::Entity> draw_entities(const assets::Map& map) {
     for (const auto& e : map.entities) {
         assert(e.get());
         const auto& entity = *e.get();
-        const math::IVec2D entity_sprite_size =
-            entity.sprite.get() ? entity.sprite.get()->get_size_in_pixels()
-                                : math::IVec2D{static_cast<i32>(global_tile_size::get()),
-                                               static_cast<i32>(global_tile_size::get())};
+        const math::Rect2D entity_sprite_bounds =
+            entity.sprite.get() ? entity.sprite.get()->bounds()
+                                : math::Rect2D{entity.pos, entity.pos + aml::Vector2{1,1}};
 
         const auto widget_to_absolute_window_pos = [](ImVec2 pos) -> ImVec2 {
             return {pos.x + ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                     pos.y + ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
         };
 
-        const aml::Vector2 tile_entity_square_render_pos_min = entity.get_origin_pos();
         ImVec2 entity_square_render_pos_min =
-            widget_to_absolute_window_pos(map_to_widget_pos(tile_entity_square_render_pos_min));
-        aml::Vector2 entity_square_render_pos_max =
-            aml::Vector2(entity_square_render_pos_min.x, entity_square_render_pos_min.y) +
-            aml::Vector2{static_cast<float>(entity_sprite_size.x) * get_map_zoom(),
-                         -static_cast<float>(entity_sprite_size.y) * get_map_zoom()};
+            widget_to_absolute_window_pos(map_to_widget_pos(entity_sprite_bounds.start + entity.pos));
+        ImVec2 entity_square_render_pos_max =
+            widget_to_absolute_window_pos(map_to_widget_pos(entity_sprite_bounds.end + entity.pos));
 
         if (edit_mode == EditMode::entity) {
             ImGui::GetWindowDrawList()->AddRectFilled(
@@ -652,17 +635,13 @@ static void process_map_input(assets::Map& map,
                             t.slope_type = (assets::Map::Tile::SlopeType)((u8)(t.slope_type) + 1);
                             if (t.slope_type == assets::Map::Tile::SlopeType::count)
                                 t.slope_type = assets::Map::Tile::SlopeType::none;
-                            layer->regenerate_mesh();
                         } else if (io.KeyMods & ImGuiKeyModFlags_Ctrl &&
                                    io.MouseClicked[ImGuiMouseButton_Left]) {
                             t.has_side_walls = !t.has_side_walls;
-                            layer->regenerate_mesh();
                         } else if (io.MouseClicked[ImGuiMouseButton_Left]) {
                             t.height++;
-                            layer->regenerate_mesh();
                         } else if (io.MouseClicked[ImGuiMouseButton_Right]) {
                             t.height--;
-                            layer->regenerate_mesh();
                         }
                     }
                 }
@@ -745,15 +724,8 @@ void render(bool* p_show) {
                     {0, 1}, {1, 0});
             }
 
-            bool is_tileset_appropiate_for_layer;
-            if (auto layer = current_layer_selected.get())
-                is_tileset_appropiate_for_layer =
-                    tileset_manager::get_selection().tileset == layer->tileset;
-            else
-                is_tileset_appropiate_for_layer = true;
-
             if (edit_mode == EditMode::tile) {
-                draw_selection_on_map(*map, is_tileset_appropiate_for_layer);
+                draw_selection_on_map(*map);
             }
 
             static Handle<assets::Entity> entity_hovering;
@@ -770,26 +742,7 @@ void render(bool* p_show) {
                 draw_comments(*map);
             }
 
-            if (is_tileset_appropiate_for_layer) {
-                process_map_input(*map, entity_hovering, comment_hovering);
-            }
-
-            if (!is_tileset_appropiate_for_layer) {
-                constexpr std::string_view text =
-                    "Tileset does not correspond the one specified in the selected layer.";
-                ImVec2 text_size = ImGui::CalcTextSize(text.data());
-                ImVec2 text_pos{
-                    ImGui::GetWindowPos().x + ImGui::GetWindowWidth() / 2.f - text_size.x / 2.f,
-                    ImGui::GetWindowPos().y + ImGui::GetWindowHeight() / 2.f - text_size.y / 2.f};
-                // Draw black rect on top to darken the already drawn stuff.
-                ImGui::GetWindowDrawList()->AddRectFilled(
-                    {0, 0},
-                    {ImGui::GetWindowPos().x + ImGui::GetWindowSize().x,
-                     ImGui::GetWindowPos().y + ImGui::GetWindowSize().y},
-                    ImGui::GetColorU32({0, 0, 0, .4f}));
-                ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text),
-                                                    text.data());
-            }
+            process_map_input(*map, entity_hovering, comment_hovering);
 
             draw_pos_info_bar();
         } else

@@ -36,16 +36,16 @@ bool show(Handle<assets::Sprite>& spr) {
         // ImageButtons use the texture ID as their own ID for some bizarre reasons, so we need to
         // override the ID used.
         ImGui::PushID(id + 0xFFFF);
+        // TODO: Reimplement picker image
+        /*
         if (ImGui::ImageButton(reinterpret_cast<ImTextureID>(sprite.texture.get()->handle),
                                {50, 50}, {sprite.uv_min.x, sprite.uv_min.y},
                                {sprite.uv_max.x, sprite.uv_max.y})) {
             spr = Handle<assets::Sprite>(id);
             changed = true;
-        }
+        }*/
         ImGui::PopID();
         ImGui::TextDisabled("%zu", id);
-        ImGui::SameLine();
-        ImGui::TextUnformatted(sprite.name.data());
         ImGui::EndGroup();
 
         if (column < columns_to_render - 1) {

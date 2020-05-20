@@ -13,6 +13,9 @@ typedef void* ImTextureID;
 namespace arpiyi::assets {
 struct Map;
 struct Texture;
+struct Sprite;
+struct PiecedSprite;
+struct Mesh;
 } // namespace arpiyi::assets
 
 namespace arpiyi::renderer {
@@ -39,6 +42,27 @@ private:
     friend class Renderer;
     friend class RenderMapContext;
     friend class RenderTilesetContext;
+    struct impl;
+    std::unique_ptr<impl> p_impl;
+};
+
+class MeshBuilder {
+public:
+    MeshBuilder();
+    ~MeshBuilder();
+    /// Adds a sprite to the mesh.
+    /// @param spr The sprite. Takes into account its pivot.
+    /// @param offset Where to place the sprite, in tile units.
+    /// @param vertical_slope How many tile units to distort the sprite in the Z axis per Y unit.
+    /// @param horizontal_slope How many tile units to distort the sprite in the Z axis per X unit.
+    void add_sprite(assets::Sprite const& spr,
+                    aml::Vector3 offset,
+                    float vertical_slope,
+                    float horizontal_slope);
+
+    assets::Mesh finish() const;
+
+private:
     struct impl;
     std::unique_ptr<impl> p_impl;
 };
@@ -71,6 +95,9 @@ public:
     bool draw_grid = false;
     /// Should the entities be drawn over the map?
     bool draw_entities = true;
+    /// Should the internal map mesh be regenerated next update? (This is a trigger. It will be set
+    /// back to false on next render cycle).
+    mutable bool force_mesh_regeneration = false;
 
 private:
     friend class Renderer;

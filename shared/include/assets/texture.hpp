@@ -7,14 +7,19 @@
 
 #include "util/intdef.hpp"
 
-#include <imgui.h>
 #include <anton/math/vector4.hpp>
+#include <imgui.h>
 
 namespace aml = anton::math;
 namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
+// TODO: Move to renderer.hpp (Probably call it RawTexture), then make a texture wrapper here that
+// contains the source path of the texture and the RawTexture. On save, just copy the source file to
+// the save buffer.
+// RawTexture should just be used in the texture wrapper and in the renderer implementation, nowhere
+// else.
 struct [[assets::serialize]] [[meta::dir_name("textures")]] Texture {
     u32 w;
     u32 h;
@@ -23,6 +28,7 @@ struct [[assets::serialize]] [[meta::dir_name("textures")]] Texture {
     ImTextureID get_imgui_id();
     /// Defined in renderer/renderer_impl_xxx.cpp
     bool exists();
+    // TODO: Use p_impl
     void* handle;
 };
 
@@ -42,6 +48,6 @@ template<> RawSaveData raw_get_save_data<Texture>(Texture const& texture);
 /// Defined in renderer/renderer_impl_xxx.cpp
 template<> void raw_unload(Texture& texture);
 
-} // namespace arpiyi_editor::assets
+} // namespace arpiyi::assets
 
 #endif // ARPIYI_EDITOR_TEXTURE_HPP

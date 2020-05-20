@@ -5,6 +5,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include "renderer/renderer.hpp"
 #include "util/defs.hpp"
 
 #include <vector>
@@ -12,11 +13,15 @@
 namespace arpiyi::assets {
 
 // TODO: Codegenize this
-PiecedSprite Map::Tile::sprite(TileSurroundings const& surroundings) const {
+Sprite Map::Tile::sprite(TileSurroundings const& surroundings) const {
+    if(!exists) {
+        return Sprite{{Handle<assets::Texture>::noid}};
+    }
     assert(parent.tileset.get());
     switch (parent.tileset.get()->tile_type) {
-        case TileType::normal: return impl_sprite<TileType::normal>(surroundings);
-            //case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(surroundings);
+        case TileType::normal:
+            return impl_sprite<TileType::normal>(surroundings);
+            // case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(surroundings);
         default: assert(false && "Unknown tileset type"); return {};
     }
 }
@@ -26,21 +31,21 @@ Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& su
         return custom_connections;
     /* clang-format off */
     return {
-        surroundings.down.tileset == parent.tileset && surroundings.down.tile_index == parent.tile_index,
-        surroundings.down_right.tileset == parent.tileset && surroundings.down_right.tile_index == parent.tile_index,
-        surroundings.right.tileset == parent.tileset && surroundings.right.tile_index == parent.tile_index,
-        surroundings.up_right.tileset == parent.tileset && surroundings.up_right.tile_index == parent.tile_index,
-        surroundings.up.tileset == parent.tileset && surroundings.up.tile_index == parent.tile_index,
-        surroundings.up_left.tileset == parent.tileset && surroundings.up_left.tile_index == parent.tile_index,
-        surroundings.left.tileset == parent.tileset && surroundings.left.tile_index == parent.tile_index,
-        surroundings.down_left.tileset == parent.tileset && surroundings.down_left.tile_index == parent.tile_index
+        surroundings.down->tileset == parent.tileset && surroundings.down->tile_index == parent.tile_index,
+        surroundings.down_right->tileset == parent.tileset && surroundings.down_right->tile_index == parent.tile_index,
+        surroundings.right->tileset == parent.tileset && surroundings.right->tile_index == parent.tile_index,
+        surroundings.up_right->tileset == parent.tileset && surroundings.up_right->tile_index == parent.tile_index,
+        surroundings.up->tileset == parent.tileset && surroundings.up->tile_index == parent.tile_index,
+        surroundings.up_left->tileset == parent.tileset && surroundings.up_left->tile_index == parent.tile_index,
+        surroundings.left->tileset == parent.tileset && surroundings.left->tile_index == parent.tile_index,
+        surroundings.down_left->tileset == parent.tileset && surroundings.down_left->tile_index == parent.tile_index
     };
     /* clang-format on */
 }
 
-[[nodiscard]] Map::TileSurroundings Map::Layer::get_surroundings(math::IVec2D pos) {
+[[nodiscard]] Map::TileSurroundings Map::Layer::get_surroundings(math::IVec2D pos) const {
     Map::TileSurroundings surroundings;
-    const auto get_or_null = [this](math::IVec2D pos) -> Tileset::Tile* {
+    const auto get_or_null = [this](math::IVec2D pos) -> Tileset::Tile const* {
         return is_pos_valid(pos) ? &get_tile(pos).parent : nullptr;
     };
 
@@ -56,164 +61,8 @@ Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& su
     return surroundings;
 }
 
-constexpr auto sizeof_vertex = 5;
-constexpr auto sizeof_triangle = 3 * sizeof_vertex;
-constexpr auto sizeof_quad = 2 * sizeof_triangle;
-
-// TODO: Move OpenGL code elsewhere
-
-void add_quad(std::vector<float>& result,
-              int quad_n,
-              math::Rect2D pos_rect,
-              float min_z,
-              float max_z,
-              math::Rect2D uv_rect) {
-    const auto tri_n = quad_n * sizeof_quad;
-    if (tri_n >= result.size()) {
-        // Allocate more size if needed
-        result.resize(result.size() + 16 * sizeof_quad);
-    }
-
-    // First triangle //
-    /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
-    /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.start.y;
-    /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
-    /* X UV 1st vertex  */ result[tri_n + 3] = uv_rect.start.x;
-    /* Y UV 1st vertex  */ result[tri_n + 4] = uv_rect.end.y;
-    /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
-    /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
-    /* Z pos 2nd vertex */ result[tri_n + 7] = min_z;
-    /* X UV 2nd vertex  */ result[tri_n + 8] = uv_rect.end.x;
-    /* Y UV 2nd vertex  */ result[tri_n + 9] = uv_rect.end.y;
-    /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.start.x;
-    /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.end.y;
-    /* Z pos 3rd vertex */ result[tri_n + 12] = max_z;
-    /* X UV 2nd vertex  */ result[tri_n + 13] = uv_rect.start.x;
-    /* Y UV 2nd vertex  */ result[tri_n + 14] = uv_rect.start.y;
-
-    // Second triangle //
-    /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.end.x;
-    /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.start.y;
-    /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
-    /* X UV 1st vertex  */ result[tri_n + 18] = uv_rect.end.x;
-    /* Y UV 1st vertex  */ result[tri_n + 19] = uv_rect.end.y;
-    /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.end.x;
-    /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
-    /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
-    /* X UV 2nd vertex  */ result[tri_n + 23] = uv_rect.end.x;
-    /* Y UV 2nd vertex  */ result[tri_n + 24] = uv_rect.start.y;
-    /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.start.x;
-    /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.end.y;
-    /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
-    /* X UV 3rd vertex  */ result[tri_n + 28] = uv_rect.start.x;
-    /* Y UV 3rd vertex  */ result[tri_n + 29] = uv_rect.start.y;
-};
-
-void add_vertical_quad(
-    std::vector<float>& result, int quad_n, math::Rect2D pos_rect, float min_z, float max_z) {
-    const auto tri_n = quad_n * sizeof_quad;
-    if (tri_n >= result.size()) {
-        // Allocate more size if needed
-        result.resize(result.size() + 16 * sizeof_quad);
-    }
-
-    // We use 1 for the UVs because in order for the depth shader to detect the wall, they must
-    // have a non-transparent texture. All textures are set to clamp to a non-transparent
-    // border, so we use that.
-
-    // First triangle //
-    /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
-    /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.end.y;
-    /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
-    /* X UV 1st vertex  */ result[tri_n + 3] = 1;
-    /* Y UV 1st vertex  */ result[tri_n + 4] = 1;
-    /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
-    /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
-    /* Z pos 2nd vertex */ result[tri_n + 7] = max_z;
-    /* X UV 2nd vertex  */ result[tri_n + 8] = 1;
-    /* Y UV 2nd vertex  */ result[tri_n + 9] = 1;
-    /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.end.x;
-    /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.start.y;
-    /* Z pos 3rd vertex */ result[tri_n + 12] = min_z;
-    /* X UV 2nd vertex  */ result[tri_n + 13] = 1;
-    /* Y UV 2nd vertex  */ result[tri_n + 14] = 1;
-
-    // Second triangle //
-    /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.start.x;
-    /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.end.y;
-    /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
-    /* X UV 1st vertex  */ result[tri_n + 18] = 1;
-    /* Y UV 1st vertex  */ result[tri_n + 19] = 1;
-    /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.start.x;
-    /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
-    /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
-    /* X UV 2nd vertex  */ result[tri_n + 23] = 1;
-    /* Y UV 2nd vertex  */ result[tri_n + 24] = 1;
-    /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.end.x;
-    /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.start.y;
-    /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
-    /* X UV 3rd vertex  */ result[tri_n + 28] = 1;
-    /* Y UV 3rd vertex  */ result[tri_n + 29] = 1;
-};
-
-Mesh Map::Layer::generate_mesh() {
-    MeshBuilder builder;
-
-    for(int y = 0; y < height; ++y) {
-        for(int x = 0; x < width; ++x) {
-            const auto tile = get_tile({x,y});
-            // TODO: Implement slopes (Set y_min_z and y_max_z accordingly)
-            builder.add_pieced_sprite(tile.sprite(get_surroundings({x, y})), {x, y, tile.height}, 0, 0);
-        }
-    }
-
-    constexpr int quad_vertices = 2 * 3;
-    const auto sizeof_result = quad_n * quad_vertices;
-
-    unsigned int vao, vbo;
-
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-
-    // Fill buffer
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof_result * sizeof_vertex * sizeof(float), result.data(),
-                 GL_STATIC_DRAW);
-
-    glBindVertexArray(vao);
-    // Vertex Positions
-    glEnableVertexAttribArray(0); // location 0
-    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, vbo, 0, sizeof_vertex * sizeof(float));
-    glVertexAttribBinding(0, 0);
-    // UV Positions
-    glEnableVertexAttribArray(1); // location 1
-    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
-    glBindVertexBuffer(1, vbo, 0, sizeof_vertex * sizeof(float));
-    glVertexAttribBinding(1, 1);
-
-    return Mesh{vao, vbo, sizeof_result};
-}
-
-Mesh Map::Layer::generate_layer_mesh() {
-    assert(tileset.get());
-    switch (tileset.get()->auto_type) {
-        case Tileset::AutoType::none: return generate_mesh<false>();
-        case Tileset::AutoType::rpgmaker_a2: return generate_mesh<true>();
-        default: ARPIYI_UNREACHABLE();
-    }
-}
-
-Map::Layer::Layer(i64 width, i64 height, Handle<assets::Tileset> t) :
-    tileset(t), width(width), height(height), tiles(width * height) {
-    regenerate_mesh();
-}
-
-void Map::Layer::regenerate_mesh() {
-    if (tileset.get()) {
-        mesh.unload();
-        mesh = asset_manager::put(generate_layer_mesh());
-    }
+Map::Layer::Layer(i64 width, i64 height) :
+     width(width), height(height), tiles(width * height) {
 }
 
 namespace map_file_definitions {
@@ -229,7 +78,6 @@ namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view data_json_key = "data";
 constexpr std::string_view depth_data_json_key = "depth";
-constexpr std::string_view tileset_id_json_key = "tileset";
 } // namespace layer_file_definitions
 
 namespace comment_file_definitions {
@@ -260,12 +108,44 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
         w.StartObject();
         w.Key(lfd::name_json_key.data());
         w.String(layer.name.data());
-        w.Key(lfd::tileset_id_json_key.data());
-        w.Uint64(layer.tileset.get_id());
         w.Key(lfd::data_json_key.data());
         w.StartArray();
         for (int y = 0; y < map.height; ++y) {
-            for (int x = 0; x < map.width; ++x) { w.Uint(layer.get_tile({x, y}).id); }
+            for (int x = 0; x < map.width; ++x) {
+                const auto& tile = layer.get_tile({x, y});
+                w.StartObject();
+                if(!tile.exists) {
+                    w.Key("exists");
+                    w.Bool(false);
+                } else {
+                    {
+                        w.Key("parent");
+                        w.StartObject();
+                        w.Key("tileset");
+                        w.Uint64(tile.parent.tileset.get_id());
+                        w.Key("tile_index");
+                        w.Uint64(tile.parent.tile_index);
+                        w.EndObject();
+                    }
+                    if (tile.override_connections) {
+                        w.Key("custom_connections");
+                        w.StartArray();
+                        w.Bool(tile.custom_connections.down);
+                        w.Bool(tile.custom_connections.down_right);
+                        w.Bool(tile.custom_connections.right);
+                        w.Bool(tile.custom_connections.up_right);
+                        w.Bool(tile.custom_connections.up);
+                        w.Bool(tile.custom_connections.up_left);
+                        w.Bool(tile.custom_connections.left);
+                        w.Bool(tile.custom_connections.down_left);
+                        w.EndArray();
+                    }
+                    { w.Int(tile.height); }
+                    { w.Uint(static_cast<u8>(tile.slope_type)); }
+                    { w.Bool(tile.has_side_walls); }
+                }
+                w.EndObject();
+            }
         }
         w.EndArray();
         w.Key(lfd::depth_data_json_key.data());
@@ -313,6 +193,9 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
 }
 
 template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
+    // TODO: This is entirely outdated, finish
+
+    /*
     std::ifstream f(params.path);
     std::stringstream buffer;
     buffer << f.rdbuf();
@@ -399,5 +282,6 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
             }
         }
     }
+     */
 }
 } // namespace arpiyi::assets

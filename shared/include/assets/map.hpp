@@ -29,12 +29,14 @@ struct
         bool down, down_right, right, up_right, up, up_left, left, down_left;
     };
     struct TileSurroundings {
-        Tileset::Tile *down, *down_right, *right, *up_right, *up, *up_left, *left, *down_left;
+        Tileset::Tile const *down, *down_right, *right, *up_right, *up, *up_left, *left, *down_left;
     };
 
     /// An instance of Tileset::Tile that also contains other information such as height, slope
     /// type, etc.
     struct Tile {
+        bool exists = false;
+
         Tileset::Tile parent;
         bool override_connections = false;
         TileConnections custom_connections;
@@ -58,25 +60,25 @@ struct
         /// Returns a pieced sprite with the tile that corresponds the surroundings given. If
         /// override_connections is set, the given surroundings will be completely ignored and
         /// custom_connections will be used instead.
-        [[nodiscard]] PiecedSprite sprite(TileSurroundings const& surroundings) const;
+        [[nodiscard]] Sprite sprite(TileSurroundings const& surroundings) const;
 
     private:
         /// This will return custom_connections if override_connections is set to true.
         TileConnections calculate_connections(TileSurroundings const& surroundings) const;
-        template<TileType T> PiecedSprite impl_sprite(TileSurroundings const& surroundings) const;
+        template<TileType T> Sprite impl_sprite(TileSurroundings const& surroundings) const;
     };
 
     class Layer {
     public:
         Layer() = delete;
-        Layer(i64 width, i64 height, Handle<assets::Tileset> tileset);
+        Layer(i64 width, i64 height);
 
         [[nodiscard]] Tile& get_tile(math::IVec2D pos) {
             assert(is_pos_valid(pos));
             return tiles[pos.x + pos.y * width];
         }
 
-        [[nodiscard]] TileSurroundings get_surroundings(math::IVec2D pos);
+        [[nodiscard]] TileSurroundings get_surroundings(math::IVec2D pos) const;
 
         [[nodiscard]] Tile const& get_tile(math::IVec2D pos) const {
             assert(is_pos_valid(pos));
@@ -87,20 +89,12 @@ struct
             return pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height;
         }
 
-        /// TODO: Layer should not have mesh in it, this should be external
-        [[nodiscard]] Handle<assets::Mesh> get_mesh() const { return mesh; }
-        void regenerate_mesh();
-
-        Handle<assets::Tileset> tileset;
         std::string name;
         bool visible = true;
 
     private:
-        assets::Mesh generate_mesh();
-
         i64 width = 0, height = 0;
         std::vector<Tile> tiles;
-        Handle<assets::Mesh> mesh;
     };
 
     struct Comment {
