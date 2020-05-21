@@ -31,7 +31,7 @@ struct [[assets::serialize]] [[assets::load_before(Script)]] [[meta::dir_name("e
             assert(spr.texture.get());
             const auto& texture = *spr.texture.get();
 
-            return {pos.x - texture.w * spr.pivot.x, pos.y - texture.h * spr.pivot.y};
+            return {pos.x - texture.handle.width() * spr.pivot.x, pos.y - texture.handle.height() * spr.pivot.y};
         } else {
             return {pos.x, pos.y};
         }

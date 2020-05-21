@@ -111,7 +111,7 @@ template<> void raw_load(Sprite& sprite, LoadParams<Sprite> const& params) {
         } else if (obj.name == pivot_json_key.data()) {
             sprite.pivot = {obj.value.GetArray()[0].GetFloat(), obj.value.GetArray()[1].GetFloat()};
         } else if (obj.name == texture_id_json_key.data()) {
-            sprite.texture = Handle<assets::Texture>(obj.value.GetUint64());
+            sprite.texture = Handle<assets::TextureAsset>(obj.value.GetUint64());
         } else
             assert("Unknown JSON key in tileset file");
     }

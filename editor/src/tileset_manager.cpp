@@ -82,10 +82,10 @@ void render(bool* p_show) {
                     ImGui::GetScrollX() / global_tile_size::get() / render_ctx->zoom,
                     -ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom};
                 window_manager::get_renderer().draw_tileset(*render_ctx);
-                ImGui::Dummy(ImVec2{(float)img->w, (float)img->h});
+                ImGui::Dummy(ImVec2{(float)img->handle.width(), (float)img->handle.height()});
                 ImGui::SetCursorScreenPos({tileset_render_pos.x + ImGui::GetScrollX(),
                                            tileset_render_pos.y + ImGui::GetScrollY()});
-                ImGui::Image(render_ctx->output_fb.get_imgui_id(),
+                ImGui::Image(render_ctx->output_fb.texture().imgui_id(),
                              ImVec2{(float)render_ctx->output_fb.get_size().x,
                                     (float)render_ctx->output_fb.get_size().y},
                              {0, 1}, {1, 0});
@@ -164,7 +164,7 @@ void render(bool* p_show) {
                                             (float)tile_hovering.y / (float)size_in_tiles.y};
                         const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
                                             (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
-                        ImGui::Image(reinterpret_cast<ImTextureID>(img->handle), img_size, uv_min,
+                        ImGui::Image(img->handle.imgui_id(), img_size, uv_min,
                                      uv_max, ImVec4(1, 1, 1, tooltip_alpha));
                         ImGui::SameLine();
                         static std::size_t tile_id;
@@ -228,13 +228,13 @@ void render(bool* p_show) {
 
     if (show_new_tileset) {
         if (ImGui::Begin(ICON_MD_LIBRARY_ADD " New Tileset", &show_new_tileset)) {
-            static Handle<assets::Texture> preview_texture;
+            static Handle<assets::TextureAsset> preview_texture;
             static char path_selected[4096] = "\0";
             if (ImGui::InputTextWithHint("Path", "Enter path...", path_selected, 4096,
                                          ImGuiInputTextFlags_EnterReturnsTrue)) {
                 preview_texture.unload();
                 if (fs::is_regular_file(path_selected))
-                    preview_texture = asset_manager::load<assets::Texture>({path_selected});
+                    preview_texture = asset_manager::load<assets::TextureAsset>({path_selected});
             }
             ImGui::SameLine();
             if (ImGui::Button("Explore...")) {
@@ -246,7 +246,7 @@ void render(bool* p_show) {
                 if (noc_path_selected && fs::is_regular_file(noc_path_selected)) {
                     strcpy(path_selected, noc_path_selected);
                     preview_texture.unload();
-                    preview_texture = asset_manager::load<assets::Texture>({path_selected});
+                    preview_texture = asset_manager::load<assets::TextureAsset>({path_selected});
                 }
             }
             bool valid = preview_texture.get();
@@ -289,7 +289,7 @@ void render(bool* p_show) {
 
             auto tex = preview_texture.get();
             if (tex) {
-                if (tex->w % input_tile_size != 0 || tex->h % input_tile_size != 0) {
+                if (tex->handle.width() % input_tile_size != 0 || tex->handle.height() % input_tile_size != 0) {
                     ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
                     ImGui::TextWrapped(
                         ICON_MD_ERROR
@@ -301,8 +301,8 @@ void render(bool* p_show) {
                     valid = false;
                 }
                 if (auto_type == assets::TileType::rpgmaker_a2) {
-                    if (tex->w % (2 * input_tile_size) != 0 ||
-                        tex->h % (3 * input_tile_size) != 0) {
+                    if (tex->handle.width() % (2 * input_tile_size) != 0 ||
+                        tex->handle.height() % (3 * input_tile_size) != 0) {
                         ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
                         ImGui::TextWrapped(
                             ICON_MD_ERROR
@@ -324,8 +324,8 @@ void render(bool* p_show) {
             if (auto tex = preview_texture.get()) {
                 ImGui::BeginChild("preview_texture",
                                   {0, -ImGui::GetTextLineHeightWithSpacing() - 10});
-                ImGui::Image(reinterpret_cast<ImTextureID>(tex->handle),
-                             ImVec2{static_cast<float>(tex->w), static_cast<float>(tex->h)});
+                ImGui::Image(tex->handle.imgui_id(),
+                             ImVec2{static_cast<float>(tex->handle.width()), static_cast<float>(tex->handle.height())});
                 ImGui::EndChild();
             }
 
@@ -344,7 +344,7 @@ void render(bool* p_show) {
                 tileset.name = fs::path(path_selected).filename().generic_string();
                 tileset.tile_type = auto_type;
                 // We don't want to pass in preview_texture because it might be deleted any time
-                tileset.texture = asset_manager::load<assets::Texture>({path_selected});
+                tileset.texture = asset_manager::load<assets::TextureAsset>({path_selected});
                 selection.tileset = asset_manager::put(tileset);
                 show_new_tileset = false;
             }

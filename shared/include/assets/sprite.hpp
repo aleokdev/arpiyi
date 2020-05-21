@@ -18,7 +18,7 @@ namespace arpiyi::assets {
 
 struct [[assets::serialize]] [[meta::dir_name("sprites")]] Sprite {
     /// Texture of the sprite. Not owned by it
-    Handle<assets::Texture> texture;
+    Handle<assets::TextureAsset> texture;
     struct Piece {
         /// Where this piece is gathering texture data from, in UV coordinates.
         math::Rect2D source;

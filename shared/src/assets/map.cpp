@@ -15,7 +15,7 @@ namespace arpiyi::assets {
 // TODO: Codegenize this
 Sprite Map::Tile::sprite(Layer const& this_layer, math::IVec2D this_pos) const {
     if (!exists) {
-        return Sprite{{Handle<assets::Texture>::noid}};
+        return Sprite{{Handle<assets::TextureAsset>::noid}};
     }
     assert(parent.tileset.get());
     switch (parent.tileset.get()->tile_type) {

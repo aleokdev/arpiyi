@@ -18,27 +18,62 @@
 #include <stb_image_write.h>
 #include <stb_image.h>
 
-namespace arpiyi::assets {
+namespace arpiyi::renderer {
 
-ImTextureID Texture::get_imgui_id() { return handle; }
-bool Texture::exists() { return reinterpret_cast<u64>(handle) != static_cast<u64>(-1); }
+struct TextureHandle::impl {
+    u32 width;
+    u32 height;
+    ColorType color_type;
+    FilteringMethod filter;
+    u32 handle = 0;
+};
 
-template<> void raw_load(Texture& texture, LoadParams<Texture> const& params) {
-    stbi_set_flip_vertically_on_load(params.flip);
-    int w, h, channels;
-    unsigned char* data = stbi_load(params.path.generic_string().c_str(), &w, &h, &channels, 4);
+TextureHandle::TextureHandle() : p_impl(std::make_unique<impl>()) {}
+TextureHandle::~TextureHandle() {}
+TextureHandle::TextureHandle(TextureHandle const& other) : p_impl(std::make_unique<impl>()) {
+    *p_impl = *other.p_impl;
+}
+TextureHandle& TextureHandle::operator=(TextureHandle const& other) {
+    *p_impl = *other.p_impl;
+    return *this;
+}
 
-    unsigned int tex;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    switch (params.filter) {
-        case TextureFilter::point:
+ImTextureID TextureHandle::imgui_id() const { return reinterpret_cast<void*>(p_impl->handle); }
+bool TextureHandle::exists() const { return p_impl->handle != 0; }
+u32 TextureHandle::width() const { return p_impl->width; }
+u32 TextureHandle::height() const { return p_impl->height; }
+TextureHandle::ColorType TextureHandle::color_type() const { return p_impl->color_type; }
+TextureHandle::FilteringMethod TextureHandle::filter() const { return p_impl->filter; }
+
+void TextureHandle::init(
+    u32 width, u32 height, ColorType type, FilteringMethod filter, const void* data) {
+    // Remember to call unload() first if you want to reload the texture with different parameters.
+    assert(!exists());
+    glGenTextures(1, (u32*)&p_impl->handle);
+    glBindTexture(GL_TEXTURE_2D, p_impl->handle);
+
+    p_impl->width = width;
+    p_impl->height = height;
+    p_impl->color_type = type;
+    p_impl->filter = filter;
+    switch (type) {
+        case (ColorType::rgba):
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                         data);
+            break;
+        case (ColorType::depth):
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT,
+                         GL_FLOAT, data);
+            break;
+        default: assert(false && "Unknown ColorType");
+    }
+    switch (filter) {
+        case FilteringMethod::point:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glGenerateMipmap(GL_TEXTURE_2D);
             break;
-        case TextureFilter::linear:
+        case FilteringMethod::linear:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glGenerateMipmap(GL_TEXTURE_2D);
@@ -48,41 +83,24 @@ template<> void raw_load(Texture& texture, LoadParams<Texture> const& params) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     float border_color[4] = {1, 1, 1, 1};
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
+}
+TextureHandle TextureHandle::from_file(fs::path const& path, FilteringMethod filter, bool flip) {
+    stbi_set_flip_vertically_on_load(flip);
+    int w, h, channels;
+    TextureHandle tex;
+    unsigned char* data = stbi_load(path.generic_string().c_str(), &w, &h, &channels, 4);
+
+    tex.init(w, h, ColorType::rgba, filter, data);
 
     stbi_image_free(data);
-    texture.handle = reinterpret_cast<void*>(tex);
-    texture.w = w;
-    texture.h = h;
+    return tex;
 }
 
-template<> void raw_unload(Texture& texture) {
-    if (!texture.exists())
-        return;
-    auto handle = static_cast<u32>(reinterpret_cast<u64>(texture.handle));
-    glDeleteTextures(1, &handle);
+void TextureHandle::unload() {
+    // glDeleteTextures ignores 0s (not created textures)
+    glDeleteTextures(1, &p_impl->handle);
+    p_impl->handle = 0;
 }
-
-template<> RawSaveData raw_get_save_data<Texture>(Texture const& texture) {
-    RawSaveData data;
-    constexpr u8 channel_width = 4;
-    u64 raw_data_size = texture.w * texture.h * channel_width;
-    void* raw_tex_data = malloc(raw_data_size);
-    glBindTexture(GL_TEXTURE_2D, reinterpret_cast<u64>(texture.handle));
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, raw_tex_data);
-    int png_encoded_data_size;
-    unsigned const char* png_encoded_data = stbi_write_png_to_mem(
-        reinterpret_cast<unsigned const char*>(raw_tex_data), texture.w * channel_width, texture.w,
-        texture.h, STBI_rgb_alpha, &png_encoded_data_size);
-    free(raw_tex_data);
-
-    data.bytestream.write(reinterpret_cast<const char*>(png_encoded_data), png_encoded_data_size);
-
-    return data;
-}
-
-} // namespace arpiyi::assets
-
-namespace arpiyi::renderer {
 
 struct MeshBuilder::impl {
     std::vector<float> result;
@@ -200,7 +218,7 @@ struct Renderer::impl {
 
 struct Framebuffer::impl {
     unsigned int handle;
-    assets::Texture tex;
+    TextureHandle tex;
 };
 
 Renderer::~Renderer() = default;
@@ -254,9 +272,14 @@ void Renderer::finish_frame() {
 Framebuffer const& Renderer::get_window_framebuffer() {
     int display_w, display_h;
     glfwGetFramebufferSize(window, &display_w, &display_h);
-    p_impl->window_framebuffer.p_impl->tex = {
-        static_cast<u32>(display_w), static_cast<u32>(display_h),
-        reinterpret_cast<void*>(static_cast<unsigned int>(-1))};
+    TextureHandle virtual_window_tex;
+    virtual_window_tex.p_impl->width = display_w;
+    virtual_window_tex.p_impl->height = display_h;
+    // TODO: Check this. Not sure if default framebuffer has linear filtering or not
+    virtual_window_tex.p_impl->filter = TextureHandle::FilteringMethod::linear;
+    virtual_window_tex.p_impl->color_type = TextureHandle::ColorType::rgba;
+    p_impl->window_framebuffer.p_impl->tex = virtual_window_tex;
+    p_impl->window_framebuffer.p_impl->handle = 0;
     return p_impl->window_framebuffer;
 }
 
@@ -283,48 +306,38 @@ Framebuffer& Framebuffer::operator=(Framebuffer const& other) {
 void Framebuffer::set_size(math::IVec2D size) {
     auto& handle = p_impl->handle;
     auto& tex = p_impl->tex;
-    if (tex.exists())
-        assets::raw_unload(tex);
+    tex.unload();
+    tex.init(size.x, size.y, TextureHandle::ColorType::rgba, TextureHandle::FilteringMethod::point);
     if (handle != static_cast<u32>(-1))
         glDeleteFramebuffers(1, &handle);
-    glGenTextures(1, (u32*)&tex.handle);
-    glBindTexture(GL_TEXTURE_2D, reinterpret_cast<u64>(tex.handle));
     glCreateFramebuffers(1, &handle);
 
-    tex.w = size.x;
-    tex.h = size.y;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    // Disable filtering (Because it needs mipmaps, which we haven't set)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, handle);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           reinterpret_cast<u64>(tex.handle), 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex.p_impl->handle,
+                           0);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
 math::IVec2D Framebuffer::get_size() const {
-    return {static_cast<i32>(p_impl->tex.w), static_cast<i32>(p_impl->tex.h)};
+    return {static_cast<i32>(p_impl->tex.width()), static_cast<i32>(p_impl->tex.height())};
 }
 
-ImTextureID Framebuffer::get_imgui_id() const {
-    return reinterpret_cast<ImTextureID>(p_impl->tex.handle);
-}
+TextureHandle const& Framebuffer::texture() const { return p_impl->tex; }
 
 Framebuffer::~Framebuffer() = default;
 
 void Framebuffer::destroy() {
     if (glfwGetCurrentContext() == nullptr)
         return;
-    assets::raw_unload(p_impl->tex);
+    p_impl->tex.unload();
     if (p_impl->handle != static_cast<unsigned int>(-1))
         glDeleteFramebuffers(1, &p_impl->handle);
 }
 
 struct RenderMapContext::impl {
     unsigned int raw_depth_fb;
-    assets::Texture depth_tex;
+    TextureHandle depth_tex;
     Handle<assets::Map> last_map;
     // u64 is a texture handle. This contains all the meshes that the map is composed of.
     // TODO: Define std::hash for Handle and use it here as a key
@@ -337,22 +350,16 @@ RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) :
 }
 RenderMapContext::~RenderMapContext() { output_fb.destroy(); }
 
-namespace detail {
-static void draw_meshes(std::unordered_map<u64, assets::Mesh> const& batches);
-}
-
 void RenderMapContext::set_shadow_resolution(math::IVec2D size) {
     auto& shadow_fb_handle = p_impl->raw_depth_fb;
     auto& shadow_tex = p_impl->depth_tex;
-    assets::raw_unload(shadow_tex);
-    glGenTextures(1, (u32*)&shadow_tex.handle);
-    glBindTexture(GL_TEXTURE_2D, reinterpret_cast<u64>(shadow_tex.handle));
+    shadow_tex.unload();
+    shadow_tex.init(size.x, size.y, TextureHandle::ColorType::depth,
+                    TextureHandle::FilteringMethod::point);
     if (shadow_fb_handle != static_cast<unsigned int>(-1))
         glDeleteFramebuffers(1, &shadow_fb_handle);
     glCreateFramebuffers(1, &shadow_fb_handle);
 
-    shadow_tex.w = size.x; // Shadowmap width
-    shadow_tex.h = size.y; // Shadowmap height
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, size.x, size.y, 0, GL_DEPTH_COMPONENT,
                  GL_FLOAT, nullptr);
     // Disable filtering (Because it needs mipmaps, which we haven't set)
@@ -362,12 +369,13 @@ void RenderMapContext::set_shadow_resolution(math::IVec2D size) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glBindFramebuffer(GL_FRAMEBUFFER, shadow_fb_handle);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                           reinterpret_cast<u64>(shadow_tex.handle), 0);
+                           shadow_tex.p_impl->handle, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
 }
 math::IVec2D RenderMapContext::get_shadow_resolution() const {
-    return {static_cast<i32>(p_impl->depth_tex.w), static_cast<i32>(p_impl->depth_tex.h)};
+    return {static_cast<i32>(p_impl->depth_tex.width()),
+            static_cast<i32>(p_impl->depth_tex.height())};
 }
 
 void Renderer::draw_map(RenderMapContext const& data) {
@@ -440,7 +448,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
 
     // Depth image rendering
     glBindFramebuffer(GL_FRAMEBUFFER, data.p_impl->raw_depth_fb);
-    glViewport(0, 0, data.p_impl->depth_tex.w, data.p_impl->depth_tex.h);
+    glViewport(0, 0, data.p_impl->depth_tex.width(), data.p_impl->depth_tex.height());
     glClear(GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_LEQUAL);
 
@@ -485,7 +493,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     aml::Matrix4 lightSpaceMatrix = lightProjection * lightView;
     glUseProgram(p_impl->depth_shader.get()->handle);
     glUniformMatrix4fv(2, 1, GL_FALSE, lightSpaceMatrix.get_raw());
-    detail::draw_meshes(data.p_impl->meshes);
+    draw_meshes(data.p_impl->meshes);
 
     // Regular image rendering
     glBindFramebuffer(GL_FRAMEBUFFER, data.output_fb.p_impl->handle);
@@ -500,8 +508,8 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glUniformMatrix4fv(4, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
     glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());          // View matrix
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, reinterpret_cast<u64>(data.p_impl->depth_tex.handle));
-    detail::draw_meshes(data.p_impl->meshes);
+    glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
+    draw_meshes(data.p_impl->meshes);
 
     if (data.draw_grid) {
         // Draw mesh grid
@@ -526,7 +534,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
         glUniform1i(p_impl->entity_shader_shadow_tex_location,
                     1); // Set shadow sampler2D to GL_TEXTURE1
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, reinterpret_cast<u64>(data.p_impl->depth_tex.handle));
+        glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
         glBindVertexArray(p_impl->quad_mesh.get()->vao);
         glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
         glUniformMatrix4fv(4, 1, GL_FALSE,
@@ -539,8 +547,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
             if (auto entity = entity_handle.get()) {
                 if (auto sprite = entity->sprite.get()) {
                     assert(sprite->texture.get());
-                    glBindTexture(GL_TEXTURE_2D,
-                                  reinterpret_cast<u64>(sprite->texture.get()->handle));
+                    glBindTexture(GL_TEXTURE_2D, sprite->texture.get()->handle.p_impl->handle);
 
                     // TODO: Cache sprite meshes
                     assets::Mesh mesh;
@@ -611,7 +618,7 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
     glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
     glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());    // View matrix
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, reinterpret_cast<u64>(tileset.texture.get()->handle));
+    glBindTexture(GL_TEXTURE_2D, tileset.texture.get()->handle.p_impl->handle);
     glBindVertexArray(data.p_impl->tileset_mesh.vao);
     glDrawArrays(GL_TRIANGLES, 0, data.p_impl->tileset_mesh.vertex_count);
 
@@ -622,12 +629,13 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         const math::IVec2D tileset_size_tile_units = tileset.size_in_tile_units();
         const math::IVec2D tileset_size_actual_tile_size = {
-            tileset_size_tile_units.x, static_cast<i32>(tileset.tile_count() / tileset_size_tile_units.x)};
+            tileset_size_tile_units.x,
+            static_cast<i32>(tileset.tile_count() / tileset_size_tile_units.x)};
         glUniform2ui(4, tileset_size_actual_tile_size.x, tileset_size_actual_tile_size.y);
 
         aml::Matrix4 model = aml::Matrix4::identity;
-        model *= aml::scale(
-            {static_cast<float>(tileset_size_actual_tile_size.x), -static_cast<float>(tileset_size_actual_tile_size.y), 0});
+        model *= aml::scale({static_cast<float>(tileset_size_actual_tile_size.x),
+                             -static_cast<float>(tileset_size_actual_tile_size.y), 0});
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
         glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw());
         glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());
@@ -639,23 +647,21 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-namespace detail {
-static void draw_meshes(std::unordered_map<u64, assets::Mesh> const& batches) {
+void Renderer::draw_meshes(std::unordered_map<u64, assets::Mesh> const& batches) {
     aml::Matrix4 model = aml::Matrix4::identity;
 
     glActiveTexture(GL_TEXTURE0);
     // Draw each mesh
     for (auto& [texture_id, mesh] : batches) {
-        assert(Handle<assets::Texture>(texture_id).get());
+        assert(Handle<assets::TextureAsset>(texture_id).get());
         glBindVertexArray(mesh.vao);
         glBindTexture(GL_TEXTURE_2D,
-                      reinterpret_cast<u64>(Handle<assets::Texture>(texture_id).get()->handle));
+                      Handle<assets::TextureAsset>(texture_id).get()->handle.p_impl->handle);
 
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
 
         glDrawArrays(GL_TRIANGLES, 0, mesh.vertex_count);
     }
 }
-} // namespace detail
 
 } // namespace arpiyi::renderer

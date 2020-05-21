@@ -44,8 +44,8 @@ std::size_t Tileset::tile_count() const {
 math::IVec2D Tileset::size_in_tile_units() const {
     assert(texture.get());
     const auto& tex = *texture.get();
-    return {static_cast<i32>(tex.w / global_tile_size::get()),
-            static_cast<i32>(tex.h / global_tile_size::get())};
+    return {static_cast<i32>(tex.handle.width() / global_tile_size::get()),
+            static_cast<i32>(tex.handle.height() / global_tile_size::get())};
 }
 
 namespace tileset_file_definitions {
@@ -103,7 +103,7 @@ template<> void raw_load<Tileset>(Tileset& tileset, LoadParams<Tileset> const& p
 
             tileset.tile_type = static_cast<assets::TileType>(auto_type);
         } else if (obj.name == texture_id_json_key.data()) {
-            tileset.texture = Handle<assets::Texture>(obj.value.GetUint64());
+            tileset.texture = Handle<assets::TextureAsset>(obj.value.GetUint64());
         } else
             assert("Unknown JSON key in tileset file");
     }

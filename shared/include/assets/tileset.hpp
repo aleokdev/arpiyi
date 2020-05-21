@@ -36,7 +36,7 @@ enum class TileType {
 struct [[assets::serialize]] [[meta::dir_name("tilesets")]] Tileset {
     TileType tile_type;
 
-    Handle<assets::Texture> texture;
+    Handle<assets::TextureAsset> texture;
     std::string name;
 
     struct Tile {

@@ -60,7 +60,7 @@ void render(bool* p_show) {
                             const ImVec2 uv_max{(float)(x + 1) / (float)size_in_tiles.x,
                                                 (float)(y + 1) / (float)size_in_tiles.y};
                             ImGui::Image(
-                                reinterpret_cast<ImTextureID>(tileset.texture.get()->handle),
+                                tileset.texture.get()->handle.imgui_id(),
                                 ImVec2{static_cast<float>(global_tile_size::get()),
                                        static_cast<float>(global_tile_size::get())},
                                 uv_min, uv_max);
@@ -122,8 +122,8 @@ void render(bool* p_show) {
                 auto tex = *t->texture.get();
                 ImVec2 tileset_image_cursor_pos = ImGui::GetCursorScreenPos();
                 // Draw tileset image
-                ImGui::Image(reinterpret_cast<ImTextureID>(tex.handle),
-                             ImVec2{static_cast<float>(tex.w), static_cast<float>(tex.h)});
+                ImGui::Image(tex.handle.imgui_id(),
+                             ImVec2{static_cast<float>(tex.handle.width()), static_cast<float>(tex.handle.height())});
 
                 if (ImGui::IsItemClicked()) {
                     const auto mouse_pos = ImGui::GetMousePos();

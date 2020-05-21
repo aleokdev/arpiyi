@@ -428,7 +428,7 @@ static void draw_selection_on_map(assets::Map& map) {
         ImGui::GetWindowDrawList()->PushClipRect({clip_rect_min.x, clip_rect_max.y},
                                                  {clip_rect_max.x, clip_rect_min.y}, true);
         ImGui::GetWindowDrawList()->AddImage(
-            reinterpret_cast<ImTextureID>(selection_tileset->texture.get()->handle), image_rect_min,
+            selection_tileset->texture.get()->handle.imgui_id(), image_rect_min,
             image_rect_max, uv_min, uv_max, ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
         ImGui::GetWindowDrawList()->PopClipRect();
     }
@@ -714,7 +714,7 @@ void render(bool* p_show) {
                 render_map();
                 const auto& fb = render_map_context->output_fb;
                 ImGui::Image(
-                    fb.get_imgui_id(),
+                    fb.texture().imgui_id(),
                     {static_cast<float>(fb.get_size().x), static_cast<float>(fb.get_size().y)},
                     {0, 1}, {1, 0});
             }

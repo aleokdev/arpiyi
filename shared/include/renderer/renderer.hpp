@@ -12,15 +12,55 @@ typedef void* ImTextureID;
 
 namespace arpiyi::assets {
 struct Map;
-struct Texture;
 struct Sprite;
-struct PiecedSprite;
 struct Mesh;
 } // namespace arpiyi::assets
 
 namespace arpiyi::renderer {
 
 class Renderer;
+
+class TextureHandle {
+public:
+    enum class ColorType { rgba, depth };
+    enum class FilteringMethod { point, linear };
+    /// Doesn't actually create a texture -- If exists() is called before initializing it, it will
+    /// return false. Call init() to initialize and create the texture.
+    TextureHandle();
+    /// The destructor will NOT unload the texture underneath. Remember to call unload() first if
+    /// you want to actually destroy the texture.#m
+    ~TextureHandle();
+    TextureHandle(TextureHandle const&);
+    TextureHandle& operator=(TextureHandle const&);
+
+    /// IMPORTANT: This function will assert if called when a previous texture existed in this slot.
+    /// Remember to call unload() first if you want to reload the texture with different parameters.
+    void
+    init(u32 width, u32 height, ColorType type, FilteringMethod filter, const void* data = nullptr);
+    /// Destroys the texture underneath, or does nothing if it doesn't exist already.
+    void unload();
+    /// @returns True if the texture has been initialized and not unloaded.
+    [[nodiscard]] bool exists() const;
+    [[nodiscard]] u32 width() const;
+    [[nodiscard]] u32 height() const;
+    [[nodiscard]] ColorType color_type() const;
+    [[nodiscard]] FilteringMethod filter() const;
+    [[nodiscard]] ImTextureID imgui_id() const;
+
+    /// Loads a RGBA texture from a file path, and returns a handle to it. If there were any
+    /// problems loading it, the TextureHandle returned won't be initialized to a value and its
+    /// exists() will return false.
+    static TextureHandle from_file(fs::path const&, FilteringMethod filter, bool flip);
+
+private:
+    friend class Renderer;
+    friend class Framebuffer;
+    friend class RenderMapContext;
+    friend class RenderTilesetContext;
+
+    struct impl;
+    std::unique_ptr<impl> p_impl;
+};
 /// A generic framebuffer with a RGBA texture attached to it.
 class Framebuffer {
 public:
@@ -34,7 +74,7 @@ public:
 
     [[nodiscard]] math::IVec2D get_size() const;
     void set_size(math::IVec2D);
-    [[nodiscard]] ImTextureID get_imgui_id() const;
+    [[nodiscard]] TextureHandle const& texture() const;
 
 private:
     void destroy();
@@ -42,6 +82,7 @@ private:
     friend class Renderer;
     friend class RenderMapContext;
     friend class RenderTilesetContext;
+
     struct impl;
     std::unique_ptr<impl> p_impl;
 };
@@ -143,6 +184,9 @@ public:
     void finish_frame();
 
 private:
+    /// This is just a messy workaround needed to access private members of Texture. This will be
+    /// removed in the future when I refactor the entire renderer, don't worry about it.
+    static void draw_meshes(std::unordered_map<u64, assets::Mesh> const& batches);
     GLFWwindow* const window;
     struct impl;
     std::unique_ptr<impl> p_impl;
