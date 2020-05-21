@@ -374,6 +374,8 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
 
 std::vector<TilesetSelection::Tile> TilesetSelection::tiles_selected() const {
     std::vector<TilesetSelection::Tile> sel;
+    if(!selection.tileset.get())
+        return sel;
     for (int y = selection_start.y; y <= selection_end.y; ++y) {
         for (int x = selection_start.x; x <= selection_end.x; ++x) {
             sel.emplace_back(TilesetSelection::Tile{

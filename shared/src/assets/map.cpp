@@ -13,14 +13,14 @@
 namespace arpiyi::assets {
 
 // TODO: Codegenize this
-Sprite Map::Tile::sprite(TileSurroundings const& surroundings) const {
+Sprite Map::Tile::sprite(Layer const& this_layer, math::IVec2D this_pos) const {
     if (!exists) {
         return Sprite{{Handle<assets::Texture>::noid}};
     }
     assert(parent.tileset.get());
     switch (parent.tileset.get()->tile_type) {
-        case TileType::normal: return impl_sprite<TileType::normal>(surroundings);
-        case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(surroundings);
+        case TileType::normal: return impl_sprite<TileType::normal>(this_layer, this_pos);
+        case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(this_layer, this_pos);
         default: assert(false && "Unknown tileset type"); return {};
     }
 }
@@ -29,7 +29,7 @@ Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& su
     if (override_connections)
         return custom_connections;
     const auto compare_or_false = [this](const assets::Tileset::Tile* tile) -> bool {
-        if(tile == nullptr)
+        if (tile == nullptr)
             return false;
         return tile->tileset == parent.tileset && tile->tile_index == parent.tile_index;
     };
@@ -79,7 +79,6 @@ constexpr std::string_view entities_json_key = "entities";
 namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view data_json_key = "data";
-constexpr std::string_view depth_data_json_key = "depth";
 } // namespace layer_file_definitions
 
 namespace comment_file_definitions {
@@ -142,18 +141,21 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
                         w.Bool(tile.custom_connections.down_left);
                         w.EndArray();
                     }
-                    { w.Int(tile.height); }
-                    { w.Uint(static_cast<u8>(tile.slope_type)); }
-                    { w.Bool(tile.has_side_walls); }
+                    {
+                        w.Key("height");
+                        w.Int(tile.height);
+                    }
+                    {
+                        w.Key("slope_type");
+                        w.Uint(static_cast<u8>(tile.slope_type));
+                    }
+                    {
+                        w.Key("has_side_walls");
+                        w.Bool(tile.has_side_walls);
+                    }
                 }
                 w.EndObject();
             }
-        }
-        w.EndArray();
-        w.Key(lfd::depth_data_json_key.data());
-        w.StartArray();
-        for (int y = 0; y < map.height; ++y) {
-            for (int x = 0; x < map.width; ++x) { w.Int(layer.get_tile({x, y}).height); }
         }
         w.EndArray();
         w.EndObject();

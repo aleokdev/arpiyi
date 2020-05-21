@@ -32,6 +32,7 @@ struct
         Tileset::Tile const *down, *down_right, *right, *up_right, *up, *up_left, *left, *down_left;
     };
 
+    class Layer;
     /// An instance of Tileset::Tile that also contains other information such as height, slope
     /// type, etc.
     struct Tile {
@@ -60,12 +61,12 @@ struct
         /// Returns a pieced sprite with the tile that corresponds the surroundings given. If
         /// override_connections is set, the given surroundings will be completely ignored and
         /// custom_connections will be used instead.
-        [[nodiscard]] Sprite sprite(TileSurroundings const& surroundings) const;
+        [[nodiscard]] Sprite sprite(Layer const& this_layer, math::IVec2D this_pos) const;
 
     private:
         /// This will return custom_connections if override_connections is set to true.
-        TileConnections calculate_connections(TileSurroundings const& surroundings) const;
-        template<TileType T> Sprite impl_sprite(TileSurroundings const& surroundings) const;
+        [[nodiscard]] TileConnections calculate_connections(TileSurroundings const& surroundings) const;
+        template<TileType T> [[nodiscard]] Sprite impl_sprite(Layer const& this_layer, math::IVec2D this_pos) const;
     };
 
     class Layer {

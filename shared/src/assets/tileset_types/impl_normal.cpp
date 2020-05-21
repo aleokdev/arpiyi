@@ -40,7 +40,7 @@ template<> std::size_t Tileset::impl_tile_count<TileType::normal>() const {
     return size.x * size.y;
 }
 
-template<> Sprite Map::Tile::impl_sprite<TileType::normal>(TileSurroundings const& surroundings) const {
+template<> Sprite Map::Tile::impl_sprite<TileType::normal>(Layer const& this_layer, math::IVec2D this_pos) const {
     const auto& tl = *parent.tileset.get();
     math::IVec2D size_in_tiles = tl.size_in_tile_units();
     const int tile_x = parent.tile_index % size_in_tiles.x;

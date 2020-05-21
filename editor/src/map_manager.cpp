@@ -340,20 +340,15 @@ static void draw_pos_info_bar() {
     ImVec2 text_pos{ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                     info_rect_start.y};
     {
-        ImVec2 map_start_widget_pos = map_to_widget_pos({0, 0});
-        ImVec2 map_end_widget_pos =
-            map_to_widget_pos({static_cast<float>(current_map.get()->width),
-                               static_cast<float>(current_map.get()->height)});
         aml::Vector2 tile_pos =
             widget_to_map_tile_pos({ImGui::GetMousePos().x - ImGui::GetWindowPos().x -
                                         ImGui::GetWindowContentRegionMin().x,
                                     ImGui::GetMousePos().y - ImGui::GetWindowPos().y -
                                         ImGui::GetWindowContentRegionMin().y});
         char buf[256];
-        sprintf(buf, "Tile pos: {%i, %i} - Zoom: %i%% - MSWP: {%.2f, %.2f} - MEWP: {%.2f, %.2f}",
+        sprintf(buf, "Tile pos: {%i, %i} - Zoom: %i%%",
                 static_cast<int>(tile_pos.x), static_cast<int>(tile_pos.y),
-                static_cast<i32>(get_map_zoom() * 10.f) * 10, map_start_widget_pos.x,
-                map_start_widget_pos.y, map_end_widget_pos.x, map_end_widget_pos.y);
+                static_cast<i32>(get_map_zoom() * 10.f) * 10);
         ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }

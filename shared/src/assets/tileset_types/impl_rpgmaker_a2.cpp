@@ -57,14 +57,14 @@ template<> std::size_t Tileset::impl_tile_count<TileType::rpgmaker_a2>() const {
     return size_in_rpgmaker_a2_tiles.x * size_in_rpgmaker_a2_tiles.y;
 }
 template<>
-Sprite Map::Tile::impl_sprite<TileType::rpgmaker_a2>(TileSurroundings const& surroundings) const {
+Sprite Map::Tile::impl_sprite<TileType::rpgmaker_a2>(Layer const& this_layer, math::IVec2D this_pos) const {
     assert(parent.tileset.get());
     math::IVec2D size_in_normal_tiles = parent.tileset.get()->size_in_tile_units();
     math::IVec2D size_in_rpgmaker_a2_tiles = {size_in_normal_tiles.x / rpgmaker_a2_chunk_width,
                                               size_in_normal_tiles.y / rpgmaker_a2_chunk_height};
     const u64 chunk_x = parent.tile_index % size_in_rpgmaker_a2_tiles.x;
     const u64 chunk_y = parent.tile_index / size_in_rpgmaker_a2_tiles.x;
-    const auto connections = calculate_connections(surroundings);
+    const auto connections = calculate_connections(this_layer.get_surroundings(this_pos));
 
     /* clang-format off */
     /// Where each minitile is located locally in the RPGMaker A2 layout.

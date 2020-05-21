@@ -392,7 +392,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     if (tile.exists) {
                         assert(tile.parent.tileset.get());
                         builders[tile.parent.tileset.get()->texture.get_id()].add_sprite(
-                            tile.sprite(layer.get_surroundings({x, y})),
+                            tile.sprite(layer, {x, y}),
                             {static_cast<float>(x), static_cast<float>(y),
                              static_cast<float>(tile.height)},
                             0, 0);
