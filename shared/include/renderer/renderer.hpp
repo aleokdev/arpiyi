@@ -4,6 +4,8 @@
 #include "asset_manager.hpp"
 #include "util/math.hpp"
 #include <anton/math/vector2.hpp>
+#include <anton/math/vector3.hpp>
+#include <vector>
 
 namespace aml = anton::math;
 
@@ -144,11 +146,24 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
+struct Transform {
+    aml::Vector3 position;
+};
+
+struct Camera {
+    aml::Vector3 position;
+    float zoom;
+};
+
 struct DrawCmd {
     TextureHandle texture;
     MeshHandle mesh;
     ShaderHandle shader;
+    Transform transform;
+    Camera camera;
 };
+
+using DrawCmdList = std::vector<DrawCmd>;
 
 class MeshBuilder {
 public:
@@ -171,7 +186,7 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
-class RenderMapContext {
+class [[deprecated("Use DrawCmds and Renderer::draw instead.")]] RenderMapContext {
 public:
     explicit RenderMapContext(math::IVec2D shadow_resolution);
     ~RenderMapContext();
@@ -209,7 +224,7 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
-class RenderTilesetContext {
+class [[deprecated("Use DrawCmds and Renderer::draw instead.")]] RenderTilesetContext {
 public:
     RenderTilesetContext();
     ~RenderTilesetContext();
@@ -240,6 +255,7 @@ public:
 
     void draw_map(RenderMapContext const&);
     void draw_tileset(RenderTilesetContext const&);
+    void draw(DrawCmdList const& draw_commands);
 
     // Returns the default lit shader. The handle will be valid until the renderer is destroyed.
     ShaderHandle lit_shader() const;
