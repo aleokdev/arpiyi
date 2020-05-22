@@ -13,9 +13,7 @@
 #include <anton/math/matrix4.hpp>
 #include <anton/math/transform.hpp>
 #include <anton/math/vector2.hpp>
-#include <assets/shader.hpp>
 #include <global_tile_size.hpp>
-#include <stb_image_write.h>
 #include <stb_image.h>
 
 namespace arpiyi::renderer {
@@ -115,7 +113,7 @@ struct MeshHandle::impl {
 };
 
 MeshHandle::MeshHandle() : p_impl(std::make_unique<impl>()) {}
-MeshHandle::~MeshHandle() {}
+MeshHandle::~MeshHandle() = default;
 MeshHandle::MeshHandle(MeshHandle const& other) : p_impl(std::make_unique<impl>()) {
     *p_impl = *other.p_impl;
 }
@@ -137,6 +135,80 @@ void MeshHandle::unload() {
     p_impl->vao = 0;
     glDeleteBuffers(1, &p_impl->vbo);
     p_impl->vbo = 0;
+}
+
+struct ShaderHandle::impl {
+    u32 handle = 0;
+};
+
+ShaderHandle::ShaderHandle() : p_impl(std::make_unique<impl>()) {}
+ShaderHandle::~ShaderHandle() = default;
+ShaderHandle::ShaderHandle(ShaderHandle const& other) : p_impl(std::make_unique<impl>()) {
+    *p_impl = *other.p_impl;
+}
+ShaderHandle& ShaderHandle::operator=(ShaderHandle const& other) {
+    if (this != &other) {
+        *p_impl = *other.p_impl;
+    }
+    return *this;
+}
+
+bool ShaderHandle::exists() const { return p_impl->handle; }
+void ShaderHandle::unload() {
+    glDeleteProgram(p_impl->handle);
+    p_impl->handle = 0;
+}
+
+static unsigned int create_shader_stage(GLenum stage, fs::path const& path) {
+    using namespace std::literals::string_literals;
+
+    std::ifstream f(path);
+    if (!f.good()) {
+        throw std::runtime_error("Failed to open file: "s + path.generic_string());
+    }
+    std::string source((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    char* src = source.data();
+
+    unsigned int shader = glCreateShader(stage);
+    glShaderSource(shader, 1, &src, nullptr);
+    glCompileShader(shader);
+
+    int success;
+    char infolog[512];
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(shader, 512, nullptr, infolog);
+        throw std::runtime_error("Failed to compile shader:\n"s + source + "\nReason: "s + infolog);
+    }
+
+    return shader;
+}
+
+ShaderHandle ShaderHandle::from_file(fs::path const& vert_path, fs::path const& frag_path) {
+    using namespace std::literals::string_literals;
+
+    unsigned int vtx = create_shader_stage(GL_VERTEX_SHADER, vert_path);
+    unsigned int frag = create_shader_stage(GL_FRAGMENT_SHADER, frag_path);
+
+    unsigned int prog = glCreateProgram();
+    glAttachShader(prog, vtx);
+    glAttachShader(prog, frag);
+
+    glLinkProgram(prog);
+    int success;
+    char infolog[512];
+    glGetProgramiv(prog, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(prog, 512, nullptr, infolog);
+        throw std::runtime_error("Failed to link shader.\nReason: "s + infolog);
+    }
+
+    glDeleteShader(vtx);
+    glDeleteShader(frag);
+
+    ShaderHandle shader;
+    shader.p_impl->handle = prog;
+    return shader;
 }
 
 struct MeshBuilder::impl {
@@ -240,21 +312,18 @@ MeshHandle MeshBuilder::finish() const {
 
 struct Renderer::impl {
     MeshHandle quad_mesh;
-    Handle<assets::Shader> shaded_tile_shader;
-    Handle<assets::Shader> basic_tile_shader;
-    Handle<assets::Shader> entity_shader;
-    Handle<assets::Shader> depth_shader;
-    Handle<assets::Shader> grid_shader;
+    ShaderHandle lit_shader;
+    ShaderHandle unlit_shader;
+    ShaderHandle depth_shader;
+    ShaderHandle grid_shader;
     unsigned int tile_shader_tile_tex_location;
     unsigned int tile_shader_shadow_tex_location;
-    unsigned int entity_shader_tile_tex_location;
-    unsigned int entity_shader_shadow_tex_location;
 
     Framebuffer window_framebuffer;
 };
 
 struct Framebuffer::impl {
-    unsigned int handle;
+    unsigned int handle = -1;
     TextureHandle tex;
 };
 
@@ -264,29 +333,20 @@ Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()
     {
         MeshBuilder builder;
         assets::Sprite spr;
-        spr.pieces = {{{{0,0},{1,1}}, {{0,0},{1,1}}}};
-        builder.add_sprite(spr, {0,0,0}, 0, 0);
+        spr.pieces = {{{{0, 0}, {1, 1}}, {{0, 0}, {1, 1}}}};
+        builder.add_sprite(spr, {0, 0, 0}, 0, 0);
         p_impl->quad_mesh = builder.finish();
     }
 
-    p_impl->shaded_tile_shader =
-        asset_manager::load<assets::Shader>({"data/shaded_tile.vert", "data/shaded_tile.frag"});
-    p_impl->basic_tile_shader =
-        asset_manager::load<assets::Shader>({"data/basic_tile.vert", "data/basic_tile.frag"});
+    p_impl->lit_shader = ShaderHandle::from_file("data/shaded_tile.vert", "data/shaded_tile.frag");
+    p_impl->unlit_shader = ShaderHandle::from_file("data/basic_tile.vert", "data/basic_tile.frag");
 
-    p_impl->depth_shader =
-        asset_manager::load<assets::Shader>({"data/depth.vert", "data/depth.frag"});
-    p_impl->entity_shader =
-        asset_manager::load<assets::Shader>({"data/shaded_tile.vert", "data/shaded_tile_uv.frag"});
-    p_impl->grid_shader = asset_manager::load<assets::Shader>({"data/grid.vert", "data/grid.frag"});
+    p_impl->depth_shader = ShaderHandle::from_file("data/depth.vert", "data/depth.frag");
+    p_impl->grid_shader = ShaderHandle::from_file("data/grid.vert", "data/grid.frag");
     p_impl->tile_shader_tile_tex_location =
-        glGetUniformLocation(p_impl->shaded_tile_shader.get()->handle, "tile");
+        glGetUniformLocation(p_impl->lit_shader.p_impl->handle, "tile");
     p_impl->tile_shader_shadow_tex_location =
-        glGetUniformLocation(p_impl->shaded_tile_shader.get()->handle, "shadow");
-    p_impl->entity_shader_tile_tex_location =
-        glGetUniformLocation(p_impl->entity_shader.get()->handle, "tile");
-    p_impl->entity_shader_shadow_tex_location =
-        glGetUniformLocation(p_impl->entity_shader.get()->handle, "shadow");
+        glGetUniformLocation(p_impl->lit_shader.p_impl->handle, "shadow");
 
     p_impl->window_framebuffer.p_impl->handle = 0;
 }
@@ -534,7 +594,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     lightView *= aml::rotate_z(data.z_light_rotation) * aml::rotate_x(data.x_light_rotation);
     lightView = aml::inverse(lightView);
     aml::Matrix4 lightSpaceMatrix = lightProjection * lightView;
-    glUseProgram(p_impl->depth_shader.get()->handle);
+    glUseProgram(p_impl->depth_shader.p_impl->handle);
     glUniformMatrix4fv(2, 1, GL_FALSE, lightSpaceMatrix.get_raw());
     draw_meshes(data.p_impl->meshes);
 
@@ -543,7 +603,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glViewport(0, 0, data.output_fb.get_size().x, data.output_fb.get_size().y);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(p_impl->shaded_tile_shader.get()->handle);
+    glUseProgram(p_impl->lit_shader.p_impl->handle);
     glUniform1i(p_impl->tile_shader_tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
     glUniform1i(p_impl->tile_shader_shadow_tex_location,
                 1);                                           // Set shadow sampler2D to GL_TEXTURE1
@@ -556,7 +616,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
 
     if (data.draw_grid) {
         // Draw mesh grid
-        glUseProgram(p_impl->grid_shader.get()->handle);
+        glUseProgram(p_impl->grid_shader.p_impl->handle);
         glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         glUniform2ui(4, map.width, map.height);
@@ -571,10 +631,10 @@ void Renderer::draw_map(RenderMapContext const& data) {
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
     }
     if (data.draw_entities) {
-        glUseProgram(p_impl->shaded_tile_shader.get()->handle);
-        glUniform1i(p_impl->entity_shader_tile_tex_location,
+        glUseProgram(p_impl->lit_shader.p_impl->handle);
+        glUniform1i(p_impl->tile_shader_tile_tex_location,
                     0); // Set tile sampler2D to GL_TEXTURE0
-        glUniform1i(p_impl->entity_shader_shadow_tex_location,
+        glUniform1i(p_impl->tile_shader_shadow_tex_location,
                     1); // Set shadow sampler2D to GL_TEXTURE1
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
@@ -655,7 +715,7 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
     glViewport(0, 0, data.output_fb.get_size().x, data.output_fb.get_size().y);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(p_impl->basic_tile_shader.get()->handle);
+    glUseProgram(p_impl->unlit_shader.p_impl->handle);
     aml::Matrix4 model = aml::Matrix4::identity;
     glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());      // Model matrix
     glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
@@ -667,7 +727,7 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
 
     if (data.draw_grid) {
         // Draw mesh grid
-        glUseProgram(p_impl->grid_shader.get()->handle);
+        glUseProgram(p_impl->grid_shader.p_impl->handle);
         glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         const math::IVec2D tileset_size_tile_units = tileset.size_in_tile_units();

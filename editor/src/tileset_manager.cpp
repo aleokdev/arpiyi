@@ -14,8 +14,6 @@
 #include "util/icons_material_design.hpp"
 #include "util/math.hpp"
 
-#include "assets/shader.hpp"
-
 #include <anton/math/matrix4.hpp>
 #include <anton/math/transform.hpp>
 

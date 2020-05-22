@@ -59,6 +59,8 @@ public:
     /// Loads a RGBA texture from a file path, and returns a handle to it. If there were any
     /// problems loading it, the TextureHandle returned won't be initialized to a value and its
     /// exists() will return false.
+    /// Must support the following formats: JPEG, PNG, TGA, BMP, PSD, GIF, HDR, PIC and PNM
+    /// (Basically all the formats stb_image supports, which you can see in std_image.h)
     static TextureHandle from_file(fs::path const&, FilteringMethod filter, bool flip);
 
 private:
@@ -116,6 +118,36 @@ private:
 
     struct impl;
     std::unique_ptr<impl> p_impl;
+};
+
+struct ShaderHandle {
+    /// Creates a blank shader handle. Does not really have an use outside of the renderer
+    /// implementation.
+    ShaderHandle();
+    ~ShaderHandle();
+    ShaderHandle(ShaderHandle const&);
+    ShaderHandle& operator=(ShaderHandle const&);
+
+    /// Returns true if the shader exists and has not been unloaded.
+    [[nodiscard]] bool exists() const;
+    /// Destroys the underlying shader. Does nothing if the shader was already unloaded previously.
+    void unload();
+
+    /// Loads a GLSL shader from two paths (One for the fragment shader and another one for the
+    /// vertex one)
+    static ShaderHandle from_file(fs::path const& vert_path, fs::path const& frag_path);
+
+private:
+    friend class Renderer;
+
+    struct impl;
+    std::unique_ptr<impl> p_impl;
+};
+
+struct DrawCmd {
+    TextureHandle texture;
+    MeshHandle mesh;
+    ShaderHandle shader;
 };
 
 class MeshBuilder {
@@ -208,6 +240,11 @@ public:
 
     void draw_map(RenderMapContext const&);
     void draw_tileset(RenderTilesetContext const&);
+
+    // Returns the default lit shader. The handle will be valid until the renderer is destroyed.
+    ShaderHandle lit_shader() const;
+    // Returns the default unlit shader. The handle will be valid until the renderer is destroyed.
+    ShaderHandle unlit_shader() const;
 
     Framebuffer const& get_window_framebuffer();
 

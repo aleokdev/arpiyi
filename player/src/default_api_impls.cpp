@@ -6,7 +6,6 @@
 /* clang-format on */
 #include <iostream>
 #include "assets/map.hpp"
-#include "assets/shader.hpp"
 #include "asset_manager.hpp"
 #include "game_data_manager.hpp"
 #include "window_manager.hpp"
