@@ -13,6 +13,12 @@
 #include "util/intdef.hpp"
 #include "util/math.hpp"
 
+namespace arpiyi::renderer {
+struct DrawCmd;
+class Renderer;
+using DrawCmdList = std::vector<DrawCmd>;
+}
+
 namespace arpiyi::assets {
 
 /* clang-format off */
@@ -101,6 +107,8 @@ struct
         std::string text;
         math::IVec2D pos;
     };
+
+    void draw_to_cmd_list(renderer::Renderer const&, renderer::Camera const&, renderer::DrawCmdList&);
 
     std::vector<Handle<Layer>> layers;
     std::vector<Handle<Comment>> comments;

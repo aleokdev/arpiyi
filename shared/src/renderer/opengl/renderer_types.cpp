@@ -192,6 +192,15 @@ ShaderHandle ShaderHandle::from_file(fs::path const& vert_path, fs::path const& 
 
 MeshBuilder::MeshBuilder() : p_impl(std::make_unique<impl>()) {}
 MeshBuilder::~MeshBuilder() = default;
+MeshBuilder::MeshBuilder(MeshBuilder const& other) : p_impl(std::make_unique<impl>()) {
+    *p_impl = *other.p_impl;
+}
+MeshBuilder& MeshBuilder::operator=(MeshBuilder const& other) {
+    if (this != &other) {
+        *p_impl = *other.p_impl;
+    }
+    return *this;
+}
 
 void MeshBuilder::add_sprite(assets::Sprite const& spr,
                              aml::Vector3 offset,

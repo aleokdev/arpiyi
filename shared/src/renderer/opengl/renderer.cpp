@@ -15,6 +15,8 @@
 #include <anton/math/vector2.hpp>
 #include <global_tile_size.hpp>
 
+#include <iostream>
+
 namespace arpiyi::renderer {
 
 Renderer::~Renderer() = default;
@@ -47,6 +49,9 @@ Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()
 
     p_impl->window_framebuffer.p_impl->handle = 0;
 }
+
+ShaderHandle Renderer::lit_shader() const { return p_impl->lit_shader; }
+ShaderHandle Renderer::unlit_shader() const { return p_impl->unlit_shader; }
 
 void Renderer::start_frame() {
     // Start the ImGui frame
@@ -361,7 +366,46 @@ void Renderer::draw_meshes(std::unordered_map<u64, MeshHandle> const& batches) {
     }
 }
 
-void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb) {
+void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
+    glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
+    glViewport(0, 0, p_impl->shadow_depth_fb.texture().width(),
+               p_impl->shadow_depth_fb.texture().height());
+    for (const auto& cmd : draw_commands) {
+        if (!cmd.cast_shadows)
+            continue;
+
+        aml::Vector2 camera_view_size_in_tiles{
+            output_fb.texture().width() / global_tile_size::get() / cmd.camera.zoom,
+            output_fb.texture().height() / global_tile_size::get() / cmd.camera.zoom};
+        aml::Matrix4 model = aml::translate(cmd.transform.position);
+        aml::Matrix4 view =
+            aml::inverse(aml::translate(cmd.camera.position) * aml::scale(cmd.camera.zoom));
+        aml::Matrix4 proj = aml::orthographic_rh(
+            -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
+            -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
+
+        glUseProgram(p_impl->depth_shader.p_impl->handle);
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
+        glBindVertexArray(cmd.mesh.p_impl->vao);
+        // Depth image rendering
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glDepthFunc(GL_LEQUAL);
+
+        // To create the light view, we position the light as if it were a camera and then
+        // invert the matrix.
+        aml::Matrix4 lightView = aml::translate(cmd.camera.position);
+        // We want the light to be rotated on the Z and X axis to make it seem there's some
+        // directionality to it.
+        lightView *= aml::rotate_z(M_PI / 5.f) * aml::rotate_x(M_PI / 5.f);
+        lightView = aml::inverse(lightView);
+        aml::Matrix4 lightSpaceMatrix = proj * lightView;
+
+        glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
+        glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
+    }
+    glViewport(0, 0, output_fb.texture().width(),
+               output_fb.texture().height());
+    glBindFramebuffer(GL_FRAMEBUFFER, output_fb.p_impl->handle);
     for (const auto& cmd : draw_commands) {
         aml::Vector2 camera_view_size_in_tiles{
             output_fb.texture().width() / global_tile_size::get() / cmd.camera.zoom,
@@ -372,29 +416,13 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_
         aml::Matrix4 proj = aml::orthographic_rh(
             -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
             -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
-        if (cmd.apply_lighting) {
-            // Depth image rendering
-            glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
-            glViewport(0, 0, p_impl->shadow_depth_fb.texture().width(),
-                       p_impl->shadow_depth_fb.texture().height());
-            glClear(GL_DEPTH_BUFFER_BIT);
-            glDepthFunc(GL_LEQUAL);
 
-            // To create the light view, we position the light as if it were a camera and then
-            // invert the matrix.
-            aml::Matrix4 lightView = aml::translate(cmd.camera.position);
-            // We want the light to be rotated on the Z and X axis to make it seem there's some
-            // directionality to it.
-            lightView *= aml::rotate_z(M_PI / 5.f) * aml::rotate_x(M_PI / 5.f);
-            lightView = aml::inverse(lightView);
-            aml::Matrix4 lightSpaceMatrix = proj * lightView;
-            glUseProgram(p_impl->depth_shader.p_impl->handle);
+        glUseProgram(cmd.shader.p_impl->handle);
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
+        glUniformMatrix4fv(1, 1, GL_FALSE, proj.get_raw());  // Projection matrix
+        glUniformMatrix4fv(2, 1, GL_FALSE, view.get_raw());  // View matrix
+        glBindVertexArray(cmd.mesh.p_impl->vao);
 
-            glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());            // Model matrix
-            glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
-            glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
-        }
-        glBindFramebuffer(GL_FRAMEBUFFER, output_fb.p_impl->handle);
         glUniform1i(cmd.shader.p_impl->tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
         glUniform1i(cmd.shader.p_impl->shadow_tex_location,
                     1); // Set shadow sampler2D to GL_TEXTURE1
@@ -404,12 +432,15 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_
         glBindTexture(GL_TEXTURE_2D, p_impl->shadow_depth_fb.texture().p_impl->handle);
         glUseProgram(cmd.shader.p_impl->handle);
 
-        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
-        glUniformMatrix4fv(1, 1, GL_FALSE, proj.get_raw());  // Projection matrix
-        glUniformMatrix4fv(2, 1, GL_FALSE, view.get_raw());  // View matrix
         // Light space matrix is already set if used
         glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
     }
+}
+
+void Renderer::clear(Framebuffer& fb, aml::Vector4 color) {
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.p_impl->handle);
+    glClearColor(color.r, color.g, color.b, color.a);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 } // namespace arpiyi::renderer

@@ -34,7 +34,7 @@ static int current_zoom_level = 2;
 static bool show_grid = true;
 enum class EditMode { tile, comment, entity, height } edit_mode = EditMode::tile;
 static float light_x_rotation = -M_PI / 5.f, light_z_rotation = -M_PI / 5.f;
-static std::unique_ptr<renderer::RenderMapContext> render_map_context;
+static renderer::Framebuffer map_fb;
 
 constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 
@@ -354,19 +354,19 @@ static void draw_pos_info_bar() {
 }
 
 static void resize_map_fb(int width, int height) {
-    render_map_context->output_fb.set_size({width, height});
-    render_map_context->set_shadow_resolution({width, height});
+    if(!map_fb.exists()) {
+        map_fb = renderer::Framebuffer({width, height});
+    } else {
+        map_fb.set_size({width, height});
+    }
 }
 
 static void render_map() {
     if (auto m = current_map.get()) {
-        render_map_context->draw_grid = show_grid;
-        render_map_context->x_light_rotation = light_x_rotation;
-        render_map_context->z_light_rotation = light_z_rotation;
-        render_map_context->zoom = get_map_zoom();
-        render_map_context->cam_pos = map_scroll;
-        render_map_context->map = current_map;
-        window_manager::get_renderer().draw_map(*render_map_context);
+        window_manager::get_renderer().clear(map_fb, {0, 0, 0, 0});
+        renderer::DrawCmdList cmd_list;
+        m->draw_to_cmd_list(window_manager::get_renderer(), renderer::Camera{aml::Vector3(-map_scroll), get_map_zoom()}, cmd_list);
+        window_manager::get_renderer().draw(cmd_list, map_fb);
     }
 }
 
@@ -387,7 +387,6 @@ static void place_tile_on_pos(assets::Map& map,
             layer.get_tile(t_pos).parent = tile.tile_ref;
         }
     }
-    render_map_context->force_mesh_regeneration = true;
 }
 
 static void draw_selection_on_map(assets::Map& map) {
@@ -646,7 +645,9 @@ static void process_map_input(assets::Map& map,
 }
 
 void init() {
-    render_map_context = std::make_unique<renderer::RenderMapContext>(math::IVec2D{1, 1});
+    renderer::TextureHandle tex;
+    tex.init(1, 1, renderer::TextureHandle::ColorType::rgba, renderer::TextureHandle::FilteringMethod::point);
+    map_fb = renderer::Framebuffer(tex);
     window_list_menu::add_entry({"Map View", &render});
 }
 
@@ -712,10 +713,9 @@ void render(bool* p_show) {
                     last_window_size = ImGui::GetWindowSize();
                 }
                 render_map();
-                const auto& fb = render_map_context->output_fb;
                 ImGui::Image(
-                    fb.texture().imgui_id(),
-                    {static_cast<float>(fb.get_size().x), static_cast<float>(fb.get_size().y)},
+                    map_fb.texture().imgui_id(),
+                    {static_cast<float>(map_fb.get_size().x), static_cast<float>(map_fb.get_size().y)},
                     {0, 1}, {1, 0});
             }
 

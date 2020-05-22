@@ -68,10 +68,17 @@ void render(bool* p_show) {
                 // Update the framebuffer if the window has changed size
                 if (ImGui::GetWindowSize().x != last_window_size.x ||
                     ImGui::GetWindowSize().y != last_window_size.y) {
-                    render_ctx->output_fb.set_size(
-                        {static_cast<int>(ImGui::GetWindowContentRegionWidth()),
-                         static_cast<int>(ImGui::GetWindowContentRegionMax().y -
-                                          ImGui::GetWindowContentRegionMin().y)});
+                    if(!render_ctx->output_fb.exists()) {
+                        render_ctx->output_fb = renderer::Framebuffer({static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                                                                       static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                                                                        ImGui::GetWindowContentRegionMin().y)});
+                    } else {
+                        render_ctx->output_fb.set_size(
+                            {static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                             static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                              ImGui::GetWindowContentRegionMin().y)});
+                    }
+
                     last_window_size = ImGui::GetWindowSize();
                 }
                 // Draw the tileset

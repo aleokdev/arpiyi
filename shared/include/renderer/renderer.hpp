@@ -5,6 +5,7 @@
 #include "util/math.hpp"
 #include <anton/math/vector2.hpp>
 #include <anton/math/vector3.hpp>
+#include <anton/math/vector4.hpp>
 #include <vector>
 
 namespace aml = anton::math;
@@ -177,7 +178,7 @@ struct DrawCmd {
     ShaderHandle shader;
     Transform transform;
     Camera camera;
-    bool apply_lighting = true;
+    bool cast_shadows = false;
 };
 
 using DrawCmdList = std::vector<DrawCmd>;
@@ -186,6 +187,8 @@ class MeshBuilder {
 public:
     MeshBuilder();
     ~MeshBuilder();
+    MeshBuilder(MeshBuilder const&);
+    MeshBuilder& operator=(MeshBuilder const&);
     /// Adds a sprite to the mesh.
     /// @param spr The sprite. Takes into account its pivot.
     /// @param offset Where to place the sprite, in tile units.
@@ -272,7 +275,8 @@ public:
 
     [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_map(RenderMapContext const&);
     [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_tileset(RenderTilesetContext const&);
-    void draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb);
+    void draw(DrawCmdList const& draw_commands, Framebuffer& output_fb);
+    void clear(Framebuffer& fb, aml::Vector4 color);
 
     void set_shadow_resolution(math::IVec2D);
     [[nodiscard]] math::IVec2D get_shadow_resolution() const;
