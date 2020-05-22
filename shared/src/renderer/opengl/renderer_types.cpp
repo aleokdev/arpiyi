@@ -9,11 +9,12 @@
 #include <anton/math/transform.hpp>
 #include <global_tile_size.hpp>
 #include <stb_image.h>
+#include <memory>
 
 namespace arpiyi::renderer {
 
 TextureHandle::TextureHandle() : p_impl(std::make_unique<impl>()) {}
-TextureHandle::~TextureHandle() {}
+TextureHandle::~TextureHandle() = default;
 TextureHandle::TextureHandle(TextureHandle const& other) : p_impl(std::make_unique<impl>()) {
     *p_impl = *other.p_impl;
 }
@@ -184,6 +185,8 @@ ShaderHandle ShaderHandle::from_file(fs::path const& vert_path, fs::path const& 
 
     ShaderHandle shader;
     shader.p_impl->handle = prog;
+    shader.p_impl->tile_tex_location = glGetUniformLocation(prog, "tile");
+    shader.p_impl->shadow_tex_location = glGetUniformLocation(prog, "shadow");
     return shader;
 }
 
@@ -281,8 +284,15 @@ MeshHandle MeshBuilder::finish() const {
 Framebuffer::Framebuffer() : p_impl(std::make_unique<impl>()) {
     p_impl->handle = static_cast<unsigned int>(-1);
 }
-
-Framebuffer::Framebuffer(math::IVec2D size) : p_impl(std::make_unique<impl>()) { set_size(size); }
+Framebuffer::Framebuffer(TextureHandle const& texture) : p_impl(std::make_unique<impl>()) {
+    p_impl->create_handle();
+    p_impl->tex = texture;
+    p_impl->bind_texture();
+}
+Framebuffer::Framebuffer(math::IVec2D size) : p_impl(std::make_unique<impl>()) {
+    p_impl->create_handle();
+    set_size(size);
+}
 
 Framebuffer::Framebuffer(Framebuffer const& other) : p_impl(std::make_unique<impl>()) {
     p_impl->handle = other.p_impl->handle;
@@ -298,20 +308,42 @@ Framebuffer& Framebuffer::operator=(Framebuffer const& other) {
     return *this;
 }
 
-void Framebuffer::set_size(math::IVec2D size) {
-    auto& handle = p_impl->handle;
-    auto& tex = p_impl->tex;
-    tex.unload();
-    tex.init(size.x, size.y, TextureHandle::ColorType::rgba, TextureHandle::FilteringMethod::point);
-    if (handle != static_cast<u32>(-1))
+void Framebuffer::impl::create_handle() {
+    if (exists())
         glDeleteFramebuffers(1, &handle);
     glCreateFramebuffers(1, &handle);
+}
 
+void Framebuffer::impl::bind_texture() {
+    assert(exists());
     glBindFramebuffer(GL_FRAMEBUFFER, handle);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex.p_impl->handle,
-                           0);
+    switch (tex.color_type()) {
+        case TextureHandle::ColorType::rgba:
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   tex.p_impl->handle, 0);
+            break;
+        case TextureHandle::ColorType::depth:
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                                   tex.p_impl->handle, 0);
+            break;
+        default: assert(false && "Unknown color type"); return;
+    }
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
+}
+
+bool Framebuffer::impl::exists() const { return handle != static_cast<u32>(-1); }
+
+bool Framebuffer::exists() const { return p_impl->exists(); }
+
+void Framebuffer::set_size(math::IVec2D size) {
+    assert(exists());
+    auto& tex = p_impl->tex;
+    const auto prev_color_type = tex.color_type();
+    const auto prev_filter_type = tex.filter();
+    tex.unload();
+    tex.init(size.x, size.y, prev_color_type, prev_filter_type);
+    p_impl->bind_texture();
 }
 
 math::IVec2D Framebuffer::get_size() const {
@@ -322,13 +354,15 @@ TextureHandle const& Framebuffer::texture() const { return p_impl->tex; }
 
 Framebuffer::~Framebuffer() = default;
 
-void Framebuffer::destroy() {
+void Framebuffer::unload() {
     if (glfwGetCurrentContext() == nullptr)
         return;
     p_impl->tex.unload();
     if (p_impl->handle != static_cast<unsigned int>(-1))
         glDeleteFramebuffers(1, &p_impl->handle);
 }
+
+void Framebuffer::destroy() { unload(); }
 
 RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) :
     p_impl(std::make_unique<impl>()) {

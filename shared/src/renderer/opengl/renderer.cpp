@@ -38,6 +38,13 @@ Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()
     p_impl->tile_shader_shadow_tex_location =
         glGetUniformLocation(p_impl->lit_shader.p_impl->handle, "shadow");
 
+    TextureHandle tex;
+    constexpr u32 default_shadow_res_width = 1024;
+    constexpr u32 default_shadow_res_height = 1024;
+    tex.init(default_shadow_res_width, default_shadow_res_height, TextureHandle::ColorType::depth,
+             TextureHandle::FilteringMethod::point);
+    p_impl->shadow_depth_fb = Framebuffer(tex);
+
     p_impl->window_framebuffer.p_impl->handle = 0;
 }
 
@@ -113,14 +120,14 @@ void Renderer::draw_map(RenderMapContext const& data) {
     }
 
     const auto map_to_fb_tile_pos = [&data, map](aml::Vector2 pos) -> aml::Vector2 {
-      return {pos.x -
-              static_cast<float>(data.output_fb.get_size().x) / global_tile_size::get() /
-              data.zoom / 2.f +
-              map.width / 2.f,
-              pos.y -
-              static_cast<float>(data.output_fb.get_size().y) / global_tile_size::get() /
-              data.zoom / 2.f +
-              map.height / 2.f};
+        return {pos.x -
+                    static_cast<float>(data.output_fb.get_size().x) / global_tile_size::get() /
+                        data.zoom / 2.f +
+                    map.width / 2.f,
+                pos.y -
+                    static_cast<float>(data.output_fb.get_size().y) / global_tile_size::get() /
+                        data.zoom / 2.f +
+                    map.height / 2.f};
     };
 
     aml::Matrix4 t_proj_mat = aml::orthographic_rh(
@@ -151,15 +158,15 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glDepthFunc(GL_LEQUAL);
 
     const auto map_to_light_coords = [&data](aml::Vector2 map_pos) -> aml::Vector2 {
-      if (map_pos.x == 0 && map_pos.y == 0)
-          return {0, 0};
+        if (map_pos.x == 0 && map_pos.y == 0)
+            return {0, 0};
 
-      const float distance = aml::length(map_pos);
-      const float angle = data.z_light_rotation + std::asin(map_pos.y / distance);
-      const float x = distance * aml::cos(angle);
-      const float y = distance * aml::sin(angle) * aml::cos(data.x_light_rotation);
+        const float distance = aml::length(map_pos);
+        const float angle = data.z_light_rotation + std::asin(map_pos.y / distance);
+        const float x = distance * aml::cos(angle);
+        const float y = distance * aml::sin(angle) * aml::cos(data.x_light_rotation);
 
-      return {x, y};
+        return {x, y};
     };
 
     // Apply Z/X rotation to projection so that the entire map is aligned with the texture.
@@ -203,7 +210,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glUniform1i(p_impl->tile_shader_shadow_tex_location,
                 1);                                           // Set shadow sampler2D to GL_TEXTURE1
     glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
-    glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());          // View matrix
+    glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());    // View matrix
     glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
@@ -218,9 +225,9 @@ void Renderer::draw_map(RenderMapContext const& data) {
 
         aml::Matrix4 model = aml::Matrix4::identity;
         model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height), 0});
-        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());      // Model matrix
         glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
-        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
+        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());    // View matrix
 
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
@@ -235,9 +242,9 @@ void Renderer::draw_map(RenderMapContext const& data) {
         glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
         glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
         glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
-        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
+        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());    // View matrix
         glUniformMatrix4fv(3, 1, GL_FALSE,
-                           lightSpaceMatrix.get_raw());        // Light space matrix
+                           lightSpaceMatrix.get_raw()); // Light space matrix
         glActiveTexture(GL_TEXTURE0);
 
         for (const auto& entity_handle : map.entities) {
@@ -354,12 +361,55 @@ void Renderer::draw_meshes(std::unordered_map<u64, MeshHandle> const& batches) {
     }
 }
 
-void Renderer::draw(DrawCmdList const& draw_commands) {
-    for(const auto& cmd : draw_commands) {
+void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb) {
+    for (const auto& cmd : draw_commands) {
+        aml::Vector2 camera_view_size_in_tiles{
+            output_fb.texture().width() / global_tile_size::get() / cmd.camera.zoom,
+            output_fb.texture().height() / global_tile_size::get() / cmd.camera.zoom};
+        aml::Matrix4 model = aml::translate(cmd.transform.position);
+        aml::Matrix4 view =
+            aml::inverse(aml::translate(cmd.camera.position) * aml::scale(cmd.camera.zoom));
+        aml::Matrix4 proj = aml::orthographic_rh(
+            -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
+            -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
+        if (cmd.apply_lighting) {
+            // Depth image rendering
+            glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
+            glViewport(0, 0, p_impl->shadow_depth_fb.texture().width(),
+                       p_impl->shadow_depth_fb.texture().height());
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glDepthFunc(GL_LEQUAL);
+
+            // To create the light view, we position the light as if it were a camera and then
+            // invert the matrix.
+            aml::Matrix4 lightView = aml::translate(cmd.camera.position);
+            // We want the light to be rotated on the Z and X axis to make it seem there's some
+            // directionality to it.
+            lightView *= aml::rotate_z(M_PI / 5.f) * aml::rotate_x(M_PI / 5.f);
+            lightView = aml::inverse(lightView);
+            aml::Matrix4 lightSpaceMatrix = proj * lightView;
+            glUseProgram(p_impl->depth_shader.p_impl->handle);
+
+            glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());            // Model matrix
+            glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
+            glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, output_fb.p_impl->handle);
+        glUniform1i(cmd.shader.p_impl->tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
+        glUniform1i(cmd.shader.p_impl->shadow_tex_location,
+                    1); // Set shadow sampler2D to GL_TEXTURE1
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, cmd.texture.p_impl->handle);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, p_impl->shadow_depth_fb.texture().p_impl->handle);
+        glUseProgram(cmd.shader.p_impl->handle);
 
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
+        glUniformMatrix4fv(1, 1, GL_FALSE, proj.get_raw());  // Projection matrix
+        glUniformMatrix4fv(2, 1, GL_FALSE, view.get_raw());  // View matrix
+        // Light space matrix is already set if used
+        glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
     }
 }
 
-}
+} // namespace arpiyi::renderer

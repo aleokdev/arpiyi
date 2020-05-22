@@ -23,6 +23,8 @@ struct MeshHandle::impl {
 
 struct ShaderHandle::impl {
     u32 handle = 0;
+    u32 tile_tex_location = -1;
+    u32 shadow_tex_location = -1;
 };
 
 struct MeshBuilder::impl {
@@ -36,6 +38,9 @@ struct MeshBuilder::impl {
 struct Framebuffer::impl {
     unsigned int handle = -1;
     TextureHandle tex;
+    [[nodiscard]] bool exists() const;
+    void create_handle();
+    void bind_texture();
 };
 
 struct RenderMapContext::impl {
@@ -58,6 +63,7 @@ struct Renderer::impl {
     ShaderHandle unlit_shader;
     ShaderHandle depth_shader;
     ShaderHandle grid_shader;
+    Framebuffer shadow_depth_fb;
     unsigned int tile_shader_tile_tex_location;
     unsigned int tile_shader_shadow_tex_location;
 

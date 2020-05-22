@@ -75,22 +75,27 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 /// A generic framebuffer with a RGBA texture attached to it.
+/// TODO: Rename to FramebufferHandle for consistency
 class Framebuffer {
 public:
     Framebuffer();
-    explicit Framebuffer(math::IVec2D size);
+    explicit Framebuffer(TextureHandle const& texture);
+    [[deprecated("Use Framebuffer(TextureHandle) instead.")]] explicit Framebuffer(math::IVec2D size);
     /// The destructor should NOT destroy the underlying framebuffer/handle. It is just put here so
     /// that the implementation links correctly.
     ~Framebuffer();
     Framebuffer(Framebuffer const&);
     Framebuffer& operator=(Framebuffer const&);
 
+    bool exists() const;
+    void unload();
+
     [[nodiscard]] math::IVec2D get_size() const;
     void set_size(math::IVec2D);
     [[nodiscard]] TextureHandle const& texture() const;
 
 private:
-    void destroy();
+    [[deprecated("Use unload() instead.")]] void destroy();
 
     friend class Renderer;
     friend class RenderMapContext;
@@ -172,6 +177,7 @@ struct DrawCmd {
     ShaderHandle shader;
     Transform transform;
     Camera camera;
+    bool apply_lighting = true;
 };
 
 using DrawCmdList = std::vector<DrawCmd>;
@@ -266,7 +272,10 @@ public:
 
     [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_map(RenderMapContext const&);
     [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_tileset(RenderTilesetContext const&);
-    void draw(DrawCmdList const& draw_commands);
+    void draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb);
+
+    void set_shadow_resolution(math::IVec2D);
+    [[nodiscard]] math::IVec2D get_shadow_resolution() const;
 
     // Returns the default lit shader. The handle will be valid until the renderer is destroyed.
     ShaderHandle lit_shader() const;
