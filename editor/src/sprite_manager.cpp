@@ -191,20 +191,21 @@ void render(bool* p_show) {
                 ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
             }
             if (ImGui::Button("OK")) {
-                // TODO: Reimplement
-                /*
                 aml::Vector2 tileset_uv_min{static_cast<float>(tileset_tile_selection_start.x) /
-                                             static_cast<float>(t->get_size_in_tiles().x),
+                                             static_cast<float>(t->size_in_tile_units().x),
                                          static_cast<float>(tileset_tile_selection_start.y) /
-                                             static_cast<float>(t->get_size_in_tiles().y)};
+                                             static_cast<float>(t->size_in_tile_units().y)};
                 aml::Vector2 tileset_uv_max{static_cast<float>(tileset_tile_selection_end.x + 1) /
-                                             static_cast<float>(t->get_size_in_tiles().x),
+                                             static_cast<float>(t->size_in_tile_units().x),
                                          static_cast<float>(tileset_tile_selection_end.y + 1) /
-                                             static_cast<float>(t->get_size_in_tiles().y)};
+                                             static_cast<float>(t->size_in_tile_units().y)};
+                assets::Sprite::Piece piece{
+                    {tileset_uv_min, tileset_uv_max},
+                    {{0,0},{1,1}}
+                };
                 asset_manager::put(
-                    assets::Sprite{t->texture, tileset_uv_min, tileset_uv_max, name_buf});
+                    assets::Sprite{t->texture, std::vector<assets::Sprite::Piece>{piece}});
                 show_add_sprite_from_tileset_window = false;
-                 */
             }
             if (!t) {
                 ImGui::PopItemFlag();
