@@ -197,9 +197,6 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
 }
 
 template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
-    // TODO: This is entirely outdated, finish
-
-    /*
     std::ifstream f(params.path);
     std::stringstream buffer;
     buffer << f.rdbuf();
@@ -227,7 +224,7 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                 }
                 auto& layer = *map.layers
                                    .emplace_back(asset_manager::put(
-                                       assets::Map::Layer(map.width, map.height, -1)))
+                                       Map::Layer(map.width, map.height)))
                                    .get();
 
                 for (auto const& layer_val : layer_object.GetObject()) {
@@ -237,29 +234,49 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                         if (layer.name == "") {
                             layer.name = "<Blank name>";
                         }
-                    } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
-                        layer.tileset = Handle<Tileset>(layer_val.value.GetUint64());
-                        layer.regenerate_mesh();
                     } else if (layer_val.name == lfd::data_json_key.data()) {
                         u64 i = 0;
-                        for (auto const& layer_tile : layer_val.value.GetArray()) {
-                            layer
-                                .get_tile({static_cast<i32>(i % map.width),
-                                           static_cast<i32>(i / map.width)})
-                                .id = layer_tile.GetUint();
+                        for (auto const& tile_object_obj : layer_val.value.GetArray()) {
+                            auto const& tile_object = tile_object_obj.GetObject();
+                            auto& layer_tile = layer.get_tile(
+                                {static_cast<i32>(i % map.width), static_cast<i32>(i / map.width)});
+                            if (tile_object.HasMember("exists"))
+                                layer_tile.exists = tile_object["exists"].GetBool();
+                            else {
+                                layer_tile.exists = true;
+                                layer_tile.parent.tileset =
+                                    Handle<Tileset>(tile_object["parent"]["tileset"].GetUint64());
+                                layer_tile.parent.tile_index =
+                                    tile_object["parent"]["tile_index"].GetUint64();
+                                if (tile_object.HasMember("custom_connections")) {
+                                    layer_tile.override_connections = true;
+                                    const auto& custom_connections_arr =
+                                        tile_object["custom_connections"].GetArray();
+                                    layer_tile.custom_connections.down =
+                                        custom_connections_arr[0].GetBool();
+                                    layer_tile.custom_connections.down_right =
+                                        custom_connections_arr[1].GetBool();
+                                    layer_tile.custom_connections.right =
+                                        custom_connections_arr[2].GetBool();
+                                    layer_tile.custom_connections.up_right =
+                                        custom_connections_arr[3].GetBool();
+                                    layer_tile.custom_connections.up =
+                                        custom_connections_arr[4].GetBool();
+                                    layer_tile.custom_connections.up_left =
+                                        custom_connections_arr[5].GetBool();
+                                    layer_tile.custom_connections.left =
+                                        custom_connections_arr[6].GetBool();
+                                    layer_tile.custom_connections.down_left =
+                                        custom_connections_arr[7].GetBool();
+                                } else
+                                    layer_tile.override_connections = false;
+                                layer_tile.height = tile_object["height"].GetInt();
+                                layer_tile.slope_type = static_cast<Map::Tile::SlopeType>(
+                                    tile_object["slope_type"].GetUint());
+                                layer_tile.has_side_walls = tile_object["has_side_walls"].GetBool();
+                            }
                             ++i;
                         }
-                        layer.regenerate_mesh();
-                    } else if (layer_val.name == lfd::depth_data_json_key.data()) {
-                        u64 i = 0;
-                        for (auto const& tile_depth : layer_val.value.GetArray()) {
-                            layer
-                                .get_tile({static_cast<i32>(i % map.width),
-                                           static_cast<i32>(i / map.width)})
-                                .height = tile_depth.GetInt();
-                            ++i;
-                        }
-                        layer.regenerate_mesh();
                     }
                 }
             }
@@ -286,6 +303,5 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
             }
         }
     }
-     */
 }
 } // namespace arpiyi::assets
