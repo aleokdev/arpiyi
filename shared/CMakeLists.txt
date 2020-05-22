@@ -8,7 +8,6 @@ file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/src/serializer_cg.cpp)
 add_library(arpiyi-shared STATIC
         ${CMAKE_CURRENT_BINARY_DIR}/src/serializer_cg.cpp
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/mesh.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/map.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/tileset.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/assets/script.cpp

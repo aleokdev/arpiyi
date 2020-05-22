@@ -13,7 +13,6 @@ typedef void* ImTextureID;
 namespace arpiyi::assets {
 struct Map;
 struct Sprite;
-struct Mesh;
 } // namespace arpiyi::assets
 
 namespace arpiyi::renderer {
@@ -28,7 +27,7 @@ public:
     /// return false. Call init() to initialize and create the texture.
     TextureHandle();
     /// The destructor will NOT unload the texture underneath. Remember to call unload() first if
-    /// you want to actually destroy the texture.#m
+    /// you want to actually destroy the texture.
     ~TextureHandle();
     TextureHandle(TextureHandle const&);
     TextureHandle& operator=(TextureHandle const&);
@@ -41,10 +40,20 @@ public:
     void unload();
     /// @returns True if the texture has been initialized and not unloaded.
     [[nodiscard]] bool exists() const;
+    /// The width of the texture. If the texture doesn't exist, the result is
+    /// implementation-defined.
     [[nodiscard]] u32 width() const;
+    /// The height of the texture. If the texture doesn't exist, the result is
+    /// implementation-defined.
     [[nodiscard]] u32 height() const;
+    /// The color type of the texture. If the texture doesn't exist, the result is
+    /// implementation-defined.
     [[nodiscard]] ColorType color_type() const;
+    /// The filtering method of the texture. If the texture doesn't exist, the result is
+    /// implementation-defined.
     [[nodiscard]] FilteringMethod filter() const;
+    /// Returns an ImGui ID that represents the texture. If the texture doesn't exist, this function
+    /// will assert.
     [[nodiscard]] ImTextureID imgui_id() const;
 
     /// Loads a RGBA texture from a file path, and returns a handle to it. If there were any
@@ -87,6 +96,28 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
+struct MeshHandle {
+    /// Meshes are only meant to be created by MeshBuilder. Otherwise you won't be able to put data
+    /// in them.
+    MeshHandle();
+    /// The MeshHandle destructor won't actually unload the underlying mesh. Use unload() for that.
+    ~MeshHandle();
+    MeshHandle(MeshHandle const&);
+    MeshHandle& operator=(MeshHandle const&);
+
+    /// Returns true if the texture exists and has not been unloaded.
+    [[nodiscard]] bool exists() const;
+    /// Destroys the underlying mesh. Does nothing if the mesh was already unloaded previously.
+    void unload();
+
+private:
+    friend class MeshBuilder;
+    friend class Renderer;
+
+    struct impl;
+    std::unique_ptr<impl> p_impl;
+};
+
 class MeshBuilder {
 public:
     MeshBuilder();
@@ -101,7 +132,7 @@ public:
                     float vertical_slope,
                     float horizontal_slope);
 
-    assets::Mesh finish() const;
+    MeshHandle finish() const;
 
 private:
     struct impl;
@@ -186,7 +217,7 @@ public:
 private:
     /// This is just a messy workaround needed to access private members of Texture. This will be
     /// removed in the future when I refactor the entire renderer, don't worry about it.
-    static void draw_meshes(std::unordered_map<u64, assets::Mesh> const& batches);
+    static void draw_meshes(std::unordered_map<u64, MeshHandle> const& batches);
     GLFWwindow* const window;
     struct impl;
     std::unique_ptr<impl> p_impl;

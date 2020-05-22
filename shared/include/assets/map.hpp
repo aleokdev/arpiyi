@@ -8,7 +8,6 @@
 
 #include "asset_manager.hpp"
 #include "entity.hpp"
-#include "mesh.hpp"
 #include "texture.hpp"
 #include "tileset.hpp"
 #include "util/intdef.hpp"

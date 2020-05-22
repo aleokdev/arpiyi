@@ -34,13 +34,17 @@ TextureHandle::TextureHandle(TextureHandle const& other) : p_impl(std::make_uniq
     *p_impl = *other.p_impl;
 }
 TextureHandle& TextureHandle::operator=(TextureHandle const& other) {
-    if(this != &other) {
+    if (this != &other) {
         *p_impl = *other.p_impl;
     }
     return *this;
 }
 
-ImTextureID TextureHandle::imgui_id() const { return reinterpret_cast<void*>(p_impl->handle); }
+ImTextureID TextureHandle::imgui_id() const {
+    // Make sure the texture exists.
+    assert(exists());
+    return reinterpret_cast<void*>(p_impl->handle);
+}
 bool TextureHandle::exists() const { return p_impl->handle != 0; }
 u32 TextureHandle::width() const { return p_impl->width; }
 u32 TextureHandle::height() const { return p_impl->height; }
@@ -102,6 +106,37 @@ void TextureHandle::unload() {
     // glDeleteTextures ignores 0s (not created textures)
     glDeleteTextures(1, &p_impl->handle);
     p_impl->handle = 0;
+}
+
+struct MeshHandle::impl {
+    u32 vbo = 0;
+    u32 vao = 0;
+    u32 vertex_count;
+};
+
+MeshHandle::MeshHandle() : p_impl(std::make_unique<impl>()) {}
+MeshHandle::~MeshHandle() {}
+MeshHandle::MeshHandle(MeshHandle const& other) : p_impl(std::make_unique<impl>()) {
+    *p_impl = *other.p_impl;
+}
+MeshHandle& MeshHandle::operator=(MeshHandle const& other) {
+    if (this != &other) {
+        *p_impl = *other.p_impl;
+    }
+    return *this;
+}
+
+bool MeshHandle::exists() const {
+    /// Only vao or vbo exist, but not both at once? Internal error!!
+    assert((bool)(p_impl->vao) ^ (bool)(p_impl->vbo));
+    return p_impl->vao;
+}
+void MeshHandle::unload() {
+    // Zeros (non-existent meshes) are silently ignored
+    glDeleteVertexArrays(1, &p_impl->vao);
+    p_impl->vao = 0;
+    glDeleteBuffers(1, &p_impl->vbo);
+    p_impl->vbo = 0;
 }
 
 struct MeshBuilder::impl {
@@ -177,34 +212,34 @@ void MeshBuilder::add_sprite(assets::Sprite const& spr,
     for (const auto& piece : spr.pieces) { add_piece(piece); }
 }
 
-assets::Mesh MeshBuilder::finish() const {
-    assets::Mesh mesh;
-    glGenVertexArrays(1, &mesh.vao);
-    glGenBuffers(1, &mesh.vbo);
+MeshHandle MeshBuilder::finish() const {
+    MeshHandle mesh;
+    glGenVertexArrays(1, &mesh.p_impl->vao);
+    glGenBuffers(1, &mesh.p_impl->vbo);
 
     // Fill buffer
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.p_impl->vbo);
     glBufferData(GL_ARRAY_BUFFER, p_impl->result.size() * sizeof(float), p_impl->result.data(),
                  GL_STATIC_DRAW);
 
-    glBindVertexArray(mesh.vao);
+    glBindVertexArray(mesh.p_impl->vao);
     // Vertex Positions
     glEnableVertexAttribArray(0); // location 0
     glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, mesh.vbo, 0, impl::sizeof_vertex * sizeof(float));
+    glBindVertexBuffer(0, mesh.p_impl->vbo, 0, impl::sizeof_vertex * sizeof(float));
     glVertexAttribBinding(0, 0);
     // UV Positions
     glEnableVertexAttribArray(1); // location 1
     glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
-    glBindVertexBuffer(1, mesh.vbo, 0, impl::sizeof_vertex * sizeof(float));
+    glBindVertexBuffer(1, mesh.p_impl->vbo, 0, impl::sizeof_vertex * sizeof(float));
     glVertexAttribBinding(1, 1);
 
-    mesh.vertex_count = p_impl->result.size() / impl::sizeof_vertex;
+    mesh.p_impl->vertex_count = p_impl->result.size() / impl::sizeof_vertex;
     return mesh;
 }
 
 struct Renderer::impl {
-    Handle<assets::Mesh> quad_mesh;
+    MeshHandle quad_mesh;
     Handle<assets::Shader> shaded_tile_shader;
     Handle<assets::Shader> basic_tile_shader;
     Handle<assets::Shader> entity_shader;
@@ -226,7 +261,13 @@ struct Framebuffer::impl {
 Renderer::~Renderer() = default;
 
 Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()) {
-    p_impl->quad_mesh = asset_manager::put<assets::Mesh>(assets::Mesh::generate_quad());
+    {
+        MeshBuilder builder;
+        assets::Sprite spr;
+        spr.pieces = {{{{0,0},{1,1}}, {{0,0},{1,1}}}};
+        builder.add_sprite(spr, {0,0,0}, 0, 0);
+        p_impl->quad_mesh = builder.finish();
+    }
 
     p_impl->shaded_tile_shader =
         asset_manager::load<assets::Shader>({"data/shaded_tile.vert", "data/shaded_tile.frag"});
@@ -343,7 +384,7 @@ struct RenderMapContext::impl {
     Handle<assets::Map> last_map;
     // u64 is a texture handle. This contains all the meshes that the map is composed of.
     // TODO: Define std::hash for Handle and use it here as a key
-    std::unordered_map<u64, assets::Mesh> meshes;
+    std::unordered_map<u64, MeshHandle> meshes;
 };
 
 RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) :
@@ -387,7 +428,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     // TODO: Update map mesh on tile place
     if (data.map != data.p_impl->last_map || data.force_mesh_regeneration) {
         auto& meshes = data.p_impl->meshes;
-        for (auto& [_, mesh] : meshes) { assets::raw_unload(mesh); }
+        for (auto& [_, mesh] : meshes) { mesh.unload(); }
         meshes.clear();
         // u64 is a texture handle.
         std::unordered_map<u64, renderer::MeshBuilder> builders;
@@ -516,7 +557,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     if (data.draw_grid) {
         // Draw mesh grid
         glUseProgram(p_impl->grid_shader.get()->handle);
-        glBindVertexArray(p_impl->quad_mesh.get()->vao);
+        glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         glUniform2ui(4, map.width, map.height);
 
@@ -537,7 +578,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     1); // Set shadow sampler2D to GL_TEXTURE1
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
-        glBindVertexArray(p_impl->quad_mesh.get()->vao);
+        glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
         glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
         glUniformMatrix4fv(4, 1, GL_FALSE,
                            lightSpaceMatrix.get_raw());        // Light space matrix
@@ -552,7 +593,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     glBindTexture(GL_TEXTURE_2D, sprite->texture.get()->handle.p_impl->handle);
 
                     // TODO: Cache sprite meshes
-                    assets::Mesh mesh;
+                    MeshHandle mesh;
                     MeshBuilder builder;
                     builder.add_sprite(*sprite, aml::Vector3(entity->pos, 0.1f), 0, 0);
 
@@ -563,10 +604,10 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     model *= aml::translate(aml::Vector3(entity->pos));
 
                     glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-                    glBindVertexArray(mesh.vao);
+                    glBindVertexArray(mesh.p_impl->vao);
 
-                    glDrawArrays(GL_TRIANGLES, 0, mesh.vertex_count);
-                    assets::raw_unload(mesh);
+                    glDrawArrays(GL_TRIANGLES, 0, mesh.p_impl->vertex_count);
+                    mesh.unload();
                 }
             }
         }
@@ -577,7 +618,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
 
 struct RenderTilesetContext::impl {
     Handle<assets::Tileset> last_tileset;
-    assets::Mesh tileset_mesh;
+    MeshHandle tileset_mesh;
 };
 
 RenderTilesetContext::RenderTilesetContext() : p_impl(std::make_unique<impl>()) {}
@@ -595,7 +636,7 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
                                 -static_cast<float>(tile_i / tileset_size.x) - 1.f, 0},
                                0, 0);
         }
-        assets::raw_unload(data.p_impl->tileset_mesh);
+        data.p_impl->tileset_mesh.unload();
         data.p_impl->tileset_mesh = builder.finish();
         data.p_impl->last_tileset = data.tileset;
     }
@@ -621,13 +662,13 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
     glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());    // View matrix
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tileset.texture.get()->handle.p_impl->handle);
-    glBindVertexArray(data.p_impl->tileset_mesh.vao);
-    glDrawArrays(GL_TRIANGLES, 0, data.p_impl->tileset_mesh.vertex_count);
+    glBindVertexArray(data.p_impl->tileset_mesh.p_impl->vao);
+    glDrawArrays(GL_TRIANGLES, 0, data.p_impl->tileset_mesh.p_impl->vertex_count);
 
     if (data.draw_grid) {
         // Draw mesh grid
         glUseProgram(p_impl->grid_shader.get()->handle);
-        glBindVertexArray(p_impl->quad_mesh.get()->vao);
+        glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
         glUniform4f(3, .9f, .9f, .9f, .4f); // Grid color
         const math::IVec2D tileset_size_tile_units = tileset.size_in_tile_units();
         const math::IVec2D tileset_size_actual_tile_size = {
@@ -649,20 +690,20 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Renderer::draw_meshes(std::unordered_map<u64, assets::Mesh> const& batches) {
+void Renderer::draw_meshes(std::unordered_map<u64, MeshHandle> const& batches) {
     aml::Matrix4 model = aml::Matrix4::identity;
 
     glActiveTexture(GL_TEXTURE0);
     // Draw each mesh
     for (auto& [texture_id, mesh] : batches) {
         assert(Handle<assets::TextureAsset>(texture_id).get());
-        glBindVertexArray(mesh.vao);
+        glBindVertexArray(mesh.p_impl->vao);
         glBindTexture(GL_TEXTURE_2D,
                       Handle<assets::TextureAsset>(texture_id).get()->handle.p_impl->handle);
 
         glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
 
-        glDrawArrays(GL_TRIANGLES, 0, mesh.vertex_count);
+        glDrawArrays(GL_TRIANGLES, 0, mesh.p_impl->vertex_count);
     }
 }
 
