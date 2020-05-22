@@ -190,7 +190,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
     lightView = aml::inverse(lightView);
     aml::Matrix4 lightSpaceMatrix = lightProjection * lightView;
     glUseProgram(p_impl->depth_shader.p_impl->handle);
-    glUniformMatrix4fv(2, 1, GL_FALSE, lightSpaceMatrix.get_raw());
+    glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
     draw_meshes(data.p_impl->meshes);
 
     // Regular image rendering
@@ -202,9 +202,9 @@ void Renderer::draw_map(RenderMapContext const& data) {
     glUniform1i(p_impl->tile_shader_tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
     glUniform1i(p_impl->tile_shader_shadow_tex_location,
                 1);                                           // Set shadow sampler2D to GL_TEXTURE1
-    glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
-    glUniformMatrix4fv(4, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
-    glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());          // View matrix
+    glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
+    glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());          // View matrix
+    glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
     draw_meshes(data.p_impl->meshes);
@@ -218,9 +218,9 @@ void Renderer::draw_map(RenderMapContext const& data) {
 
         aml::Matrix4 model = aml::Matrix4::identity;
         model *= aml::scale({static_cast<float>(map.width), static_cast<float>(map.height), 0});
-        glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-        glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw());
-        glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
+        glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
+        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
 
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
@@ -234,10 +234,10 @@ void Renderer::draw_map(RenderMapContext const& data) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, data.p_impl->depth_tex.p_impl->handle);
         glBindVertexArray(p_impl->quad_mesh.p_impl->vao);
-        glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
-        glUniformMatrix4fv(4, 1, GL_FALSE,
+        glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw()); // Projection matrix
+        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
+        glUniformMatrix4fv(3, 1, GL_FALSE,
                            lightSpaceMatrix.get_raw());        // Light space matrix
-        glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw()); // View matrix
         glActiveTexture(GL_TEXTURE0);
 
         for (const auto& entity_handle : map.entities) {
@@ -258,7 +258,7 @@ void Renderer::draw_map(RenderMapContext const& data) {
                     // to worry about it
                     model *= aml::translate(aml::Vector3(entity->pos));
 
-                    glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+                    glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
                     glBindVertexArray(mesh.p_impl->vao);
 
                     glDrawArrays(GL_TRIANGLES, 0, mesh.p_impl->vertex_count);
@@ -326,9 +326,9 @@ void Renderer::draw_tileset(RenderTilesetContext const& data) {
         aml::Matrix4 model = aml::Matrix4::identity;
         model *= aml::scale({static_cast<float>(tileset_size_actual_tile_size.x),
                              -static_cast<float>(tileset_size_actual_tile_size.y), 0});
-        glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
-        glUniformMatrix4fv(2, 1, GL_FALSE, t_proj_mat.get_raw());
-        glUniformMatrix4fv(5, 1, GL_FALSE, cam_mat.get_raw());
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());
+        glUniformMatrix4fv(1, 1, GL_FALSE, t_proj_mat.get_raw());
+        glUniformMatrix4fv(2, 1, GL_FALSE, cam_mat.get_raw());
 
         constexpr int quad_verts = 2 * 3;
         glDrawArrays(GL_TRIANGLES, 0, quad_verts);
@@ -348,9 +348,17 @@ void Renderer::draw_meshes(std::unordered_map<u64, MeshHandle> const& batches) {
         glBindTexture(GL_TEXTURE_2D,
                       Handle<assets::TextureAsset>(texture_id).get()->handle.p_impl->handle);
 
-        glUniformMatrix4fv(1, 1, GL_FALSE, model.get_raw());
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw());
 
         glDrawArrays(GL_TRIANGLES, 0, mesh.p_impl->vertex_count);
+    }
+}
+
+void Renderer::draw(DrawCmdList const& draw_commands) {
+    for(const auto& cmd : draw_commands) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cmd.texture.p_impl->handle);
+
     }
 }
 

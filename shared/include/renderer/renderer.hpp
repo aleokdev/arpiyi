@@ -122,6 +122,17 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
+/// Represents a GLSL shader handle. A regular shader must have the following structure:
+/// Vertex shader:
+/// in vec3 iPos;
+/// in vec2 iTexCoords;
+/// layout(location = 0) uniform mat4 model;
+/// layout(location = 1) uniform mat4 projection;
+/// layout(location = 2) uniform mat4 view;
+/// layout(location = 3) uniform mat4 lightSpaceMatrix; // If lighting is needed. Optional
+/// Fragment shader:
+/// uniform sampler2D tile;     // MUST have this name
+/// uniform sampler2D shadow;   // MUST have this name, if lighting is needed. Optional
 struct ShaderHandle {
     /// Creates a blank shader handle. Does not really have an use outside of the renderer
     /// implementation.
@@ -253,8 +264,8 @@ public:
     explicit Renderer(GLFWwindow*);
     ~Renderer();
 
-    void draw_map(RenderMapContext const&);
-    void draw_tileset(RenderTilesetContext const&);
+    [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_map(RenderMapContext const&);
+    [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_tileset(RenderTilesetContext const&);
     void draw(DrawCmdList const& draw_commands);
 
     // Returns the default lit shader. The handle will be valid until the renderer is destroyed.
