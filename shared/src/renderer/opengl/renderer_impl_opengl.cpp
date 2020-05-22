@@ -34,7 +34,9 @@ TextureHandle::TextureHandle(TextureHandle const& other) : p_impl(std::make_uniq
     *p_impl = *other.p_impl;
 }
 TextureHandle& TextureHandle::operator=(TextureHandle const& other) {
-    *p_impl = *other.p_impl;
+    if(this != &other) {
+        *p_impl = *other.p_impl;
+    }
     return *this;
 }
 
