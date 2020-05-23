@@ -298,10 +298,6 @@ Framebuffer::Framebuffer(TextureHandle const& texture) : p_impl(std::make_unique
     p_impl->tex = texture;
     p_impl->bind_texture();
 }
-Framebuffer::Framebuffer(math::IVec2D size) : p_impl(std::make_unique<impl>()) {
-    p_impl->create_handle();
-    set_size(size);
-}
 
 Framebuffer::Framebuffer(Framebuffer const& other) : p_impl(std::make_unique<impl>()) {
     p_impl->handle = other.p_impl->handle;
@@ -355,12 +351,6 @@ void Framebuffer::resize(math::IVec2D size) {
     p_impl->bind_texture();
 }
 
-void Framebuffer::set_size(math::IVec2D s) { resize(s); }
-
-math::IVec2D Framebuffer::get_size() const {
-    return {static_cast<i32>(p_impl->tex.width()), static_cast<i32>(p_impl->tex.height())};
-}
-
 TextureHandle const& Framebuffer::texture() const { return p_impl->tex; }
 
 Framebuffer::~Framebuffer() = default;
@@ -372,7 +362,5 @@ void Framebuffer::unload() {
     if (p_impl->handle != static_cast<unsigned int>(-1))
         glDeleteFramebuffers(1, &p_impl->handle);
 }
-
-void Framebuffer::destroy() { unload(); }
 
 } // namespace arpiyi::renderer

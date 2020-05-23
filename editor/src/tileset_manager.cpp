@@ -43,7 +43,8 @@ static void render_tileset() {
         renderer::DrawCmdList commands{
             {{static_cast<float>(ImGui::GetScrollX()) / global_tile_size::get(),
               -static_cast<float>(ImGui::GetScrollY()) / global_tile_size::get(), 0},
-             1, false},
+             1,
+             false},
             {renderer::DrawCmd{tileset.texture.get()->handle,
                                mesh,
                                window_manager::get_renderer().unlit_shader(),
@@ -91,10 +92,13 @@ void render(bool* p_show) {
                 if (ImGui::GetWindowSize().x != last_window_size.x ||
                     ImGui::GetWindowSize().y != last_window_size.y) {
                     if (!tileset_fb.exists()) {
-                        tileset_fb = renderer::Framebuffer(
-                            {static_cast<int>(ImGui::GetWindowContentRegionWidth()),
-                             static_cast<int>(ImGui::GetWindowContentRegionMax().y -
-                                              ImGui::GetWindowContentRegionMin().y)});
+                        using Tex = renderer::TextureHandle;
+                        Tex tex;
+                        tex.init(static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                                 static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                                  ImGui::GetWindowContentRegionMin().y),
+                                 Tex::ColorType::rgba, Tex::FilteringMethod::point);
+                        tileset_fb = renderer::Framebuffer(tex);
                     } else {
                         tileset_fb.resize({static_cast<int>(ImGui::GetWindowContentRegionWidth()),
                                            static_cast<int>(ImGui::GetWindowContentRegionMax().y -

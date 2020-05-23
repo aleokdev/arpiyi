@@ -385,13 +385,17 @@ static void render_map() {
         renderer::DrawCmdList cmd_list;
         cmd_list.camera = renderer::Camera{aml::Vector3(-map_scroll), get_map_zoom()};
         m->draw_to_cmd_list(window_manager::get_renderer(), cmd_list);
-        if (show_grid)
-            cmd_list.commands.emplace_back(
-                renderer::DrawCmd{renderer::TextureHandle(), grid_mesh, grid_shader, {{0, 0, 0}}});
         window_manager::get_renderer().draw(cmd_list, map_fb);
         if (show_height_overlay) {
             for (auto& cmd : cmd_list.commands) { cmd.shader = height_shader; }
             window_manager::get_renderer().draw(cmd_list, map_fb);
+        }
+        if (show_grid) {
+            cmd_list.commands.clear();
+            cmd_list.commands.emplace_back(
+                renderer::DrawCmd{renderer::TextureHandle(), grid_mesh, grid_shader, {{0, 0, 0}}});
+            window_manager::get_renderer().draw(cmd_list, map_fb);
+
         }
     }
 }

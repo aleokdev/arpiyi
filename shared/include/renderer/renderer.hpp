@@ -81,7 +81,6 @@ class Framebuffer {
 public:
     Framebuffer();
     explicit Framebuffer(TextureHandle const& texture);
-    [[deprecated("Use Framebuffer(TextureHandle) instead.")]] explicit Framebuffer(math::IVec2D size);
     /// The destructor should NOT destroy the underlying framebuffer/handle. It is just put here so
     /// that the implementation links correctly.
     ~Framebuffer();
@@ -91,14 +90,10 @@ public:
     bool exists() const;
     void unload();
 
-    [[deprecated("Use texture().width() and texture().height() instead.")]] [[nodiscard]] math::IVec2D get_size() const;
-    [[deprecated("Use resize(math::IVec2D) instead.")]] void set_size(math::IVec2D);
     void resize(math::IVec2D);
     [[nodiscard]] TextureHandle const& texture() const;
 
 private:
-    [[deprecated("Use unload() instead.")]] void destroy();
-
     friend class Renderer;
     friend class RenderMapContext;
     friend class RenderTilesetContext;

@@ -44,14 +44,10 @@ struct Framebuffer::impl {
 };
 
 struct Renderer::impl {
-    MeshHandle quad_mesh;
     ShaderHandle lit_shader;
     ShaderHandle unlit_shader;
     ShaderHandle depth_shader;
-    ShaderHandle grid_shader;
     Framebuffer shadow_depth_fb;
-    unsigned int tile_shader_tile_tex_location;
-    unsigned int tile_shader_shadow_tex_location;
 
     Framebuffer window_framebuffer;
 };

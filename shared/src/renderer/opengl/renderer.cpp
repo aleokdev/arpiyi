@@ -22,23 +22,10 @@ namespace arpiyi::renderer {
 Renderer::~Renderer() = default;
 
 Renderer::Renderer(GLFWwindow* _w) : window(_w), p_impl(std::make_unique<impl>()) {
-    {
-        MeshBuilder builder;
-        assets::Sprite spr;
-        spr.pieces = {{{{0, 0}, {1, 1}}, {{0, 0}, {1, 1}}}};
-        builder.add_sprite(spr, {0, 0, 0}, 0, 0);
-        p_impl->quad_mesh = builder.finish();
-    }
-
     p_impl->lit_shader = ShaderHandle::from_file("data/shaded_tile.vert", "data/shaded_tile.frag");
     p_impl->unlit_shader = ShaderHandle::from_file("data/basic_tile.vert", "data/basic_tile.frag");
 
     p_impl->depth_shader = ShaderHandle::from_file("data/depth.vert", "data/depth.frag");
-    p_impl->grid_shader = ShaderHandle::from_file("data/grid.vert", "data/grid.frag");
-    p_impl->tile_shader_tile_tex_location =
-        glGetUniformLocation(p_impl->lit_shader.p_impl->handle, "tile");
-    p_impl->tile_shader_shadow_tex_location =
-        glGetUniformLocation(p_impl->lit_shader.p_impl->handle, "shadow");
 
     TextureHandle tex;
     constexpr u32 default_shadow_res_width = 1024;
