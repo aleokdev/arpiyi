@@ -2,6 +2,7 @@
 #include "assets/tileset.hpp"
 
 #include <tuple>
+#include <array>
 
 namespace arpiyi::assets {
 
