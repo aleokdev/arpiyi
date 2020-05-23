@@ -32,9 +32,11 @@ static aml::Vector2 map_scroll{0, 0};
 static std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 static int current_zoom_level = 2;
 static bool show_grid = true;
+static bool show_height_overlay = false;
 enum class EditMode { tile, comment, entity, height } edit_mode = EditMode::tile;
 static float light_x_rotation = -M_PI / 5.f, light_z_rotation = -M_PI / 5.f;
 static renderer::Framebuffer map_fb;
+static renderer::ShaderHandle height_shader;
 
 constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 
@@ -365,6 +367,12 @@ static void render_map() {
         cmd_list.camera = renderer::Camera{aml::Vector3(-map_scroll), get_map_zoom()};
         m->draw_to_cmd_list(window_manager::get_renderer(), cmd_list);
         window_manager::get_renderer().draw(cmd_list, map_fb);
+        if(show_height_overlay) {
+            for(auto& cmd : cmd_list.commands) {
+                cmd.shader = height_shader;
+            }
+            window_manager::get_renderer().draw(cmd_list, map_fb);
+        }
     }
 }
 
@@ -646,6 +654,7 @@ void init() {
     renderer::TextureHandle tex;
     tex.init(1, 1, renderer::TextureHandle::ColorType::rgba, renderer::TextureHandle::FilteringMethod::point);
     map_fb = renderer::Framebuffer(tex);
+    height_shader = renderer::ShaderHandle::from_file("data/height.vert", "data/height.frag");
     window_list_menu::add_entry({"Map View", &render});
 }
 
@@ -658,6 +667,7 @@ void render(bool* p_show) {
         if (map) {
             if (ImGui::BeginMenuBar()) {
                 ImGui::Checkbox("Grid", &show_grid);
+                ImGui::Checkbox("Height Overlay", &show_height_overlay);
 
                 const auto draw_edit_mode = [](EditMode mode, const char* icon,
                                                const char* tooltip) {

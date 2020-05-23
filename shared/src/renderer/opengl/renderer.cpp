@@ -397,6 +397,8 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
         aml::Matrix4 model = aml::translate(cmd.transform.position);
 
         glBindVertexArray(cmd.mesh.p_impl->vao);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cmd.texture.p_impl->handle);
         glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
         glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
         glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
@@ -404,13 +406,15 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
     glViewport(0, 0, output_fb.texture().width(), output_fb.texture().height());
     glBindFramebuffer(GL_FRAMEBUFFER, output_fb.p_impl->handle);
     for (const auto& cmd : draw_commands.commands) {
+        bool is_lit = cmd.shader.p_impl->shadow_tex_location != static_cast<u32>(-1);
         aml::Matrix4 model = aml::translate(cmd.transform.position);
 
         glUseProgram(cmd.shader.p_impl->handle);
         glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
         glUniformMatrix4fv(1, 1, GL_FALSE, proj.get_raw());  // Projection matrix
         glUniformMatrix4fv(2, 1, GL_FALSE, view.get_raw());  // View matrix
-        glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
+        if(is_lit)
+            glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
         glBindVertexArray(cmd.mesh.p_impl->vao);
 
         glUniform1i(cmd.shader.p_impl->tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0
@@ -418,8 +422,10 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
                     1); // Set shadow sampler2D to GL_TEXTURE1
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, cmd.texture.p_impl->handle);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, p_impl->shadow_depth_fb.texture().p_impl->handle);
+        if(is_lit) {
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, p_impl->shadow_depth_fb.texture().p_impl->handle);
+        }
         glUseProgram(cmd.shader.p_impl->handle);
 
         // Light space matrix is already set if used
