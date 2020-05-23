@@ -103,6 +103,25 @@ void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
                               {{0, 0, 0}},
                               true});
     }
+    for (const auto& entity_handle : entities) {
+        assert(entity_handle.get());
+        if (auto entity = entity_handle.get()) {
+            if (auto sprite = entity->sprite.get()) {
+                assert(sprite->texture.get());
+
+                // TODO: Cache sprite meshes
+                renderer::MeshBuilder builder;
+                builder.add_sprite(*sprite, {0,0,0}, 0, 0);
+
+                cmd_list.commands.emplace_back(
+                    renderer::DrawCmd{Handle<assets::TextureAsset>(sprite->texture).get()->handle,
+                                      meshes.emplace_back(builder.finish()),
+                                      renderer.lit_shader(),
+                                      {aml::Vector3(entity->pos, 0.1f)},
+                                      true});
+            }
+        }
+    }
 }
 
 namespace map_file_definitions {
