@@ -69,6 +69,7 @@ Map::Layer::Layer(i64 width, i64 height) : width(width), height(height), tiles(w
 
 void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
                            renderer::DrawCmdList& cmd_list) {
+    // TODO: Cache, cache, cache!!!!!!!!!!!
     std::unordered_map<u64, renderer::MeshBuilder> mesh_batches;
     static std::vector<renderer::MeshHandle> meshes;
     for (auto& mesh : meshes) { mesh.unload(); }

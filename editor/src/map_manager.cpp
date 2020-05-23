@@ -354,9 +354,12 @@ static void draw_pos_info_bar() {
 
 static void resize_map_fb(int width, int height) {
     if(!map_fb.exists()) {
-        map_fb = renderer::Framebuffer({width, height});
+        using Tex = renderer::TextureHandle;
+        Tex tex;
+        tex.init(width, height, Tex::ColorType::rgba, Tex::FilteringMethod::point);
+        map_fb = renderer::Framebuffer(tex);
     } else {
-        map_fb.set_size({width, height});
+        map_fb.resize({width, height});
     }
 }
 
@@ -723,7 +726,7 @@ void render(bool* p_show) {
                 render_map();
                 ImGui::Image(
                     map_fb.texture().imgui_id(),
-                    {static_cast<float>(map_fb.get_size().x), static_cast<float>(map_fb.get_size().y)},
+                    {static_cast<float>(map_fb.texture().width()), static_cast<float>(map_fb.texture().height())},
                     {0, 1}, {1, 0});
             }
 

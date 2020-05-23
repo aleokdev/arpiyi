@@ -171,6 +171,7 @@ struct Transform {
 struct Camera {
     aml::Vector3 position;
     float zoom;
+    bool center_view = true;
 };
 
 struct DrawCmd {
@@ -278,7 +279,7 @@ public:
 
     [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_map(RenderMapContext const&);
     [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_tileset(RenderTilesetContext const&);
-    void draw(DrawCmdList const& draw_commands, Framebuffer& output_fb);
+    void draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb);
     void clear(Framebuffer& fb, aml::Vector4 color);
 
     void set_shadow_resolution(math::IVec2D);
@@ -289,7 +290,7 @@ public:
     // Returns the default unlit shader. The handle will be valid until the renderer is destroyed.
     ShaderHandle unlit_shader() const;
 
-    Framebuffer const& get_window_framebuffer();
+    Framebuffer get_window_framebuffer();
 
     void start_frame();
     void finish_frame();

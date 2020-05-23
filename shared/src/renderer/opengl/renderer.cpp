@@ -74,7 +74,7 @@ void Renderer::finish_frame() {
     glfwSwapBuffers(window);
 }
 
-Framebuffer const& Renderer::get_window_framebuffer() {
+Framebuffer Renderer::get_window_framebuffer() {
     int display_w, display_h;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     TextureHandle virtual_window_tex;
@@ -366,7 +366,7 @@ void Renderer::draw_meshes(std::unordered_map<u64, MeshHandle> const& batches) {
     }
 }
 
-void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
+void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb) {
     glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
     glClear(GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_LEQUAL);
@@ -378,9 +378,16 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
         output_fb.texture().height() / global_tile_size::get() / draw_commands.camera.zoom};
     aml::Matrix4 view =
         aml::inverse(aml::translate(draw_commands.camera.position));
-    aml::Matrix4 proj = aml::orthographic_rh(
-        -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
-        -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
+    aml::Matrix4 proj;
+    if(draw_commands.camera.center_view) {
+        proj = aml::orthographic_rh(
+            -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
+            -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
+    } else {
+        proj = aml::orthographic_rh(
+            0, camera_view_size_in_tiles.x,
+            -camera_view_size_in_tiles.y, 0, -20.0f, 20.0f);
+    }
     // To create the light view, we position the light as if it were a camera and then
     // invert the matrix.
     aml::Matrix4 lightView = aml::translate(draw_commands.camera.position);
