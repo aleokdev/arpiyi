@@ -43,20 +43,6 @@ struct Framebuffer::impl {
     void bind_texture();
 };
 
-struct RenderMapContext::impl {
-    unsigned int raw_depth_fb;
-    TextureHandle depth_tex;
-    Handle<assets::Map> last_map;
-    // u64 is a texture handle. This contains all the meshes that the map is composed of.
-    // TODO: Define std::hash for Handle and use it here as a key
-    std::unordered_map<u64, MeshHandle> meshes;
-};
-
-struct RenderTilesetContext::impl {
-    Handle<assets::Tileset> last_tileset;
-    MeshHandle tileset_mesh;
-};
-
 struct Renderer::impl {
     MeshHandle quad_mesh;
     ShaderHandle lit_shader;

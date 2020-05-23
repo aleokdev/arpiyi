@@ -75,7 +75,7 @@ private:
     struct impl;
     std::unique_ptr<impl> p_impl;
 };
-/// A generic framebuffer with a RGBA texture attached to it.
+/// A handle to a generic framebuffer with a texture attached to it.
 /// TODO: Rename to FramebufferHandle for consistency
 class Framebuffer {
 public:
@@ -210,75 +210,11 @@ private:
     std::unique_ptr<impl> p_impl;
 };
 
-class [[deprecated("Use DrawCmds and Renderer::draw instead.")]] RenderMapContext {
-public:
-    explicit RenderMapContext(math::IVec2D shadow_resolution);
-    ~RenderMapContext();
-
-    void set_shadow_resolution(math::IVec2D);
-    [[nodiscard]] math::IVec2D get_shadow_resolution() const;
-
-    Handle<assets::Map> map;
-    Framebuffer output_fb;
-
-    // Camera settings
-    /// The camera position, in tiles.
-    aml::Vector2 cam_pos = {0, 0};
-    /// The zoom of the camera. Output tilesize will be multiplied by this value.
-    float zoom = 1;
-
-    // Light settings
-    /// The rotation of the light on the X axis (Vertical distortion), measured in radians.
-    float x_light_rotation = -0.5f;
-    /// The rotation of the light on the Z axis (Horizontal distortion), measured in radians.
-    float z_light_rotation = -0.5f;
-
-    // Misc settings
-    /// Should a tile grid be drawn over the map?
-    bool draw_grid = false;
-    /// Should the entities be drawn over the map?
-    bool draw_entities = true;
-    /// Should the internal map mesh be regenerated next update? (This is a trigger. It will be set
-    /// back to false on next render cycle).
-    mutable bool force_mesh_regeneration = false;
-
-private:
-    friend class Renderer;
-    struct impl;
-    std::unique_ptr<impl> p_impl;
-};
-
-class [[deprecated("Use DrawCmds and Renderer::draw instead.")]] RenderTilesetContext {
-public:
-    RenderTilesetContext();
-    ~RenderTilesetContext();
-
-    Handle<assets::Tileset> tileset;
-    Framebuffer output_fb;
-
-    // Camera settings
-    /// The camera position, in tiles.
-    aml::Vector2 cam_pos = {0, 0};
-    /// The zoom of the camera. Output tilesize will be multiplied by this value.
-    float zoom = 1;
-
-    // Misc settings
-    /// Should a tile grid be drawn over the tileset?
-    bool draw_grid = true;
-
-private:
-    friend class Renderer;
-    struct impl;
-    std::unique_ptr<impl> p_impl;
-};
-
 class Renderer {
 public:
     explicit Renderer(GLFWwindow*);
     ~Renderer();
 
-    [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_map(RenderMapContext const&);
-    [[deprecated("Use DrawCmds and Renderer::draw instead.")]] void draw_tileset(RenderTilesetContext const&);
     void draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb);
     void clear(Framebuffer& fb, aml::Vector4 color);
 
@@ -296,9 +232,6 @@ public:
     void finish_frame();
 
 private:
-    /// This is just a messy workaround needed to access private members of Texture. This will be
-    /// removed in the future when I refactor the entire renderer, don't worry about it.
-    static void draw_meshes(std::unordered_map<u64, MeshHandle> const& batches);
     GLFWwindow* const window;
     struct impl;
     std::unique_ptr<impl> p_impl;

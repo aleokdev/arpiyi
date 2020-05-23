@@ -375,41 +375,4 @@ void Framebuffer::unload() {
 
 void Framebuffer::destroy() { unload(); }
 
-RenderMapContext::RenderMapContext(math::IVec2D shadow_resolution) :
-    p_impl(std::make_unique<impl>()) {
-    set_shadow_resolution(shadow_resolution);
-}
-RenderMapContext::~RenderMapContext() { output_fb.destroy(); }
-
-void RenderMapContext::set_shadow_resolution(math::IVec2D size) {
-    auto& shadow_fb_handle = p_impl->raw_depth_fb;
-    auto& shadow_tex = p_impl->depth_tex;
-    shadow_tex.unload();
-    shadow_tex.init(size.x, size.y, TextureHandle::ColorType::depth,
-                    TextureHandle::FilteringMethod::point);
-    if (shadow_fb_handle != static_cast<unsigned int>(-1))
-        glDeleteFramebuffers(1, &shadow_fb_handle);
-    glCreateFramebuffers(1, &shadow_fb_handle);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, size.x, size.y, 0, GL_DEPTH_COMPONENT,
-                 GL_FLOAT, nullptr);
-    // Disable filtering (Because it needs mipmaps, which we haven't set)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fb_handle);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                           shadow_tex.p_impl->handle, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-}
-math::IVec2D RenderMapContext::get_shadow_resolution() const {
-    return {static_cast<i32>(p_impl->depth_tex.width()),
-            static_cast<i32>(p_impl->depth_tex.height())};
-}
-
-RenderTilesetContext::RenderTilesetContext() : p_impl(std::make_unique<impl>()) {}
-RenderTilesetContext::~RenderTilesetContext() { output_fb.destroy(); }
-
 } // namespace arpiyi::renderer
