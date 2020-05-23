@@ -1,3 +1,5 @@
+#include <GLFW/glfw3.h>
+
 #include "api/api.hpp"
 #include "assets/entity.hpp"
 #include "assets/sprite.hpp"

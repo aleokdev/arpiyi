@@ -32,22 +32,24 @@ static aml::Vector2 map_scroll{0, 0};
 static std::array<float, 5> zoom_levels = {.2f, .5f, 1.f, 2.f, 5.f};
 static int current_zoom_level = 2;
 static bool show_grid = true;
+static bool show_height_overlay = false;
 enum class EditMode { tile, comment, entity, height } edit_mode = EditMode::tile;
 static float light_x_rotation = -M_PI / 5.f, light_z_rotation = -M_PI / 5.f;
-static std::unique_ptr<renderer::RenderMapContext> render_map_context;
+static renderer::Framebuffer map_fb;
+static renderer::ShaderHandle height_shader;
+static renderer::MeshHandle grid_mesh;
+static renderer::ShaderHandle grid_shader;
 
 constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
 static ImVec2 map_to_widget_pos(aml::Vector2 map_pos) {
-    aml::Vector2 window_size{ImGui::GetContentRegionMax().x - ImGui::GetWindowContentRegionMin().x,
-                             ImGui::GetContentRegionMax().y - ImGui::GetWindowContentRegionMin().y};
-    aml::Vector2 result = window_size / 2.f -
-                          aml::Vector2(current_map.get()->width, -current_map.get()->height) *
-                              global_tile_size::get() * get_map_zoom() / 2.f +
-                          aml::Vector2(map_pos.x + map_scroll.x, -map_pos.y - map_scroll.y) *
-                              global_tile_size::get() * get_map_zoom();
+    aml::Vector2 fb_size = {static_cast<float>(map_fb.texture().width()),
+                            static_cast<float>(map_fb.texture().height())};
+    aml::Vector2 result =
+        fb_size / 2.f + aml::Vector2(map_pos.x + map_scroll.x, -map_pos.y - map_scroll.y) *
+                            global_tile_size::get() * get_map_zoom();
     return ImVec2{aml::floor(result.x), aml::floor(result.y)};
 };
 
@@ -88,6 +90,19 @@ static void show_add_layer_window(bool* p_open) {
         }
     }
     ImGui::End();
+}
+
+static void reload_grid_mesh() {
+    if (auto map = current_map.get()) {
+        renderer::MeshBuilder builder;
+        assets::Sprite spr;
+        spr.pieces.emplace_back(assets::Sprite::Piece{
+            {{0, 0}, {static_cast<float>(map->width), static_cast<float>(map->height)}},
+            {{0, 0}, {static_cast<float>(map->width), static_cast<float>(map->height)}}});
+        builder.add_sprite(spr, {0, 0, 9.9}, 0, 0);
+        grid_mesh.unload();
+        grid_mesh = builder.finish();
+    }
 }
 
 static void show_edit_layer_window(bool* p_open, Handle<assets::Map::Layer> _l) {
@@ -305,6 +320,7 @@ static void show_map_list() {
                     if (!current_map.get()->layers.empty()) {
                         current_layer_selected = current_map.get()->layers[0];
                     }
+                    reload_grid_mesh();
                 }
                 if (ImGui::BeginPopupContextWindow(std::to_string(_id).c_str())) {
                     if (ImGui::Selectable("Edit...")) {
@@ -346,32 +362,45 @@ static void draw_pos_info_bar() {
                                     ImGui::GetMousePos().y - ImGui::GetWindowPos().y -
                                         ImGui::GetWindowContentRegionMin().y});
         char buf[256];
-        sprintf(buf, "Tile pos: {%i, %i} - Zoom: %i%%",
-                static_cast<int>(tile_pos.x), static_cast<int>(tile_pos.y),
-                static_cast<i32>(get_map_zoom() * 10.f) * 10);
+        sprintf(buf, "Tile pos: {%i, %i} - Zoom: %i%%", static_cast<int>(tile_pos.x),
+                static_cast<int>(tile_pos.y), static_cast<i32>(get_map_zoom() * 10.f) * 10);
         ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_Text), buf);
     }
 }
 
 static void resize_map_fb(int width, int height) {
-    render_map_context->output_fb.set_size({width, height});
-    render_map_context->set_shadow_resolution({width, height});
+    if (!map_fb.exists()) {
+        using Tex = renderer::TextureHandle;
+        Tex tex;
+        tex.init(width, height, Tex::ColorType::rgba, Tex::FilteringMethod::point);
+        map_fb = renderer::Framebuffer(tex);
+    } else {
+        map_fb.resize({width, height});
+    }
 }
 
 static void render_map() {
     if (auto m = current_map.get()) {
-        render_map_context->draw_grid = show_grid;
-        render_map_context->x_light_rotation = light_x_rotation;
-        render_map_context->z_light_rotation = light_z_rotation;
-        render_map_context->zoom = get_map_zoom();
-        render_map_context->cam_pos = map_scroll;
-        render_map_context->map = current_map;
-        window_manager::get_renderer().draw_map(*render_map_context);
+        window_manager::get_renderer().clear(map_fb, {0, 0, 0, 0});
+        renderer::DrawCmdList cmd_list;
+        cmd_list.camera = renderer::Camera{aml::Vector3(-map_scroll), get_map_zoom()};
+        m->draw_to_cmd_list(window_manager::get_renderer(), cmd_list);
+        window_manager::get_renderer().draw(cmd_list, map_fb);
+        if (show_height_overlay) {
+            for (auto& cmd : cmd_list.commands) { cmd.shader = height_shader; }
+            window_manager::get_renderer().draw(cmd_list, map_fb);
+        }
+        if (show_grid) {
+            cmd_list.commands.clear();
+            cmd_list.commands.emplace_back(
+                renderer::DrawCmd{renderer::TextureHandle(), grid_mesh, grid_shader, {{0, 0, 0}}});
+            window_manager::get_renderer().draw(cmd_list, map_fb);
+
+        }
     }
 }
 
-static void place_tile_on_pos(assets::Map& map,
-                              math::IVec2D pos) {
+static void place_tile_on_pos(assets::Map& map, math::IVec2D pos) {
     if (!(pos.x >= 0 && pos.y >= 0 && pos.x < map.width && pos.y < map.height))
         return;
 
@@ -379,15 +408,14 @@ static void place_tile_on_pos(assets::Map& map,
     assert(current_layer_selected.get());
     auto& layer = *current_layer_selected.get();
 
-    for(const auto& tile : selection.tiles_selected()) {
+    for (const auto& tile : selection.tiles_selected()) {
         math::IVec2D t_pos{pos.x + tile.tileset_offset.x - selection.selection_start.x,
                            pos.y - (tile.tileset_offset.y - selection.selection_start.y)};
-        if(layer.is_pos_valid(t_pos)) {
+        if (layer.is_pos_valid(t_pos)) {
             layer.get_tile(t_pos).exists = true;
             layer.get_tile(t_pos).parent = tile.tile_ref;
         }
     }
-    render_map_context->force_mesh_regeneration = true;
 }
 
 static void draw_selection_on_map(assets::Map& map) {
@@ -427,9 +455,9 @@ static void draw_selection_on_map(assets::Map& map) {
 
         ImGui::GetWindowDrawList()->PushClipRect({clip_rect_min.x, clip_rect_max.y},
                                                  {clip_rect_max.x, clip_rect_min.y}, true);
-        ImGui::GetWindowDrawList()->AddImage(
-            selection_tileset->texture.get()->handle.imgui_id(), image_rect_min,
-            image_rect_max, uv_min, uv_max, ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
+        ImGui::GetWindowDrawList()->AddImage(selection_tileset->texture.get()->handle.imgui_id(),
+                                             image_rect_min, image_rect_max, uv_min, uv_max,
+                                             ImGui::GetColorU32({1.f, 1.f, 1.f, 0.4f}));
         ImGui::GetWindowDrawList()->PopClipRect();
     }
 }
@@ -442,15 +470,15 @@ static Handle<assets::Entity> draw_entities(const assets::Map& map) {
         const auto& entity = *e.get();
         const math::Rect2D entity_sprite_bounds =
             entity.sprite.get() ? entity.sprite.get()->bounds()
-                                : math::Rect2D{entity.pos, entity.pos + aml::Vector2{1,1}};
+                                : math::Rect2D{entity.pos, entity.pos + aml::Vector2{1, 1}};
 
         const auto widget_to_absolute_window_pos = [](ImVec2 pos) -> ImVec2 {
             return {pos.x + ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x,
                     pos.y + ImGui::GetWindowPos().y + ImGui::GetWindowContentRegionMin().y};
         };
 
-        ImVec2 entity_square_render_pos_min =
-            widget_to_absolute_window_pos(map_to_widget_pos(entity_sprite_bounds.start + entity.pos));
+        ImVec2 entity_square_render_pos_min = widget_to_absolute_window_pos(
+            map_to_widget_pos(entity_sprite_bounds.start + entity.pos));
         ImVec2 entity_square_render_pos_max =
             widget_to_absolute_window_pos(map_to_widget_pos(entity_sprite_bounds.end + entity.pos));
 
@@ -646,7 +674,13 @@ static void process_map_input(assets::Map& map,
 }
 
 void init() {
-    render_map_context = std::make_unique<renderer::RenderMapContext>(math::IVec2D{1, 1});
+    renderer::TextureHandle tex;
+    tex.init(1, 1, renderer::TextureHandle::ColorType::rgba,
+             renderer::TextureHandle::FilteringMethod::point);
+    map_fb = renderer::Framebuffer(tex);
+    height_shader = renderer::ShaderHandle::from_file("data/height.vert", "data/height.frag");
+    grid_shader = renderer::ShaderHandle::from_file("data/grid.vert", "data/grid.frag");
+
     window_list_menu::add_entry({"Map View", &render});
 }
 
@@ -659,6 +693,7 @@ void render(bool* p_show) {
         if (map) {
             if (ImGui::BeginMenuBar()) {
                 ImGui::Checkbox("Grid", &show_grid);
+                ImGui::Checkbox("Height Overlay", &show_height_overlay);
 
                 const auto draw_edit_mode = [](EditMode mode, const char* icon,
                                                const char* tooltip) {
@@ -712,11 +747,10 @@ void render(bool* p_show) {
                     last_window_size = ImGui::GetWindowSize();
                 }
                 render_map();
-                const auto& fb = render_map_context->output_fb;
-                ImGui::Image(
-                    fb.texture().imgui_id(),
-                    {static_cast<float>(fb.get_size().x), static_cast<float>(fb.get_size().y)},
-                    {0, 1}, {1, 0});
+                ImGui::Image(map_fb.texture().imgui_id(),
+                             {static_cast<float>(map_fb.texture().width()),
+                              static_cast<float>(map_fb.texture().height())},
+                             {0, 1}, {1, 0});
             }
 
             if (edit_mode == EditMode::tile) {

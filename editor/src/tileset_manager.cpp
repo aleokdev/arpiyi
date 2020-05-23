@@ -14,8 +14,6 @@
 #include "util/icons_material_design.hpp"
 #include "util/math.hpp"
 
-#include "assets/shader.hpp"
-
 #include <anton/math/matrix4.hpp>
 #include <anton/math/transform.hpp>
 
@@ -23,17 +21,40 @@ namespace aml = anton::math;
 
 namespace arpiyi::tileset_manager {
 
-std::unique_ptr<renderer::RenderTilesetContext> render_ctx;
-
 constexpr const char* tileset_view_strid = ICON_MD_BORDER_INNER " Tileset View";
+static renderer::Framebuffer tileset_fb;
 
 TilesetSelection selection{-1, {0, 0}, {0, 0}};
 
-void init() {
-    render_ctx = std::make_unique<renderer::RenderTilesetContext>();
-
-    window_list_menu::add_entry({"Tileset view", &render});
+static void render_tileset() {
+    window_manager::get_renderer().clear(tileset_fb, {0, 0, 0, 0});
+    renderer::MeshBuilder builder;
+    if (auto t = selection.tileset.get()) {
+        const auto& tileset = *t;
+        const auto tileset_size = tileset.size_in_tile_units();
+        // TODO: CACHE!!!!!!
+        for (u64 tile_i = 0; tile_i < tileset.tile_count(); ++tile_i) {
+            builder.add_sprite(assets::Tileset::Tile{selection.tileset, tile_i}.preview_sprite(),
+                               {static_cast<float>(tile_i % tileset_size.x),
+                                -static_cast<float>(tile_i / tileset_size.x) - 1.f, 0},
+                               0, 0);
+        }
+        auto mesh = builder.finish();
+        renderer::DrawCmdList commands{
+            {{static_cast<float>(ImGui::GetScrollX()) / global_tile_size::get(),
+              -static_cast<float>(ImGui::GetScrollY()) / global_tile_size::get(), 0},
+             1,
+             false},
+            {renderer::DrawCmd{tileset.texture.get()->handle,
+                               mesh,
+                               window_manager::get_renderer().unlit_shader(),
+                               {{0, 0, 0}}}}};
+        window_manager::get_renderer().draw(commands, tileset_fb);
+        mesh.unload();
+    }
 }
+
+void init() { window_list_menu::add_entry({"Tileset view", &render}); }
 
 void render(bool* p_show) {
     if (ImGui::Begin(tileset_view_strid, nullptr,
@@ -70,24 +91,29 @@ void render(bool* p_show) {
                 // Update the framebuffer if the window has changed size
                 if (ImGui::GetWindowSize().x != last_window_size.x ||
                     ImGui::GetWindowSize().y != last_window_size.y) {
-                    render_ctx->output_fb.set_size(
-                        {static_cast<int>(ImGui::GetWindowContentRegionWidth()),
-                         static_cast<int>(ImGui::GetWindowContentRegionMax().y -
-                                          ImGui::GetWindowContentRegionMin().y)});
+                    if (!tileset_fb.exists()) {
+                        using Tex = renderer::TextureHandle;
+                        Tex tex;
+                        tex.init(static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                                 static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                                  ImGui::GetWindowContentRegionMin().y),
+                                 Tex::ColorType::rgba, Tex::FilteringMethod::point);
+                        tileset_fb = renderer::Framebuffer(tex);
+                    } else {
+                        tileset_fb.resize({static_cast<int>(ImGui::GetWindowContentRegionWidth()),
+                                           static_cast<int>(ImGui::GetWindowContentRegionMax().y -
+                                                            ImGui::GetWindowContentRegionMin().y)});
+                    }
+
                     last_window_size = ImGui::GetWindowSize();
                 }
-                // Draw the tileset
-                render_ctx->tileset = selection.tileset;
-                render_ctx->cam_pos = {
-                    ImGui::GetScrollX() / global_tile_size::get() / render_ctx->zoom,
-                    -ImGui::GetScrollY() / global_tile_size::get() / render_ctx->zoom};
-                window_manager::get_renderer().draw_tileset(*render_ctx);
+                render_tileset();
                 ImGui::Dummy(ImVec2{(float)img->handle.width(), (float)img->handle.height()});
                 ImGui::SetCursorScreenPos({tileset_render_pos.x + ImGui::GetScrollX(),
                                            tileset_render_pos.y + ImGui::GetScrollY()});
-                ImGui::Image(render_ctx->output_fb.texture().imgui_id(),
-                             ImVec2{(float)render_ctx->output_fb.get_size().x,
-                                    (float)render_ctx->output_fb.get_size().y},
+                ImGui::Image(tileset_fb.texture().imgui_id(),
+                             ImVec2{(float)tileset_fb.texture().width(),
+                                    (float)tileset_fb.texture().height()},
                              {0, 1}, {1, 0});
 
                 // Clip anything that is outside the tileset rect
@@ -164,8 +190,8 @@ void render(bool* p_show) {
                                             (float)tile_hovering.y / (float)size_in_tiles.y};
                         const ImVec2 uv_max{(float)(tile_hovering.x + 1) / (float)size_in_tiles.x,
                                             (float)(tile_hovering.y + 1) / (float)size_in_tiles.y};
-                        ImGui::Image(img->handle.imgui_id(), img_size, uv_min,
-                                     uv_max, ImVec4(1, 1, 1, tooltip_alpha));
+                        ImGui::Image(img->handle.imgui_id(), img_size, uv_min, uv_max,
+                                     ImVec4(1, 1, 1, tooltip_alpha));
                         ImGui::SameLine();
                         static std::size_t tile_id;
                         if (update_tooltip_info)
@@ -289,7 +315,8 @@ void render(bool* p_show) {
 
             auto tex = preview_texture.get();
             if (tex) {
-                if (tex->handle.width() % input_tile_size != 0 || tex->handle.height() % input_tile_size != 0) {
+                if (tex->handle.width() % input_tile_size != 0 ||
+                    tex->handle.height() % input_tile_size != 0) {
                     ImGui::PushStyleColor(ImGuiCol_Text, {1, .1f, .1f, 1});
                     ImGui::TextWrapped(
                         ICON_MD_ERROR
@@ -325,7 +352,8 @@ void render(bool* p_show) {
                 ImGui::BeginChild("preview_texture",
                                   {0, -ImGui::GetTextLineHeightWithSpacing() - 10});
                 ImGui::Image(tex->handle.imgui_id(),
-                             ImVec2{static_cast<float>(tex->handle.width()), static_cast<float>(tex->handle.height())});
+                             ImVec2{static_cast<float>(tex->handle.width()),
+                                    static_cast<float>(tex->handle.height())});
                 ImGui::EndChild();
             }
 
@@ -374,7 +402,7 @@ void set_selection_tileset(Handle<assets::Tileset> tileset) {
 
 std::vector<TilesetSelection::Tile> TilesetSelection::tiles_selected() const {
     std::vector<TilesetSelection::Tile> sel;
-    if(!selection.tileset.get())
+    if (!selection.tileset.get())
         return sel;
     for (int y = selection_start.y; y <= selection_end.y; ++y) {
         for (int x = selection_start.x; x <= selection_end.x; ++x) {

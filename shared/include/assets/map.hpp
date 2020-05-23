@@ -8,11 +8,16 @@
 
 #include "asset_manager.hpp"
 #include "entity.hpp"
-#include "mesh.hpp"
 #include "texture.hpp"
 #include "tileset.hpp"
 #include "util/intdef.hpp"
 #include "util/math.hpp"
+
+namespace arpiyi::renderer {
+struct DrawCmd;
+struct DrawCmdList;
+class Renderer;
+}
 
 namespace arpiyi::assets {
 
@@ -102,6 +107,8 @@ struct
         std::string text;
         math::IVec2D pos;
     };
+
+    void draw_to_cmd_list(renderer::Renderer const&, renderer::DrawCmdList&);
 
     std::vector<Handle<Layer>> layers;
     std::vector<Handle<Comment>> comments;

@@ -2,7 +2,6 @@
 #define ARPIYI_TILESET_HPP
 
 #include "asset_manager.hpp"
-#include "mesh.hpp"
 #include "sprite.hpp"
 #include "texture.hpp"
 #include "util/intdef.hpp"

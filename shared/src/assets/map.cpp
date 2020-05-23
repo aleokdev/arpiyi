@@ -67,6 +67,63 @@ Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& su
 
 Map::Layer::Layer(i64 width, i64 height) : width(width), height(height), tiles(width * height) {}
 
+void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
+                           renderer::DrawCmdList& cmd_list) {
+    // TODO: Cache, cache, cache!!!!!!!!!!!
+    std::unordered_map<u64, renderer::MeshBuilder> mesh_batches;
+    static std::vector<renderer::MeshHandle> meshes;
+    for (auto& mesh : meshes) { mesh.unload(); }
+    meshes.clear();
+    for (const auto& l : layers) {
+        assert(l.get());
+        const auto& layer = *l.get();
+        if(!layer.visible) continue;
+
+        for (int x = 0; x < width; ++x) {
+            for (int y = 0; y < height; ++y) {
+                const auto& tile = layer.get_tile({x, y});
+                if (!tile.exists)
+                    continue;
+                const u64 tex_id = tile.parent.tileset.get()->texture.get_id();
+                if (mesh_batches.find(tex_id) == mesh_batches.end())
+                    mesh_batches[tex_id] = renderer::MeshBuilder();
+                // TODO: Implement slopes
+                mesh_batches[tex_id].add_sprite(
+                    tile.sprite(layer, {x, y}),
+                    {static_cast<float>(x), static_cast<float>(y), static_cast<float>(tile.height)},
+                    0, 0);
+            }
+        }
+    }
+    for (auto& [tex_id, builder] : mesh_batches) {
+        cmd_list.commands.emplace_back(
+            renderer::DrawCmd{Handle<assets::TextureAsset>(tex_id).get()->handle,
+                              meshes.emplace_back(builder.finish()),
+                              renderer.lit_shader(),
+                              {{0, 0, 0}},
+                              true});
+    }
+    for (const auto& entity_handle : entities) {
+        assert(entity_handle.get());
+        if (auto entity = entity_handle.get()) {
+            if (auto sprite = entity->sprite.get()) {
+                assert(sprite->texture.get());
+
+                // TODO: Cache sprite meshes
+                renderer::MeshBuilder builder;
+                builder.add_sprite(*sprite, {0,0,0}, 0, 0);
+
+                cmd_list.commands.emplace_back(
+                    renderer::DrawCmd{Handle<assets::TextureAsset>(sprite->texture).get()->handle,
+                                      meshes.emplace_back(builder.finish()),
+                                      renderer.lit_shader(),
+                                      {aml::Vector3(entity->pos, 0.1f)},
+                                      true});
+            }
+        }
+    }
+}
+
 namespace map_file_definitions {
 
 constexpr std::string_view name_json_key = "name";
@@ -222,10 +279,9 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                 if (map.width == -1 || map.height == -1) {
                     assert("Map layer data loaded before width/height");
                 }
-                auto& layer = *map.layers
-                                   .emplace_back(asset_manager::put(
-                                       Map::Layer(map.width, map.height)))
-                                   .get();
+                auto& layer =
+                    *map.layers.emplace_back(asset_manager::put(Map::Layer(map.width, map.height)))
+                         .get();
 
                 for (auto const& layer_val : layer_object.GetObject()) {
                     if (layer_val.name == lfd::name_json_key.data()) {
