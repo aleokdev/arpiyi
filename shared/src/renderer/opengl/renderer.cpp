@@ -368,59 +368,49 @@ void Renderer::draw_meshes(std::unordered_map<u64, MeshHandle> const& batches) {
 
 void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer& output_fb) {
     glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDepthFunc(GL_LEQUAL);
     glViewport(0, 0, p_impl->shadow_depth_fb.texture().width(),
                p_impl->shadow_depth_fb.texture().height());
-    for (const auto& cmd : draw_commands) {
+
+    aml::Vector2 camera_view_size_in_tiles{
+        output_fb.texture().width() / global_tile_size::get() / draw_commands.camera.zoom,
+        output_fb.texture().height() / global_tile_size::get() / draw_commands.camera.zoom};
+    aml::Matrix4 view =
+        aml::inverse(aml::translate(draw_commands.camera.position));
+    aml::Matrix4 proj = aml::orthographic_rh(
+        -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
+        -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
+    // To create the light view, we position the light as if it were a camera and then
+    // invert the matrix.
+    aml::Matrix4 lightView = aml::translate(draw_commands.camera.position);
+    // We want the light to be rotated on the Z and X axis to make it seem there's some
+    // directionality to it.
+    lightView *= aml::rotate_z(-M_PI / 5.f) * aml::rotate_x(-M_PI / 5.f) * aml::scale(2.f);
+    lightView = aml::inverse(lightView);
+    aml::Matrix4 lightSpaceMatrix = proj * lightView;
+
+    glUseProgram(p_impl->depth_shader.p_impl->handle);
+    for (const auto& cmd : draw_commands.commands) {
         if (!cmd.cast_shadows)
             continue;
-
-        aml::Vector2 camera_view_size_in_tiles{
-            output_fb.texture().width() / global_tile_size::get() / cmd.camera.zoom,
-            output_fb.texture().height() / global_tile_size::get() / cmd.camera.zoom};
         aml::Matrix4 model = aml::translate(cmd.transform.position);
-        aml::Matrix4 view =
-            aml::inverse(aml::translate(cmd.camera.position) * aml::scale(cmd.camera.zoom));
-        aml::Matrix4 proj = aml::orthographic_rh(
-            -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
-            -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
 
-        glUseProgram(p_impl->depth_shader.p_impl->handle);
-        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
         glBindVertexArray(cmd.mesh.p_impl->vao);
-        // Depth image rendering
-        glClear(GL_DEPTH_BUFFER_BIT);
-        glDepthFunc(GL_LEQUAL);
-
-        // To create the light view, we position the light as if it were a camera and then
-        // invert the matrix.
-        aml::Matrix4 lightView = aml::translate(cmd.camera.position);
-        // We want the light to be rotated on the Z and X axis to make it seem there's some
-        // directionality to it.
-        lightView *= aml::rotate_z(M_PI / 5.f) * aml::rotate_x(M_PI / 5.f);
-        lightView = aml::inverse(lightView);
-        aml::Matrix4 lightSpaceMatrix = proj * lightView;
-
+        glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
         glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
         glDrawArrays(GL_TRIANGLES, 0, cmd.mesh.p_impl->vertex_count);
     }
-    glViewport(0, 0, output_fb.texture().width(),
-               output_fb.texture().height());
+    glViewport(0, 0, output_fb.texture().width(), output_fb.texture().height());
     glBindFramebuffer(GL_FRAMEBUFFER, output_fb.p_impl->handle);
-    for (const auto& cmd : draw_commands) {
-        aml::Vector2 camera_view_size_in_tiles{
-            output_fb.texture().width() / global_tile_size::get() / cmd.camera.zoom,
-            output_fb.texture().height() / global_tile_size::get() / cmd.camera.zoom};
+    for (const auto& cmd : draw_commands.commands) {
         aml::Matrix4 model = aml::translate(cmd.transform.position);
-        aml::Matrix4 view =
-            aml::inverse(aml::translate(cmd.camera.position) * aml::scale(cmd.camera.zoom));
-        aml::Matrix4 proj = aml::orthographic_rh(
-            -camera_view_size_in_tiles.x / 2.f, camera_view_size_in_tiles.x / 2.f,
-            -camera_view_size_in_tiles.y / 2.f, camera_view_size_in_tiles.y / 2.f, -20.0f, 20.0f);
 
         glUseProgram(cmd.shader.p_impl->handle);
         glUniformMatrix4fv(0, 1, GL_FALSE, model.get_raw()); // Model matrix
         glUniformMatrix4fv(1, 1, GL_FALSE, proj.get_raw());  // Projection matrix
         glUniformMatrix4fv(2, 1, GL_FALSE, view.get_raw());  // View matrix
+        glUniformMatrix4fv(3, 1, GL_FALSE, lightSpaceMatrix.get_raw()); // Light space matrix
         glBindVertexArray(cmd.mesh.p_impl->vao);
 
         glUniform1i(cmd.shader.p_impl->tile_tex_location, 0); // Set tile sampler2D to GL_TEXTURE0

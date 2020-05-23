@@ -68,7 +68,6 @@ Map::TileConnections Map::Tile::calculate_connections(TileSurroundings const& su
 Map::Layer::Layer(i64 width, i64 height) : width(width), height(height), tiles(width * height) {}
 
 void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
-                           renderer::Camera const& cam,
                            renderer::DrawCmdList& cmd_list) {
     std::unordered_map<u64, renderer::MeshBuilder> mesh_batches;
     static std::vector<renderer::MeshHandle> meshes;
@@ -77,6 +76,7 @@ void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
     for (const auto& l : layers) {
         assert(l.get());
         const auto& layer = *l.get();
+        if(!layer.visible) continue;
 
         for (int x = 0; x < width; ++x) {
             for (int y = 0; y < height; ++y) {
@@ -93,14 +93,14 @@ void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
                     0, 0);
             }
         }
-        for (auto& [tex_id, builder] : mesh_batches) {
-            cmd_list.emplace_back(
-                renderer::DrawCmd{Handle<assets::TextureAsset>(tex_id).get()->handle,
-                                  meshes.emplace_back(builder.finish()),
-                                  renderer.lit_shader(),
-                                  {{0, 0, 0}},
-                                  cam, true});
-        }
+    }
+    for (auto& [tex_id, builder] : mesh_batches) {
+        cmd_list.commands.emplace_back(
+            renderer::DrawCmd{Handle<assets::TextureAsset>(tex_id).get()->handle,
+                              meshes.emplace_back(builder.finish()),
+                              renderer.lit_shader(),
+                              {{0, 0, 0}},
+                              true});
     }
 }
 

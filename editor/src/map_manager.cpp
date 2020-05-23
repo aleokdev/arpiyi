@@ -41,11 +41,8 @@ constexpr const char* map_view_strid = ICON_MD_TERRAIN " Map View";
 static float get_map_zoom() { return zoom_levels[current_zoom_level]; }
 
 static ImVec2 map_to_widget_pos(aml::Vector2 map_pos) {
-    aml::Vector2 window_size{ImGui::GetContentRegionMax().x - ImGui::GetWindowContentRegionMin().x,
-                             ImGui::GetContentRegionMax().y - ImGui::GetWindowContentRegionMin().y};
-    aml::Vector2 result = window_size / 2.f -
-                          aml::Vector2(current_map.get()->width, -current_map.get()->height) *
-                              global_tile_size::get() * get_map_zoom() / 2.f +
+    aml::Vector2 fb_size = {static_cast<float>(map_fb.texture().width()), static_cast<float>(map_fb.texture().height())};
+    aml::Vector2 result = fb_size / 2.f +
                           aml::Vector2(map_pos.x + map_scroll.x, -map_pos.y - map_scroll.y) *
                               global_tile_size::get() * get_map_zoom();
     return ImVec2{aml::floor(result.x), aml::floor(result.y)};
@@ -365,7 +362,8 @@ static void render_map() {
     if (auto m = current_map.get()) {
         window_manager::get_renderer().clear(map_fb, {0, 0, 0, 0});
         renderer::DrawCmdList cmd_list;
-        m->draw_to_cmd_list(window_manager::get_renderer(), renderer::Camera{aml::Vector3(-map_scroll), get_map_zoom()}, cmd_list);
+        cmd_list.camera = renderer::Camera{aml::Vector3(-map_scroll), get_map_zoom()};
+        m->draw_to_cmd_list(window_manager::get_renderer(), cmd_list);
         window_manager::get_renderer().draw(cmd_list, map_fb);
     }
 }

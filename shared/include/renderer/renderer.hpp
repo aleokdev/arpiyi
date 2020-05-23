@@ -91,8 +91,9 @@ public:
     bool exists() const;
     void unload();
 
-    [[nodiscard]] math::IVec2D get_size() const;
-    void set_size(math::IVec2D);
+    [[deprecated("Use texture().width() and texture().height() instead.")]] [[nodiscard]] math::IVec2D get_size() const;
+    [[deprecated("Use resize(math::IVec2D) instead.")]] void set_size(math::IVec2D);
+    void resize(math::IVec2D);
     [[nodiscard]] TextureHandle const& texture() const;
 
 private:
@@ -177,11 +178,13 @@ struct DrawCmd {
     MeshHandle mesh;
     ShaderHandle shader;
     Transform transform;
-    Camera camera;
     bool cast_shadows = false;
 };
 
-using DrawCmdList = std::vector<DrawCmd>;
+struct DrawCmdList {
+    Camera camera;
+    std::vector<DrawCmd> commands;
+};
 
 class MeshBuilder {
 public:

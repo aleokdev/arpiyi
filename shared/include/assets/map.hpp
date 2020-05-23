@@ -15,8 +15,8 @@
 
 namespace arpiyi::renderer {
 struct DrawCmd;
+struct DrawCmdList;
 class Renderer;
-using DrawCmdList = std::vector<DrawCmd>;
 }
 
 namespace arpiyi::assets {
@@ -108,7 +108,7 @@ struct
         math::IVec2D pos;
     };
 
-    void draw_to_cmd_list(renderer::Renderer const&, renderer::Camera const&, renderer::DrawCmdList&);
+    void draw_to_cmd_list(renderer::Renderer const&, renderer::DrawCmdList&);
 
     std::vector<Handle<Layer>> layers;
     std::vector<Handle<Comment>> comments;

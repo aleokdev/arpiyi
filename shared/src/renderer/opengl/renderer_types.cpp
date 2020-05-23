@@ -345,7 +345,7 @@ bool Framebuffer::impl::exists() const { return handle != static_cast<u32>(-1); 
 
 bool Framebuffer::exists() const { return p_impl->exists(); }
 
-void Framebuffer::set_size(math::IVec2D size) {
+void Framebuffer::resize(math::IVec2D size) {
     assert(exists());
     auto& tex = p_impl->tex;
     const auto prev_color_type = tex.color_type();
@@ -354,6 +354,8 @@ void Framebuffer::set_size(math::IVec2D size) {
     tex.init(size.x, size.y, prev_color_type, prev_filter_type);
     p_impl->bind_texture();
 }
+
+void Framebuffer::set_size(math::IVec2D s) { resize(s); }
 
 math::IVec2D Framebuffer::get_size() const {
     return {static_cast<i32>(p_impl->tex.width()), static_cast<i32>(p_impl->tex.height())};
