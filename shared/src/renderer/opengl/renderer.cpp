@@ -77,8 +77,8 @@ Framebuffer Renderer::get_window_framebuffer() {
 
 void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb) {
     aml::Vector2 camera_view_size_in_tiles{
-        output_fb.texture().width() / global_tile_size::get() / draw_commands.camera.zoom,
-        output_fb.texture().height() / global_tile_size::get() / draw_commands.camera.zoom};
+        (float)output_fb.texture().width() / global_tile_size::get() / draw_commands.camera.zoom,
+        (float)output_fb.texture().height() / global_tile_size::get() / draw_commands.camera.zoom};
     aml::Matrix4 view =
         aml::inverse(aml::translate(draw_commands.camera.position));
     aml::Matrix4 proj;

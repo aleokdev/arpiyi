@@ -139,40 +139,44 @@ Sprite Map::Tile::impl_sprite<TileType::rpgmaker_a4>(Layer const& this_layer,
         const auto connections = calculate_connections(this_layer.get_surroundings(this_pos));
         return tileset_types::calculate_rpgmaker_a2_tile(chunk, connections);
     } else {
-        struct WallCount {
-            int above = -1;
-            int below = -1;
-        };
-        const auto count_walls = [&](int x_offset) -> WallCount {
-          WallCount wallcount;
-          while(this_layer.is_pos_valid({this_pos.x + x_offset, this_pos.y + wallcount.above + 1})) {
-              const auto& above_tile = this_layer.get_tile({this_pos.x + x_offset, this_pos.y + wallcount.above + 1});
-              if(above_tile.parent.tile_index == parent.tile_index && above_tile.parent.tileset.get_id() == parent.tileset.get_id())
-                  wallcount.above++;
-              else break;
-          }
-          while(this_layer.is_pos_valid({this_pos.x + x_offset, this_pos.y - wallcount.below - 1})) {
-              const auto& below_tile = this_layer.get_tile({this_pos.x + x_offset, this_pos.y - wallcount.below - 1});
-              if(below_tile.parent.tile_index == parent.tile_index && below_tile.parent.tileset.get_id() == parent.tileset.get_id())
-                  wallcount.below++;
-              else break;
-          }
-          return wallcount;
-        };
+        Map::TileConnections connections;
+        if(override_connections) connections = custom_connections;
+        else {
+            struct WallCount {
+                int above = -1;
+                int below = -1;
+            };
+            const auto count_walls = [&](int x_offset) -> WallCount {
+              WallCount wallcount;
+              while(this_layer.is_pos_valid({this_pos.x + x_offset, this_pos.y + wallcount.above + 1})) {
+                  const auto& above_tile = this_layer.get_tile({this_pos.x + x_offset, this_pos.y + wallcount.above + 1});
+                  if(above_tile.parent.tile_index == parent.tile_index && above_tile.parent.tileset.get_id() == parent.tileset.get_id())
+                      wallcount.above++;
+                  else break;
+              }
+              while(this_layer.is_pos_valid({this_pos.x + x_offset, this_pos.y - wallcount.below - 1})) {
+                  const auto& below_tile = this_layer.get_tile({this_pos.x + x_offset, this_pos.y - wallcount.below - 1});
+                  if(below_tile.parent.tile_index == parent.tile_index && below_tile.parent.tileset.get_id() == parent.tileset.get_id())
+                      wallcount.below++;
+                  else break;
+              }
+              return wallcount;
+            };
 
-        WallCount this_wallcount = count_walls(0);
-        WallCount left_wallcount = count_walls(-1);
-        WallCount right_wallcount = count_walls(1);
-        Map::TileConnections connections {
-            this_wallcount.below != 0,
-            false,
-            right_wallcount.above == this_wallcount.above &&  right_wallcount.below == this_wallcount.below,
-            false,
-            this_wallcount.above != 0,
-            false,
-            left_wallcount.above == this_wallcount.above &&  left_wallcount.below == this_wallcount.below,
-            false
-        };
+            WallCount this_wallcount = count_walls(0);
+            WallCount left_wallcount = count_walls(-1);
+            WallCount right_wallcount = count_walls(1);
+            connections = {
+                this_wallcount.below != 0,
+                false,
+                right_wallcount.above == this_wallcount.above &&  right_wallcount.below == this_wallcount.below,
+                false,
+                this_wallcount.above != 0,
+                false,
+                left_wallcount.above == this_wallcount.above &&  left_wallcount.below == this_wallcount.below,
+                false
+            };
+        }
 
         assets::TextureChunk chunk{
             parent.tileset.get()->texture.get()->handle,
