@@ -10,7 +10,7 @@ target_include_directories(arpiyi-codegen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/in
 file(GLOB CODEGEN_DEPENDENCIES ${PROJECT_SOURCE_DIR}/shared/include/assets/*)
 set(CODEGEN_GENERATED_FILES ${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp ${PROJECT_BINARY_DIR}/shared/src/serializer_cg.cpp)
 add_custom_command(OUTPUT ${CODEGEN_GENERATED_FILES}
-        COMMAND arpiyi-codegen
+        COMMAND arpiyi-codegen ${PROJECT_BINARY_DIR}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${CODEGEN_DEPENDENCIES}
         )

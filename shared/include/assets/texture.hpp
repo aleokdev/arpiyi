@@ -5,43 +5,38 @@
 
 #include <filesystem>
 
+#include "renderer/renderer.hpp"
 #include "util/intdef.hpp"
 
-#include <imgui.h>
 #include <anton/math/vector4.hpp>
+#include <imgui.h>
 
 namespace aml = anton::math;
 namespace fs = std::filesystem;
 
 namespace arpiyi::assets {
 
-struct [[assets::serialize]] [[meta::dir_name("textures")]] Texture {
-    u32 w;
-    u32 h;
-
-    /// Defined in renderer/renderer_impl_xxx.cpp
-    ImTextureID get_imgui_id();
-    /// Defined in renderer/renderer_impl_xxx.cpp
-    bool exists();
-    void* handle;
+/// This struct represents a savable (and loadable) color texture. The only difference with
+/// renderer::Texture is that this struct also saves the loaded texture path. If you want to
+/// represent a texture that is generated or one that won't be saved, you are free to use renderer::Texture
+/// instead.
+struct [[assets::serialize]] [[meta::dir_name("textures")]] TextureAsset {
+    fs::path load_path;
+    renderer::TextureHandle handle;
 };
 
-enum class TextureFilter { point, linear };
-template<> struct LoadParams<Texture> {
+template<> struct LoadParams<TextureAsset> {
     fs::path path;
     bool flip = false;
-    TextureFilter filter = TextureFilter::point;
+    renderer::TextureHandle::FilteringMethod filter = renderer::TextureHandle::FilteringMethod::point;
 };
 
-/// Defined in renderer/renderer_impl_xxx.cpp
-template<> void raw_load(Texture& texture, LoadParams<Texture> const& params);
+template<> void raw_load(TextureAsset& texture, LoadParams<TextureAsset> const& params);
 
-/// Defined in renderer/renderer_impl_xxx.cpp
-template<> RawSaveData raw_get_save_data<Texture>(Texture const& texture);
+template<> RawSaveData raw_get_save_data<TextureAsset>(TextureAsset const& texture);
 
-/// Defined in renderer/renderer_impl_xxx.cpp
-template<> void raw_unload(Texture& texture);
+template<> void raw_unload(TextureAsset& texture);
 
-} // namespace arpiyi_editor::assets
+} // namespace arpiyi::assets
 
 #endif // ARPIYI_EDITOR_TEXTURE_HPP

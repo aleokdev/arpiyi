@@ -13,6 +13,12 @@ struct TilesetSelection {
     Handle<assets::Tileset> tileset;
     math::IVec2D selection_start;
     math::IVec2D selection_end;
+
+    struct Tile {
+        math::IVec2D tileset_offset;
+        assets::Tileset::Tile tile_ref;
+    };
+    std::vector<Tile> tiles_selected() const;
 };
 
 void init();

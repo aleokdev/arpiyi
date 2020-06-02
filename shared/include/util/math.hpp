@@ -11,7 +11,7 @@ namespace math {
 struct IVec2D {
     i32 x, y;
 
-    operator aml::Vector2() {
+    operator aml::Vector2() const {
         return {static_cast<float>(x), static_cast<float>(y)};
     }
 };

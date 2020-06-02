@@ -22,8 +22,9 @@ struct SerializableAsset {
     std::vector<std::string> asset_load_dependencies;
 };
 
-void create_assets_codegen_file(std::vector<AssetWithDirName> const& assets_with_dir_name) {
-    const fs::path assets_out_path = "build/shared/include/assets/asset_cg.hpp";
+void create_assets_codegen_file(std::vector<AssetWithDirName> const& assets_with_dir_name,
+                                fs::path const& build_folder) {
+    const fs::path assets_out_path = build_folder /"shared/include/assets/asset_cg.hpp";
     fs::create_directories(assets_out_path.parent_path());
     auto out_f = std::ofstream(assets_out_path);
     out_f << "// asset_cg.hpp\n"
@@ -46,8 +47,8 @@ void create_assets_codegen_file(std::vector<AssetWithDirName> const& assets_with
     std::cout << "Assets file written to " << assets_out_path << std::endl;
 }
 
-void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_assets) {
-    const fs::path serializer_out_path = "build/shared/src/serializer_cg.cpp";
+void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_assets, fs::path const& build_folder) {
+    const fs::path serializer_out_path = build_folder / "shared/src/serializer_cg.cpp";
     fs::create_directories(serializer_out_path.parent_path());
     auto out_f = std::ofstream(serializer_out_path);
     out_f << "// serializer_cg.cpp\n"
@@ -145,8 +146,13 @@ void create_serializer_codegen_file(std::vector<SerializableAsset> serializable_
     std::cout << "Assets file written to " << serializer_out_path << std::endl;
 }
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "You need to supply the project build path." << std::endl;
+        return -1;
+    }
     const fs::path assets_path = fs::absolute(fs::path("shared/include/assets"));
+    const fs::path build_path = fs::absolute(fs::path(argv[1]));
     std::cout << "Starting codegen with folder = " << assets_path.generic_string() << std::endl;
 
     std::vector<AssetWithDirName> assets_with_dir_name;
@@ -187,6 +193,6 @@ int main() {
         }
     }
 
-    create_assets_codegen_file(assets_with_dir_name);
-    create_serializer_codegen_file(serializable_assets);
+    create_assets_codegen_file(assets_with_dir_name, build_path);
+    create_serializer_codegen_file(serializable_assets, build_path);
 }

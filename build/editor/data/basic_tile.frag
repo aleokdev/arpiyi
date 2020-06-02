@@ -13,4 +13,7 @@ out vec4 FragColor;
 
 void main() {
     FragColor = texture(tile, fs_in.TexCoords).rgba;
+    if (texture(tile, fs_in.TexCoords).a == 0) { gl_FragDepth = 99999; return; }
+
+    gl_FragDepth = gl_FragCoord.z;
 }

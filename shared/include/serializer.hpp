@@ -43,6 +43,7 @@ void load_assets(fs::path const& project_path,
 
     std::size_t i = 0;
     for (auto const& asset_meta : doc.GetArray()) {
+        // If the program crashes here, it's because a meta file contains an empty object without an ID
         const auto id = asset_meta.GetObject()[mfd::id_json_key.data()].GetUint64();
         per_step_func(assets::AssetDirName<AssetT>::value,
                       static_cast<float>(i) / static_cast<float>(doc.GetArray().Size()));

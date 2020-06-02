@@ -39,7 +39,7 @@ void render(bool* p_show) {
             tree_node_name += ICON_MD_BORDER_INNER " ";
             tree_node_name += tileset.name;
             if (ImGui::TreeNode(tree_node_name.c_str())) {
-                math::IVec2D size_in_tiles = tileset.get_size_in_tiles();
+                math::IVec2D size_in_tiles = tileset.size_in_tile_units();
                 for (int y = 0; y < size_in_tiles.y; ++y)
                     for (int x = 0; x < size_in_tiles.x; ++x) {
                         char selectable_text[32];
@@ -60,7 +60,7 @@ void render(bool* p_show) {
                             const ImVec2 uv_max{(float)(x + 1) / (float)size_in_tiles.x,
                                                 (float)(y + 1) / (float)size_in_tiles.y};
                             ImGui::Image(
-                                reinterpret_cast<ImTextureID>(tileset.texture.get()->handle),
+                                tileset.texture.get()->handle.imgui_id(),
                                 ImVec2{static_cast<float>(global_tile_size::get()),
                                        static_cast<float>(global_tile_size::get())},
                                 uv_min, uv_max);
@@ -71,6 +71,8 @@ void render(bool* p_show) {
             }
         }
 
+        // TODO: Reimplement
+        /*
         for (const auto& [_id, sprite] :
              detail::AssetContainer<assets::Sprite>::get_instance().map) {
             ImGui::TextDisabled("%zu", _id);
@@ -86,7 +88,7 @@ void render(bool* p_show) {
                              {sprite.uv_max.x, sprite.uv_max.y});
                 ImGui::EndTooltip();
             }
-        }
+        }*/
     }
     ImGui::End();
 
@@ -120,8 +122,8 @@ void render(bool* p_show) {
                 auto tex = *t->texture.get();
                 ImVec2 tileset_image_cursor_pos = ImGui::GetCursorScreenPos();
                 // Draw tileset image
-                ImGui::Image(reinterpret_cast<ImTextureID>(tex.handle),
-                             ImVec2{static_cast<float>(tex.w), static_cast<float>(tex.h)});
+                ImGui::Image(tex.handle.imgui_id(),
+                             ImVec2{static_cast<float>(tex.handle.width()), static_cast<float>(tex.handle.height())});
 
                 if (ImGui::IsItemClicked()) {
                     const auto mouse_pos = ImGui::GetMousePos();
@@ -190,15 +192,19 @@ void render(bool* p_show) {
             }
             if (ImGui::Button("OK")) {
                 aml::Vector2 tileset_uv_min{static_cast<float>(tileset_tile_selection_start.x) /
-                                             static_cast<float>(t->get_size_in_tiles().x),
+                                             static_cast<float>(t->size_in_tile_units().x),
                                          static_cast<float>(tileset_tile_selection_start.y) /
-                                             static_cast<float>(t->get_size_in_tiles().y)};
+                                             static_cast<float>(t->size_in_tile_units().y)};
                 aml::Vector2 tileset_uv_max{static_cast<float>(tileset_tile_selection_end.x + 1) /
-                                             static_cast<float>(t->get_size_in_tiles().x),
+                                             static_cast<float>(t->size_in_tile_units().x),
                                          static_cast<float>(tileset_tile_selection_end.y + 1) /
-                                             static_cast<float>(t->get_size_in_tiles().y)};
+                                             static_cast<float>(t->size_in_tile_units().y)};
+                assets::Sprite::Piece piece{
+                    {tileset_uv_min, tileset_uv_max},
+                    {{0,0},{1,1}}
+                };
                 asset_manager::put(
-                    assets::Sprite{t->texture, tileset_uv_min, tileset_uv_max, name_buf});
+                    assets::Sprite{t->texture, std::vector<assets::Sprite::Piece>{piece}});
                 show_add_sprite_from_tileset_window = false;
             }
             if (!t) {

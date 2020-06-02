@@ -100,6 +100,7 @@ public:
     }
 
     [[nodiscard]] bool operator==(Handle const& h) const noexcept { return id == h.id; }
+    [[nodiscard]] bool operator!=(Handle const& h) const noexcept { return id != h.id; }
 
     [[nodiscard]] u64 get_id() const noexcept { return id; }
 
