@@ -44,4 +44,7 @@ void main() {
     float f_shadow = ShadowCalculation(fs_in.FragPosLightSpace);
     float shadow_force = 0.2;
     FragColor = texture(tile, fs_in.TexCoords).rgba - vec4(vec3(f_shadow), 0) * shadow_force;
+    if (texture(tile, fs_in.TexCoords).a == 0) { gl_FragDepth = 99999; return; }
+
+    gl_FragDepth = gl_FragCoord.z;
 }

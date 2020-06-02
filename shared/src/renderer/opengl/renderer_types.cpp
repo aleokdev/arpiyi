@@ -326,6 +326,9 @@ void Framebuffer::impl::bind_texture() {
         case TextureHandle::ColorType::rgba:
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                                    tex.p_impl->handle, 0);
+            depth_tex.unload();
+            depth_tex.init(tex.width(), tex.height(), TextureHandle::ColorType::depth, TextureHandle::FilteringMethod::point);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex.p_impl->handle, 0);
             break;
         case TextureHandle::ColorType::depth:
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
@@ -333,6 +336,7 @@ void Framebuffer::impl::bind_texture() {
             break;
         default: assert(false && "Unknown color type"); return;
     }
+
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
 }

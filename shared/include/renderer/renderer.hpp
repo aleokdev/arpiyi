@@ -80,6 +80,7 @@ private:
 class Framebuffer {
 public:
     Framebuffer();
+    /// If the texture passed has RGBA color type, a depth attachment will automatically added to the framebuffer for Z depth sorting.
     explicit Framebuffer(TextureHandle const& texture);
     /// The destructor should NOT destroy the underlying framebuffer/handle. It is just put here so
     /// that the implementation links correctly.

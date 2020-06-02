@@ -16,6 +16,11 @@ namespace aml = anton::math;
 
 namespace arpiyi::assets {
 
+struct TextureChunk {
+    renderer::TextureHandle tex;
+    math::Rect2D rect;
+};
+
 struct [[assets::serialize]] [[meta::dir_name("sprites")]] Sprite {
     /// Texture of the sprite. Not owned by it
     Handle<assets::TextureAsset> texture;

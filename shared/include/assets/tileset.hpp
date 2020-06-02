@@ -29,6 +29,7 @@ namespace arpiyi::assets {
 enum class TileType {
     normal,
     rpgmaker_a2,
+    rpgmaker_a4,
     count
 };
 

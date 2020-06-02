@@ -21,6 +21,7 @@ Sprite Map::Tile::sprite(Layer const& this_layer, math::IVec2D this_pos) const {
     switch (parent.tileset.get()->tile_type) {
         case TileType::normal: return impl_sprite<TileType::normal>(this_layer, this_pos);
         case TileType::rpgmaker_a2: return impl_sprite<TileType::rpgmaker_a2>(this_layer, this_pos);
+        case TileType::rpgmaker_a4: return impl_sprite<TileType::rpgmaker_a4>(this_layer, this_pos);
         default: assert(false && "Unknown tileset type"); return {};
     }
 }
@@ -74,6 +75,7 @@ void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
     static std::vector<renderer::MeshHandle> meshes;
     for (auto& mesh : meshes) { mesh.unload(); }
     meshes.clear();
+    int layer_i = 0;
     for (const auto& l : layers) {
         assert(l.get());
         const auto& layer = *l.get();
@@ -88,12 +90,14 @@ void Map::draw_to_cmd_list(renderer::Renderer const& renderer,
                 if (mesh_batches.find(tex_id) == mesh_batches.end())
                     mesh_batches[tex_id] = renderer::MeshBuilder();
                 // TODO: Implement slopes
+                // We make each tile's Z pos depend on its height and its layer so that depth testing can sort the layers.
                 mesh_batches[tex_id].add_sprite(
                     tile.sprite(layer, {x, y}),
-                    {static_cast<float>(x), static_cast<float>(y), static_cast<float>(tile.height)},
+                    {static_cast<float>(x), static_cast<float>(y), static_cast<float>(tile.height + static_cast<float>(layer_i) * 0.01f)},
                     0, 0);
             }
         }
+        ++layer_i;
     }
     for (auto& [tex_id, builder] : mesh_batches) {
         cmd_list.commands.emplace_back(

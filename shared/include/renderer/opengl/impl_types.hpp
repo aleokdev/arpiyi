@@ -38,6 +38,7 @@ struct MeshBuilder::impl {
 struct Framebuffer::impl {
     unsigned int handle = -1;
     TextureHandle tex;
+    TextureHandle depth_tex;
     [[nodiscard]] bool exists() const;
     void create_handle();
     void bind_texture();

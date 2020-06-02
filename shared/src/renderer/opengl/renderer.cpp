@@ -50,7 +50,7 @@ void Renderer::start_frame() {
     glfwGetFramebufferSize(window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
     glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void Renderer::finish_frame() {
@@ -76,12 +76,6 @@ Framebuffer Renderer::get_window_framebuffer() {
 }
 
 void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_fb) {
-    glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glDepthFunc(GL_LEQUAL);
-    glViewport(0, 0, p_impl->shadow_depth_fb.texture().width(),
-               p_impl->shadow_depth_fb.texture().height());
-
     aml::Vector2 camera_view_size_in_tiles{
         output_fb.texture().width() / global_tile_size::get() / draw_commands.camera.zoom,
         output_fb.texture().height() / global_tile_size::get() / draw_commands.camera.zoom};
@@ -106,6 +100,11 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_
     lightView = aml::inverse(lightView);
     aml::Matrix4 lightSpaceMatrix = proj * lightView;
 
+    glBindFramebuffer(GL_FRAMEBUFFER, p_impl->shadow_depth_fb.p_impl->handle);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDepthFunc(GL_LEQUAL);
+    glViewport(0, 0, p_impl->shadow_depth_fb.texture().width(),
+               p_impl->shadow_depth_fb.texture().height());
     glUseProgram(p_impl->depth_shader.p_impl->handle);
     for (const auto& cmd : draw_commands.commands) {
         if (!cmd.cast_shadows)
@@ -121,6 +120,7 @@ void Renderer::draw(DrawCmdList const& draw_commands, Framebuffer const& output_
     }
     glViewport(0, 0, output_fb.texture().width(), output_fb.texture().height());
     glBindFramebuffer(GL_FRAMEBUFFER, output_fb.p_impl->handle);
+    glClear(GL_DEPTH_BUFFER_BIT);
     for (const auto& cmd : draw_commands.commands) {
         bool is_lit = cmd.shader.p_impl->shadow_tex_location != static_cast<u32>(-1);
         aml::Matrix4 model = aml::translate(cmd.transform.position);

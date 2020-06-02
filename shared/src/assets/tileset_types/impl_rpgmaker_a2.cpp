@@ -1,5 +1,6 @@
 #include "assets/map.hpp"
 #include "assets/tileset.hpp"
+#include "assets/tileset_types/rpgmaker_a2_utils.hpp"
 
 #include <tuple>
 #include <array>
@@ -18,7 +19,7 @@ template<> Sprite Tileset::Tile::impl_full_sprite<TileType::rpgmaker_a2>() const
     math::IVec2D size_in_rpgmaker_a2_tiles = {size_in_normal_tiles.x / rpgmaker_a2_chunk_width,
                                               size_in_normal_tiles.y / rpgmaker_a2_chunk_height};
     const u64 chunk_x = tile_index % size_in_rpgmaker_a2_tiles.x;
-    const u64 chunk_y = tile_index / size_in_rpgmaker_a2_tiles.y;
+    const u64 chunk_y = tile_index / size_in_rpgmaker_a2_tiles.x;
     Sprite spr;
     Sprite::Piece piece;
     piece.source = {{static_cast<float>(chunk_x) / size_in_rpgmaker_a2_tiles.x,
@@ -57,15 +58,44 @@ template<> std::size_t Tileset::impl_tile_count<TileType::rpgmaker_a2>() const {
                                               size_in_normal_tiles.y / rpgmaker_a2_chunk_height};
     return size_in_rpgmaker_a2_tiles.x * size_in_rpgmaker_a2_tiles.y;
 }
+
 template<>
 Sprite Map::Tile::impl_sprite<TileType::rpgmaker_a2>(Layer const& this_layer, math::IVec2D this_pos) const {
     assert(parent.tileset.get());
+    assert(parent.tileset.get()->texture.get());
     math::IVec2D size_in_normal_tiles = parent.tileset.get()->size_in_tile_units();
-    math::IVec2D size_in_rpgmaker_a2_tiles = {size_in_normal_tiles.x / rpgmaker_a2_chunk_width,
+    math::IVec2D size_in_chunks = {size_in_normal_tiles.x / rpgmaker_a2_chunk_width,
                                               size_in_normal_tiles.y / rpgmaker_a2_chunk_height};
-    const u64 chunk_x = parent.tile_index % size_in_rpgmaker_a2_tiles.x;
-    const u64 chunk_y = parent.tile_index / size_in_rpgmaker_a2_tiles.x;
+    const u64 chunk_x = parent.tile_index % size_in_chunks.x;
+    const u64 chunk_y = parent.tile_index / size_in_chunks.x;
     const auto connections = calculate_connections(this_layer.get_surroundings(this_pos));
+
+    const assets::TextureChunk chunk{
+        parent.tileset.get()->texture.get()->handle,
+        {
+                {
+                    (float)chunk_x / (float)size_in_chunks.x,
+                    (float)chunk_y / (float)size_in_chunks.y
+                },
+                {
+                    (float)(chunk_x+1) / (float)size_in_chunks.x,
+                    (float)(chunk_y+1) / (float)size_in_chunks.y
+                }
+        }
+    };
+
+    return tileset_types::calculate_rpgmaker_a2_tile(chunk, connections);
+}
+
+} // namespace arpiyi::assets
+
+
+namespace arpiyi::tileset_types {
+
+using Sprite = assets::Sprite;
+Sprite calculate_rpgmaker_a2_tile(assets::TextureChunk const& tex, assets::Map::TileConnections connections) {
+    static constexpr int rpgmaker_a2_chunk_width = 2;
+    static constexpr int rpgmaker_a2_chunk_height = 3;
 
     /* clang-format off */
     /// Where each minitile is located locally in the RPGMaker A2 layout.
@@ -134,23 +164,23 @@ Sprite Map::Tile::impl_sprite<TileType::rpgmaker_a2>(Layer const& this_layer, ma
         const float single_tile_width = 1.f / static_cast<float>(rpgmaker_a2_chunk_width);
         const float single_tile_height = 1.f / static_cast<float>(rpgmaker_a2_chunk_height);
 
+        const auto apply_tex_rect = [&tex](aml::Vector2 const& vec) -> aml::Vector2 {
+          return tex.rect.start + vec * (tex.rect.end - tex.rect.start);
+        };
         Sprite::Piece piece;
-        piece.source = {
-            {static_cast<float>(chunk_x) / size_in_rpgmaker_a2_tiles.x +
-                 layout[layout_index].x / 2.f / size_in_normal_tiles.x,
-             static_cast<float>(chunk_y) / size_in_rpgmaker_a2_tiles.y +
-                 layout[layout_index].y / 2.f / size_in_normal_tiles.y},
-            {(static_cast<float>(chunk_x) + single_tile_width / 2.f) / size_in_rpgmaker_a2_tiles.x +
-                 layout[layout_index].x / 2.f / size_in_normal_tiles.x,
-             (static_cast<float>(chunk_y) + single_tile_height / 2.f) / size_in_rpgmaker_a2_tiles.y +
-                 layout[layout_index].y / 2.f / size_in_normal_tiles.y}};
-        piece.destination = {
-            {static_cast<float>(minitile % 2) / 2.f, (1.f-static_cast<float>(minitile / 2)) / 2.f},
-            {static_cast<float>(minitile % 2) / 2.f + .5f, (1.f-static_cast<float>(minitile / 2)) / 2.f + .5f}};
+        const auto normalized_start_pos =
+            aml::Vector2{(float)layout[layout_index].x, (float)layout[layout_index].y} / 2.f *
+            aml::Vector2(single_tile_width, single_tile_height);
+        piece.source = {apply_tex_rect(normalized_start_pos),
+                        apply_tex_rect(normalized_start_pos +
+                                       aml::Vector2(single_tile_width, single_tile_height) / 2.f)};
+        piece.destination = {{static_cast<float>(minitile % 2) / 2.f,
+                                 (1.f - static_cast<float>(minitile / 2)) / 2.f},
+                             {static_cast<float>(minitile % 2) / 2.f + .5f,
+                                 (1.f - static_cast<float>(minitile / 2)) / 2.f + .5f}};
         spr.pieces.emplace_back(Sprite::Piece{piece});
     }
 
     return spr;
+};
 }
-
-} // namespace arpiyi::assets

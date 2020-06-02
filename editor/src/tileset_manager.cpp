@@ -278,8 +278,8 @@ void render(bool* p_show) {
             bool valid = preview_texture.get();
 
             static auto auto_type = assets::TileType::normal;
-            static const char* auto_type_bindings[] = {"Normal", "RPGMaker A2 Tileset"};
-            constexpr u32 auto_type_bindings_count = 2;
+            static const char* auto_type_bindings[] = {"Normal", "RPGMaker A2 Tileset", "RPGMaker A4 Tileset"};
+            constexpr u32 auto_type_bindings_count = 3;
             static_assert(auto_type_bindings_count == (u32)assets::TileType::count);
             if (ImGui::BeginCombo("Type", auto_type_bindings[static_cast<u32>(auto_type)])) {
                 for (u32 i = 0; i < auto_type_bindings_count; i++) {

@@ -18,6 +18,7 @@ Sprite Tileset::Tile::full_sprite() const {
     switch (tileset.get()->tile_type) {
         case TileType::normal: return impl_full_sprite<TileType::normal>();
         case TileType::rpgmaker_a2: return impl_full_sprite<TileType::rpgmaker_a2>();
+        case TileType::rpgmaker_a4: return impl_full_sprite<TileType::rpgmaker_a4>();
         default: assert(false && "Unknown tileset type"); return {};
     }
 };
@@ -28,6 +29,7 @@ Sprite Tileset::Tile::preview_sprite() const {
     switch (tileset.get()->tile_type) {
         case TileType::normal: return impl_preview_sprite<TileType::normal>();
         case TileType::rpgmaker_a2: return impl_preview_sprite<TileType::rpgmaker_a2>();
+        case TileType::rpgmaker_a4: return impl_preview_sprite<TileType::rpgmaker_a4>();
         default: assert(false && "Unknown tileset type"); return {};
     }
 };
@@ -37,6 +39,7 @@ std::size_t Tileset::tile_count() const {
     switch (tile_type) {
         case TileType::normal: return impl_tile_count<TileType::normal>();
         case TileType::rpgmaker_a2: return impl_tile_count<TileType::rpgmaker_a2>();
+        case TileType::rpgmaker_a4: return impl_tile_count<TileType::rpgmaker_a4>();
         default: assert(false && "Unknown tileset type"); return {};
     }
 }
