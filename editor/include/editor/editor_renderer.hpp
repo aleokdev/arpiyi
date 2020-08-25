@@ -2,6 +2,8 @@
 #define ARPIYI_EDITOR_RENDERER_HPP
 
 #include <functional>
+#include <string>
+#include <cstddef>
 
 namespace arpiyi::editor::renderer {
 
