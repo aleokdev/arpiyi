@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(arpiyi VERSION 0.1.4)
+project(arpiyi VERSION 0.2.0)
 set(ARPIYI_EDITOR_VERSION ${arpiyi_VERSION})
 set(ARPIYI_PLAYER_VERSION ${arpiyi_VERSION})
 

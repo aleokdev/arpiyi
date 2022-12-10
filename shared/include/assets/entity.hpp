@@ -24,7 +24,8 @@ struct [[assets::serialize]] [[assets::load_before(Script)]] [[meta::dir_name("e
     aml::Vector2 pos;
     std::vector<Handle<assets::Script>> scripts;
 
-    [[nodiscard]] aml::Vector2 get_left_corner_pos() const {
+    /// @returns The origin position of the entity.
+    [[nodiscard]] aml::Vector2 get_origin_pos() const {
         if (auto s = sprite.get()) {
             const auto& spr = *s;
             assert(spr.texture.get());

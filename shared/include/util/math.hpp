@@ -16,14 +16,9 @@ struct IVec2D {
     }
 };
 
-// TODO: Remove and use aml::Vector2 instead
-struct Vec2D {
-    float x, y;
-};
-
 struct Rect2D {
-    Vec2D start;
-    Vec2D end;
+    aml::Vector2 start;
+    aml::Vector2 end;
 };
 
 }

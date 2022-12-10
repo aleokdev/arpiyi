@@ -27,6 +27,7 @@ struct Mesh {
     // TODO: Use global VAO
     unsigned int vao = -1;
     unsigned int vbo = -1;
+    i32 vertex_count = 0;
     constexpr static auto noobj = static_cast<decltype(vao)>(-1);
 };
 

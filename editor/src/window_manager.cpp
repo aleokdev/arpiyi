@@ -1,5 +1,10 @@
 #include "window_manager.hpp"
 
+/* clang-format off */
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+/* clang-format on */
+
 #include <iostream>
 
 #include <imgui.h>
@@ -12,7 +17,8 @@
 
 namespace arpiyi::window_manager {
 
-GLFWwindow* window;
+static GLFWwindow* window;
+static std::unique_ptr<renderer::Renderer> renderer;
 
 static void debug_callback(GLenum const source,
                            GLenum const type,
@@ -91,6 +97,7 @@ bool init() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEPTH_TEST);
     glCullFace(GL_FRONT_AND_BACK);
 
     glDebugMessageCallback(debug_callback, nullptr);
@@ -102,10 +109,13 @@ bool init() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+    renderer = std::make_unique<renderer::Renderer>(window);
     return true;
 }
 
 GLFWwindow* get_window() { return window; }
+renderer::Renderer& get_renderer() { return *renderer; }
 
 aml::Matrix4 get_projection() {
     int fb_w, fb_h;

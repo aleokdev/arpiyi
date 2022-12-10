@@ -9,21 +9,14 @@ target_compile_features(arpiyi-codegen PRIVATE cxx_std_17)
 target_link_libraries(arpiyi-codegen PRIVATE extlibs)
 target_include_directories(arpiyi-codegen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 file(GLOB CODEGEN_DEPENDENCIES ${PROJECT_SOURCE_DIR}/shared/include/assets/*)
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp
+set(CODEGEN_GENERATED_FILES ${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp ${PROJECT_BINARY_DIR}/shared/src/serializer_cg.cpp)
+add_custom_command(OUTPUT ${CODEGEN_GENERATED_FILES}
         COMMAND arpiyi-codegen
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${CODEGEN_DEPENDENCIES}
         )
 
-if (NOT EXISTS "${PROJECT_BINARY_DIR}/shared/include/assets/asset_cg.hpp")
-    # Force codegen if asset_cg doesn't exist
-    add_custom_target(run-arpiyi-codegen ALL
-            COMMAND arpiyi-codegen
-            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            COMMENT "Initializing codegen...")
-else ()
-    # Only run codegen if assets dir has updated
-    add_custom_target(run-arpiyi-codegen ALL
-            DEPENDS arpiyi-codegen
-            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            COMMENT "Updating codegen...")
-endif ()
+add_custom_target(run-arpiyi-codegen
+        DEPENDS ${CODEGEN_GENERATED_FILES}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMENT "Updating codegen...")

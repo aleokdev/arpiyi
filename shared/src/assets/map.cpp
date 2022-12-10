@@ -5,61 +5,239 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include "util/defs.hpp"
+
+#include <vector>
+
 namespace arpiyi::assets {
 
-Mesh Map::Layer::generate_layer_split_quad() {
-    // Format: {pos.x pos.y uv.x uv.y ...}
-    // 2 because it's 2 position coords and 2 UV coords.
-    constexpr auto sizeof_vertex = 4;
-    constexpr auto sizeof_triangle = 3 * sizeof_vertex;
-    constexpr auto sizeof_quad = 2 * sizeof_triangle;
-    const auto sizeof_splitted_quad = height * width * sizeof_quad;
+constexpr auto sizeof_vertex = 5;
+constexpr auto sizeof_triangle = 3 * sizeof_vertex;
+constexpr auto sizeof_quad = 2 * sizeof_triangle;
 
-    std::vector<float> result(sizeof_splitted_quad);
-    const float x_slice_size = 1.f / width;
-    const float y_slice_size = 1.f / height;
+// TODO: Move OpenGL code elsewhere
+
+void add_quad(std::vector<float>& result,
+              int quad_n,
+              math::Rect2D pos_rect,
+              float min_z,
+              float max_z,
+              math::Rect2D uv_rect) {
+    const auto tri_n = quad_n * sizeof_quad;
+    if (tri_n >= result.size()) {
+        // Allocate more size if needed
+        result.resize(result.size() + 16 * sizeof_quad);
+    }
+
+    // First triangle //
+    /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
+    /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.start.y;
+    /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
+    /* X UV 1st vertex  */ result[tri_n + 3] = uv_rect.start.x;
+    /* Y UV 1st vertex  */ result[tri_n + 4] = uv_rect.end.y;
+    /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
+    /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
+    /* Z pos 2nd vertex */ result[tri_n + 7] = min_z;
+    /* X UV 2nd vertex  */ result[tri_n + 8] = uv_rect.end.x;
+    /* Y UV 2nd vertex  */ result[tri_n + 9] = uv_rect.end.y;
+    /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.start.x;
+    /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.end.y;
+    /* Z pos 3rd vertex */ result[tri_n + 12] = max_z;
+    /* X UV 2nd vertex  */ result[tri_n + 13] = uv_rect.start.x;
+    /* Y UV 2nd vertex  */ result[tri_n + 14] = uv_rect.start.y;
+
+    // Second triangle //
+    /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.end.x;
+    /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.start.y;
+    /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
+    /* X UV 1st vertex  */ result[tri_n + 18] = uv_rect.end.x;
+    /* Y UV 1st vertex  */ result[tri_n + 19] = uv_rect.end.y;
+    /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.end.x;
+    /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
+    /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
+    /* X UV 2nd vertex  */ result[tri_n + 23] = uv_rect.end.x;
+    /* Y UV 2nd vertex  */ result[tri_n + 24] = uv_rect.start.y;
+    /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.start.x;
+    /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.end.y;
+    /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
+    /* X UV 3rd vertex  */ result[tri_n + 28] = uv_rect.start.x;
+    /* Y UV 3rd vertex  */ result[tri_n + 29] = uv_rect.start.y;
+};
+
+void add_vertical_quad(
+    std::vector<float>& result, int quad_n, math::Rect2D pos_rect, float min_z, float max_z) {
+    const auto tri_n = quad_n * sizeof_quad;
+    if (tri_n >= result.size()) {
+        // Allocate more size if needed
+        result.resize(result.size() + 16 * sizeof_quad);
+    }
+
+    // We use 1 for the UVs because in order for the depth shader to detect the wall, they must
+    // have a non-transparent texture. All textures are set to clamp to a non-transparent
+    // border, so we use that.
+
+    // First triangle //
+    /* X pos 1st vertex */ result[tri_n + 0] = pos_rect.start.x;
+    /* Y pos 1st vertex */ result[tri_n + 1] = pos_rect.end.y;
+    /* Z pos 1st vertex */ result[tri_n + 2] = min_z;
+    /* X UV 1st vertex  */ result[tri_n + 3] = 1;
+    /* Y UV 1st vertex  */ result[tri_n + 4] = 1;
+    /* X pos 2nd vertex */ result[tri_n + 5] = pos_rect.end.x;
+    /* Y pos 2nd vertex */ result[tri_n + 6] = pos_rect.start.y;
+    /* Z pos 2nd vertex */ result[tri_n + 7] = max_z;
+    /* X UV 2nd vertex  */ result[tri_n + 8] = 1;
+    /* Y UV 2nd vertex  */ result[tri_n + 9] = 1;
+    /* X pos 3rd vertex */ result[tri_n + 10] = pos_rect.end.x;
+    /* Y pos 3rd vertex */ result[tri_n + 11] = pos_rect.start.y;
+    /* Z pos 3rd vertex */ result[tri_n + 12] = min_z;
+    /* X UV 2nd vertex  */ result[tri_n + 13] = 1;
+    /* Y UV 2nd vertex  */ result[tri_n + 14] = 1;
+
+    // Second triangle //
+    /* X pos 1st vertex */ result[tri_n + 15] = pos_rect.start.x;
+    /* Y pos 1st vertex */ result[tri_n + 16] = pos_rect.end.y;
+    /* Z pos 1st vertex */ result[tri_n + 17] = min_z;
+    /* X UV 1st vertex  */ result[tri_n + 18] = 1;
+    /* Y UV 1st vertex  */ result[tri_n + 19] = 1;
+    /* X pos 2nd vertex */ result[tri_n + 20] = pos_rect.start.x;
+    /* Y pos 2nd vertex */ result[tri_n + 21] = pos_rect.end.y;
+    /* Z pos 2nd vertex */ result[tri_n + 22] = max_z;
+    /* X UV 2nd vertex  */ result[tri_n + 23] = 1;
+    /* Y UV 2nd vertex  */ result[tri_n + 24] = 1;
+    /* X pos 3rd vertex */ result[tri_n + 25] = pos_rect.end.x;
+    /* Y pos 3rd vertex */ result[tri_n + 26] = pos_rect.start.y;
+    /* Z pos 3rd vertex */ result[tri_n + 27] = max_z;
+    /* X UV 3rd vertex  */ result[tri_n + 28] = 1;
+    /* Y UV 3rd vertex  */ result[tri_n + 29] = 1;
+};
+
+template<bool is_auto> Mesh Map::Layer::generate_mesh() {
+    // Format: {pos.x pos.y pos.z uv.x uv.y ...}
+    // 5 because it's 3 position coords and 2 UV coords.
+
+    std::vector<float> result(sizeof_quad * width * height);
+    // RPGMaker A2 tilesets have double the resolution of normal tilemaps due to how they work.
+    // For more information, check out
+    // https://blog.rpgmakerweb.com/tutorials/anatomy-of-an-autotile/
+    const float x_slice_size = 1.f / width / (is_auto ? 2.f : 1.f);
+    const float y_slice_size = 1.f / height / (is_auto ? 2.f : 1.f);
+
+    const float wall_level_height = y_slice_size;
+
+    int quad_n = 0;
+
     assert(tileset.get());
     const auto& tl = *tileset.get();
+    const auto generate_tile = [&result, &quad_n, &tl, x_slice_size,
+                                y_slice_size](Tile tile, int minitile, float min_vertex_x_pos,
+                                              float min_vertex_y_pos, float min_vertex_z_pos,
+                                              float max_vertex_z_pos) {
+        const math::Rect2D uv_pos = is_auto ? tl.get_uv(tile.id, minitile) : tl.get_uv(tile.id);
+        const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
+        const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+
+        add_quad(result, quad_n++,
+                 {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
+                 min_vertex_z_pos, max_vertex_z_pos, uv_pos);
+        if (tile.has_side_walls && max_vertex_z_pos != 0) {
+            // Create "side walls" so that shadows don't appear floating in the map.
+            // Left wall
+            add_vertical_quad(
+                result, quad_n++,
+                {{min_vertex_x_pos, min_vertex_y_pos}, {min_vertex_x_pos, max_vertex_y_pos}}, 0,
+                max_vertex_z_pos);
+            // Right wall
+            add_vertical_quad(
+                result, quad_n++,
+                {{max_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}}, 0,
+                max_vertex_z_pos);
+            // Back wall
+            add_quad(result, quad_n++,
+                     {{min_vertex_x_pos, max_vertex_y_pos}, {max_vertex_x_pos, max_vertex_y_pos}},
+                     0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
+            // Front wall
+            add_quad(result, quad_n++,
+                     {{min_vertex_x_pos, min_vertex_y_pos}, {max_vertex_x_pos, min_vertex_y_pos}},
+                     0, max_vertex_z_pos, {{1, 1}, {1.1f, 1.1f}});
+        }
+    };
+
     // Create a quad for each {x, y} position.
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
-            const float min_vertex_y_pos = static_cast<float>((int)height - y - 1) * y_slice_size;
-            const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
-            const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            if constexpr (is_auto) {
+                for (int minitile = 0; minitile < 4; ++minitile) {
+                    const Tile tile = get_tile({x, y});
+                    const int minitile_x = minitile % 2;
+                    const int minitile_y = minitile / 2;
+                    const float min_vertex_x_pos =
+                        static_cast<float>(x * 2 + minitile_x) * x_slice_size;
+                    const float min_vertex_y_pos =
+                        static_cast<float>(y * 2 + (1 - minitile_y)) * y_slice_size;
+                    const float max_vertex_x_pos = min_vertex_x_pos + x_slice_size;
+                    const float max_vertex_y_pos = min_vertex_y_pos + y_slice_size;
+                    float min_vertex_z_pos;
+                    float max_vertex_z_pos;
+                    switch (tile.slope_type) {
+                        case (Map::Tile::SlopeType::none):
+                            min_vertex_z_pos = max_vertex_z_pos =
+                                static_cast<float>(tile.height) * wall_level_height;
+                            break;
 
-            const math::Rect2D uv_pos = tl.get_uv(get_tile({x, y}).id);
+                        case (Map::Tile::SlopeType::lower_y_means_higher_z):
+                            min_vertex_z_pos =
+                                static_cast<float>(tile.height + 1 + (1 - minitile_y)) *
+                                wall_level_height;
+                            max_vertex_z_pos = static_cast<float>(tile.height + (1 - minitile_y)) *
+                                               wall_level_height;
+                            break;
 
-            const auto quad_n = (x + y * width) * sizeof_quad;
-            // First triangle //
-            /* X pos 1st vertex */ result[quad_n + 0] = min_vertex_x_pos;
-            /* Y pos 1st vertex */ result[quad_n + 1] = min_vertex_y_pos;
-            /* X UV 1st vertex  */ result[quad_n + 2] = uv_pos.start.x;
-            /* Y UV 1st vertex  */ result[quad_n + 3] = uv_pos.start.y;
-            /* X pos 2nd vertex */ result[quad_n + 4] = max_vertex_x_pos;
-            /* Y pos 2nd vertex */ result[quad_n + 5] = min_vertex_y_pos;
-            /* X UV 2nd vertex  */ result[quad_n + 6] = uv_pos.end.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 7] = uv_pos.start.y;
-            /* X pos 3rd vertex */ result[quad_n + 8] = min_vertex_x_pos;
-            /* Y pos 3rd vertex */ result[quad_n + 9] = max_vertex_y_pos;
-            /* X UV 2nd vertex  */ result[quad_n + 10] = uv_pos.start.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 11] = uv_pos.end.y;
+                        case (Map::Tile::SlopeType::higher_y_means_higher_z):
+                            min_vertex_z_pos = static_cast<float>(tile.height + (1 - minitile_y)) *
+                                               wall_level_height;
+                            max_vertex_z_pos =
+                                static_cast<float>(tile.height + 1 + (1 - minitile_y)) *
+                                wall_level_height;
+                            break;
+                    }
 
-            // Second triangle //
-            /* X pos 1st vertex */ result[quad_n + 12] = max_vertex_x_pos;
-            /* Y pos 1st vertex */ result[quad_n + 13] = min_vertex_y_pos;
-            /* X UV 1st vertex  */ result[quad_n + 14] = uv_pos.end.x;
-            /* Y UV 1st vertex  */ result[quad_n + 15] = uv_pos.start.y;
-            /* X pos 2nd vertex */ result[quad_n + 16] = max_vertex_x_pos;
-            /* Y pos 2nd vertex */ result[quad_n + 17] = max_vertex_y_pos;
-            /* X UV 2nd vertex  */ result[quad_n + 18] = uv_pos.end.x;
-            /* Y UV 2nd vertex  */ result[quad_n + 19] = uv_pos.end.y;
-            /* X pos 3rd vertex */ result[quad_n + 20] = min_vertex_x_pos;
-            /* Y pos 3rd vertex */ result[quad_n + 21] = max_vertex_y_pos;
-            /* X UV 3rd vertex  */ result[quad_n + 22] = uv_pos.start.x;
-            /* Y UV 3rd vertex  */ result[quad_n + 23] = uv_pos.end.y;
+                    generate_tile(tile, minitile, min_vertex_x_pos, min_vertex_y_pos, min_vertex_z_pos,
+                                  max_vertex_z_pos);
+                }
+            } else {
+                const float min_vertex_x_pos = static_cast<float>(x) * x_slice_size;
+                const float min_vertex_y_pos = static_cast<float>(y) * y_slice_size;
+
+                const Tile tile = get_tile({x, y});
+                float min_vertex_z_pos;
+                float max_vertex_z_pos;
+                switch (tile.slope_type) {
+                    case (Map::Tile::SlopeType::none):
+                        min_vertex_z_pos = max_vertex_z_pos =
+                            static_cast<float>(tile.height) * wall_level_height;
+                        break;
+
+                    case (Map::Tile::SlopeType::lower_y_means_higher_z):
+                        min_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
+                        max_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+                        break;
+
+                    case (Map::Tile::SlopeType::higher_y_means_higher_z):
+                        min_vertex_z_pos = static_cast<float>(tile.height) * wall_level_height;
+                        max_vertex_z_pos = static_cast<float>(tile.height + 1) * wall_level_height;
+                        break;
+
+                    default: ARPIYI_UNREACHABLE(); return {};
+                }
+
+                generate_tile(tile, 0, min_vertex_x_pos, min_vertex_y_pos, min_vertex_z_pos,
+                              max_vertex_z_pos);
+            }
         }
     }
+
+    constexpr int quad_vertices = 2 * 3;
+    const auto sizeof_result = quad_n * quad_vertices;
 
     unsigned int vao, vbo;
 
@@ -68,22 +246,31 @@ Mesh Map::Layer::generate_layer_split_quad() {
 
     // Fill buffer
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof_splitted_quad * sizeof(float), result.data(),
+    glBufferData(GL_ARRAY_BUFFER, sizeof_result * sizeof_vertex * sizeof(float), result.data(),
                  GL_STATIC_DRAW);
 
     glBindVertexArray(vao);
     // Vertex Positions
     glEnableVertexAttribArray(0); // location 0
-    glVertexAttribFormat(0, 2, GL_FLOAT, GL_FALSE, 0);
-    glBindVertexBuffer(0, vbo, 0, 4 * sizeof(float));
+    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
+    glBindVertexBuffer(0, vbo, 0, sizeof_vertex * sizeof(float));
     glVertexAttribBinding(0, 0);
     // UV Positions
     glEnableVertexAttribArray(1); // location 1
-    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float));
-    glBindVertexBuffer(1, vbo, 0, 4 * sizeof(float));
+    glVertexAttribFormat(1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
+    glBindVertexBuffer(1, vbo, 0, sizeof_vertex * sizeof(float));
     glVertexAttribBinding(1, 1);
 
-    return Mesh{vao, vbo};
+    return Mesh{vao, vbo, sizeof_result};
+}
+
+Mesh Map::Layer::generate_layer_mesh() {
+    assert(tileset.get());
+    switch (tileset.get()->auto_type) {
+        case Tileset::AutoType::none: return generate_mesh<false>();
+        case Tileset::AutoType::rpgmaker_a2: return generate_mesh<true>();
+        default: ARPIYI_UNREACHABLE();
+    }
 }
 
 Map::Layer::Layer(i64 width, i64 height, Handle<assets::Tileset> t) :
@@ -94,7 +281,7 @@ Map::Layer::Layer(i64 width, i64 height, Handle<assets::Tileset> t) :
 void Map::Layer::regenerate_mesh() {
     if (tileset.get()) {
         mesh.unload();
-        mesh = asset_manager::put(generate_layer_split_quad());
+        mesh = asset_manager::put(generate_layer_mesh());
     }
 }
 
@@ -110,6 +297,7 @@ constexpr std::string_view entities_json_key = "entities";
 namespace layer_file_definitions {
 constexpr std::string_view name_json_key = "name";
 constexpr std::string_view data_json_key = "data";
+constexpr std::string_view depth_data_json_key = "depth";
 constexpr std::string_view tileset_id_json_key = "tileset";
 } // namespace layer_file_definitions
 
@@ -147,6 +335,12 @@ template<> RawSaveData raw_get_save_data<Map>(Map const& map) {
         w.StartArray();
         for (int y = 0; y < map.height; ++y) {
             for (int x = 0; x < map.width; ++x) { w.Uint(layer.get_tile({x, y}).id); }
+        }
+        w.EndArray();
+        w.Key(lfd::depth_data_json_key.data());
+        w.StartArray();
+        for (int y = 0; y < map.height; ++y) {
+            for (int x = 0; x < map.width; ++x) { w.Int(layer.get_tile({x, y}).height); }
         }
         w.EndArray();
         w.EndObject();
@@ -222,7 +416,7 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                     if (layer_val.name == lfd::name_json_key.data()) {
                         layer.name = layer_val.value.GetString();
                         // < 0.1.4 compatibility: Blank layer names are no longer allowed
-                        if(layer.name == "") {
+                        if (layer.name == "") {
                             layer.name = "<Blank name>";
                         }
                     } else if (layer_val.name == lfd::tileset_id_json_key.data()) {
@@ -231,11 +425,23 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
                     } else if (layer_val.name == lfd::data_json_key.data()) {
                         u64 i = 0;
                         for (auto const& layer_tile : layer_val.value.GetArray()) {
-                            layer.set_tile(
-                                {static_cast<i32>(i % map.width), static_cast<i32>(i / map.width)},
-                                {layer_tile.GetUint()});
+                            layer
+                                .get_tile({static_cast<i32>(i % map.width),
+                                           static_cast<i32>(i / map.width)})
+                                .id = layer_tile.GetUint();
                             ++i;
                         }
+                        layer.regenerate_mesh();
+                    } else if (layer_val.name == lfd::depth_data_json_key.data()) {
+                        u64 i = 0;
+                        for (auto const& tile_depth : layer_val.value.GetArray()) {
+                            layer
+                                .get_tile({static_cast<i32>(i % map.width),
+                                           static_cast<i32>(i / map.width)})
+                                .height = tile_depth.GetInt();
+                            ++i;
+                        }
+                        layer.regenerate_mesh();
                     }
                 }
             }
@@ -263,4 +469,4 @@ template<> void raw_load<Map>(Map& map, LoadParams<Map> const& params) {
         }
     }
 }
-} // namespace arpiyi_editor::assets
+} // namespace arpiyi::assets

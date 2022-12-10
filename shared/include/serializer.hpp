@@ -13,13 +13,8 @@ namespace arpiyi::serializer {
 
 namespace detail::project_file_definitions {
 
-constexpr std::string_view default_tilesets_path = "tilesets";
-constexpr std::string_view default_maps_path = "maps";
 /// Path for storing files containing asset IDs and their location.
 constexpr std::string_view metadata_path = "meta";
-
-constexpr std::string_view tile_size_json_key = "tile_size";
-constexpr std::string_view editor_version_json_key = "editor_version";
 
 } // namespace detail::project_file_definitions
 
